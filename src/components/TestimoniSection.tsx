@@ -54,7 +54,7 @@ export default function TestimoniSection({
   const loginAction = (
     <Link
       href="/masuk"
-      className="mt-5 inline-flex items-center gap-2 rounded-xl border border-[#14532D] text-[#14532D] px-5 py-2.5 text-xs sm:text-sm font-extrabold transition hover:bg-green-50"
+      className="mt-5 inline-flex items-center gap-2 rounded-xl border border-leaf text-leaf px-5 py-2.5 text-xs sm:text-sm font-extrabold transition hover:bg-leaf-soft"
     >
       <LogIn className="h-4 w-4" /> Masuk untuk Menulis Ulasan
     </Link>
@@ -63,17 +63,17 @@ export default function TestimoniSection({
   return (
     <div className="space-y-8">
       {list.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-gray-50 p-8 sm:p-12 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-green-100 text-[#14532D]">
+        <div className="border-y border-rule-strong bg-paper-light p-8 text-center sm:p-12">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-leaf text-sunshine">
             <MessageSquarePlus className="h-6 w-6" />
           </div>
-          <h3 className="mt-4 text-lg font-extrabold text-gray-900">Belum ada ulasan yang diterbitkan</h3>
-          <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">Jadilah yang pertama membagikan pengalaman belajarmu di platform ini!</p>
+          <h3 className="mt-4 text-lg font-extrabold text-ink">Belum ada ulasan yang diterbitkan</h3>
+          <p className="mt-1 text-sm text-muted max-w-md mx-auto">Jadilah yang pertama membagikan pengalaman belajarmu di platform ini!</p>
           {mounted && authed ? (
             <button
               type="button"
               onClick={() => setShowForm(!showForm)}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#14532D] px-5 py-2.5 text-xs sm:text-sm font-extrabold text-white transition hover:bg-[#0F3F22]"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-earth px-5 py-2.5 text-xs sm:text-sm font-extrabold text-white shadow-sm transition hover:bg-earth-dark"
             >
               <MessageSquarePlus className="h-4 w-4" /> Tulis Ulasan Pertama
             </button>
@@ -88,23 +88,23 @@ export default function TestimoniSection({
             {list.map((item) => (
               <article
                 key={item.id}
-                className="flex gap-4 p-5 border border-[#E5E7EB] rounded-xl bg-white hover:border-[#14532D]/50 transition-colors"
+                className="grid gap-5 border-b border-rule py-6 sm:grid-cols-[1fr_auto] sm:items-end sm:gap-10"
               >
                 <div className="flex-shrink-0">
-                  <div className="flex items-center gap-1 text-[#F59E0B] mb-3">
+                  <div className="mb-3 flex items-center gap-1 text-earth">
                     {[...Array(5)].map((_, i) => (
                       <Star key={i} className="h-4 w-4 fill-current" />
                     ))}
                   </div>
-                  <p className="text-sm italic leading-relaxed text-gray-700 max-w-xl">&ldquo;{item.komentar}&rdquo;</p>
+                  <p className="text-sm italic leading-relaxed text-body max-w-xl">&ldquo;{item.komentar}&rdquo;</p>
                 </div>
                 <div className="flex-shrink-0 ml-auto flex flex-col items-end">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-50 text-[#14532D] font-extrabold text-xs mb-2">
+                  <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-md bg-leaf text-white font-extrabold text-xs">
                     {item.nama.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="text-right">
-                    <h4 className="text-sm font-extrabold text-gray-900">{item.nama}</h4>
-                    <p className="text-xs text-gray-500">Pengguna Terverifikasi</p>
+                    <h4 className="text-sm font-extrabold text-ink">{item.nama}</h4>
+                    <p className="text-xs text-muted">Pengguna Terverifikasi</p>
                   </div>
                 </div>
               </article>
@@ -117,7 +117,7 @@ export default function TestimoniSection({
               <button
                 type="button"
                 onClick={() => setShowForm(true)}
-                className="inline-flex items-center gap-2 rounded-xl border border-[#14532D] text-[#14532D] px-5 py-2.5 text-xs sm:text-sm font-extrabold transition hover:bg-green-50"
+                className="inline-flex items-center gap-2 rounded-xl border border-leaf text-leaf px-5 py-2.5 text-xs sm:text-sm font-extrabold transition hover:bg-leaf-soft"
               >
                 <MessageSquarePlus className="h-4 w-4" /> Bagikan Pengalamanmu
               </button>
@@ -128,7 +128,7 @@ export default function TestimoniSection({
             <div className="mt-8 text-center">
               <Link
                 href="/masuk"
-                className="inline-flex items-center gap-2 rounded-xl border border-[#14532D] text-[#14532D] px-5 py-2.5 text-xs sm:text-sm font-extrabold transition hover:bg-green-50"
+                className="inline-flex items-center gap-2 rounded-xl border border-leaf text-leaf px-5 py-2.5 text-xs sm:text-sm font-extrabold transition hover:bg-leaf-soft"
               >
                 <LogIn className="h-4 w-4" /> Masuk untuk Menulis Ulasan
               </Link>
@@ -139,39 +139,39 @@ export default function TestimoniSection({
 
       {/* Form kirim ulasan */}
       {mounted && authed && showForm && (
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 sm:p-8">
+        <div className="border-y border-rule-strong bg-paper-light p-6 sm:p-8">
           {submitted ? (
-            <div className="rounded-lg bg-green-50 p-4 text-center text-sm font-bold text-[#14532D] border border-green-200">
+            <div className="rounded-lg bg-leaf-soft p-4 text-center text-sm font-bold text-leaf border border-leaf/25">
               Terima kasih! Ulasanmu telah dikirimkan dan akan segera ditampilkan setelah diverifikasi pengurus.
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4 max-w-lg mx-auto">
               <div className="text-center mb-4">
-                <h4 className="text-base font-extrabold text-gray-900">Bagikan Pengalaman Belajarmu</h4>
-                <p className="text-xs text-gray-500 mt-0.5">Ceritakan pengalamanmu belajar di platform ini untuk memotivasi pengguna lain.</p>
+                <h4 className="text-base font-extrabold text-ink">Bagikan Pengalaman Belajarmu</h4>
+                <p className="text-xs text-muted mt-0.5">Ceritakan pengalamanmu belajar di platform ini untuk memotivasi pengguna lain.</p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Nama yang Ditampilkan</label>
+                <label className="block text-xs font-bold text-body uppercase tracking-wider">Nama yang Ditampilkan</label>
                 <input
                   type="text"
                   required
                   value={nama}
                   onChange={(e) => setNama(e.target.value)}
                   placeholder="Nama panggilan Anda"
-                  className="mt-1 w-full rounded-lg border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#14532D] focus:outline-none"
+                  className="mt-1 w-full rounded-lg border border-rule-strong bg-paper-light px-3.5 py-2.5 text-sm text-ink focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/15"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Kesan & Cerita Belajar</label>
+                <label className="block text-xs font-bold text-body uppercase tracking-wider">Kesan & Cerita Belajar</label>
                 <textarea
                   required
                   rows={3}
                   value={komentar}
                   onChange={(e) => setKomentar(e.target.value)}
                   placeholder="Ceritakan pengalamanmu belajar di platform ini..."
-                  className="mt-1 w-full rounded-lg border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-gray-900 focus:border-[#14532D] focus:outline-none"
+                  className="mt-1 w-full rounded-lg border border-rule-strong bg-paper-light px-3.5 py-2.5 text-sm text-ink focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/15"
                 />
               </div>
 
@@ -179,14 +179,14 @@ export default function TestimoniSection({
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="flex-1 rounded-lg border border-[#E5E7EB] py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-50"
+                  className="flex-1 rounded-lg border border-rule-strong py-2.5 text-xs font-bold text-body hover:bg-paper-deep"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#14532D] py-2.5 text-xs font-bold text-white hover:bg-[#0F3F22] disabled:opacity-60"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-earth py-2.5 text-xs font-bold text-white shadow-sm hover:bg-earth-dark disabled:opacity-60"
                 >
                   <Send className="h-3.5 w-3.5" />
                   {loading ? "Mengirim..." : "Kirim Ulasan"}

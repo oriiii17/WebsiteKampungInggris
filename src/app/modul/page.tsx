@@ -1,3 +1,7 @@
-import MateriCatalogPage from "../materi/page";
+import { redirect } from "next/navigation";
 
-export default MateriCatalogPage;
+export const dynamic = "force-dynamic";
+
+export default function ModulIndexPage() {
+  redirect("/kelas?from=materi");
+}

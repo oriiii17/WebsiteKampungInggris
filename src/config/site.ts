@@ -1,10 +1,10 @@
 /**
- * Konfigurasi Utama Situs Sapen English
+ * Konfigurasi Utama Situs Kampung Inggris Sapen
  * Seluruh nama merek, kontak, wilayah, dan fitur flag dapat diubah terpusat di sini.
  */
 
 export const SITE_CONFIG = {
-  name: "Sapen English",
+  name: "Kampung Inggris Sapen",
   tagline: "Platform Belajar Bahasa Inggris Praktis & Profesional",
   shortDesc:
     "Belajar Bahasa Inggris praktis, menyenangkan, dan terstruktur dengan metode interaktif, modul digital, dan kuis kelas real-time.",
@@ -19,12 +19,12 @@ export const SITE_CONFIG = {
     {
       bank: "Bank Mandiri",
       accountNumber: "137-00-1234567-8",
-      accountHolder: "Kas Komunitas Sapen English",
+      accountHolder: "Kas Komunitas Kampung Inggris Sapen",
     },
     {
       bank: "BCA",
       accountNumber: "803-0123456",
-      accountHolder: "Kas Komunitas Sapen English",
+      accountHolder: "Kas Komunitas Kampung Inggris Sapen",
     },
   ],
 

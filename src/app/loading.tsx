@@ -8,7 +8,7 @@ export default function GlobalLoading() {
         <Loader2 className="h-6 w-6 animate-spin" />
       </div>
       <p className="text-sm font-bold text-gray-700">Memuat halaman...</p>
-      <p className="text-xs text-gray-400">Sapen English Platform</p>
+      <p className="text-xs text-gray-400">Kampung Inggris Sapen</p>
     </div>
   );
 }

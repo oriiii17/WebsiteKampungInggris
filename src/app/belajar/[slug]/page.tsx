@@ -1,3 +1,7 @@
-import SingleMateriPage from "../../materi/[slug]/page";
+import { redirect } from "next/navigation";
 
-export default SingleMateriPage;
+export const dynamic = "force-dynamic";
+
+export default function BelajarSlugPage() {
+  redirect("/kelas?from=materi");
+}

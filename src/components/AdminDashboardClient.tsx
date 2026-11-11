@@ -278,18 +278,19 @@ export default function AdminDashboardClient() {
   }
 
   if (loading || !data) {
-    return <div className="bg-[#FDFBF7] p-16 text-center text-sm font-bold text-[#1A2E1A]/70">Memuat Dashboard Pengurus Kampung Sapen...</div>;
+    return <div className="bg-[#FDFBF7] p-16 text-center text-sm font-bold text-[#1A2E1A]/70">Memuat Dashboard Pengurus Kampung Inggris Sapen...</div>;
   }
 
   const isDev = data.session.role === "developer";
 
-  const roleLabel = isDev ? "Developer Sistem" : "Pengurus Kampung Sapen";
+  const roleLabel = "Pengurus";
 
   const navGroups = [
     {
       title: "Kelola",
       items: [
         { id: "classes" as const, label: "Kelas", icon: GraduationCap },
+        { id: "codes" as const, label: "Kelola Akses Peserta", icon: KeyRound },
         { id: "game-builder" as const, label: "Kelola Game", icon: Gamepad2 },
         { id: "games" as const, label: "Host Kuis / Game", icon: Radio },
         { id: "public" as const, label: "Situs Publik", icon: ExternalLink, href: "/" },
@@ -306,8 +307,8 @@ export default function AdminDashboardClient() {
             <GraduationCap className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-[#1A2E1A]">Sapen English</p>
-            <p className="text-[11px] font-semibold text-[#1A2E1A]/60">English Learning Platform</p>
+            <p className="truncate text-sm font-black text-[#1A2E1A]">Kampung Inggris Sapen</p>
+            <p className="text-[11px] font-semibold text-[#1A2E1A]/60">Panel Pengurus</p>
           </div>
         </Link>
       </div>
@@ -371,8 +372,8 @@ export default function AdminDashboardClient() {
                 <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0 md:hidden">
-                <p className="truncate text-sm font-black text-[#1A2E1A]">Sapen English</p>
-                <p className="text-[11px] text-[#1A2E1A]/60">Dashboard Admin</p>
+                <p className="truncate text-sm font-black text-[#1A2E1A]">Kampung Inggris Sapen</p>
+                <p className="text-[11px] text-[#1A2E1A]/60">Dashboard Pengurus</p>
               </div>
               <div className="hidden items-center gap-2 md:flex">
                 <span className="rounded-md border border-[#E5E7EB] bg-[#FDFBF7] px-2.5 py-1 text-xs font-bold text-[#14532D]">{roleLabel}</span>
@@ -418,7 +419,7 @@ export default function AdminDashboardClient() {
           <div className="mx-auto max-w-6xl space-y-6">
             <div className="max-w-3xl">
               <h1 className="text-2xl font-extrabold tracking-tight text-[#1A2E1A] sm:text-[30px]">Dashboard Pengelolaan Kampung Inggris Sapen</h1>
-              <p className="mt-1 text-sm leading-relaxed text-[#1A2E1A]/75">Kelola kelas, peserta, ulasan, kode akses, kuis live, situs publik, dan pembayaran dari sidebar.</p>
+              <p className="mt-1 text-sm leading-relaxed text-[#1A2E1A]/75">Kelola kelas, akses peserta, kuis live, situs publik, dan pembayaran dari sidebar.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -110,7 +110,7 @@ export class BankTransferPaymentProvider implements PaymentProvider {
 }
 
 /**
- * Daftar paket default untuk Sapen English
+ * Daftar paket default untuk Kampung Inggris Sapen
  */
 export const DEFAULT_PAKET_LIST: PaketProduk[] = [
   {

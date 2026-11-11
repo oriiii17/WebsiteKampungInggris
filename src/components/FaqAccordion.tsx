@@ -49,31 +49,31 @@ export default function FaqAccordion() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="border-y border-rule-strong">
       {FAQ_LIST.map((item, idx) => {
         const isOpen = openIndex === idx;
         return (
           <article
             key={idx}
-            className="rounded-xl border border-[#E5E7EB] bg-white transition overflow-hidden"
+            className="border-b border-rule last:border-b-0 transition"
           >
             <button
               type="button"
               onClick={() => toggle(idx)}
-              className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-gray-50"
+              className="flex min-h-16 w-full items-center justify-between gap-4 py-5 text-left transition hover:text-earth"
             >
-              <span className="text-base font-extrabold text-gray-900">{item.question}</span>
+              <span className="text-base font-extrabold text-ink">{item.question}</span>
               <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 transition-transform duration-200 ${
-                  isOpen ? "rotate-180 bg-green-100 text-[#14532D]" : "text-gray-500"
+                className={`flex h-8 w-8 shrink-0 items-center justify-center border transition-transform duration-200 ${
+                  isOpen ? "rotate-180 border-leaf bg-leaf text-white" : "border-rule bg-paper text-leaf"
                 }`}
               >
                 <ChevronDown className="h-4 w-4" />
               </div>
             </button>
             {isOpen && (
-              <div className="border-t border-[#E5E7EB] bg-gray-50/50 px-5 py-4">
-                <p className="text-sm leading-relaxed text-gray-600">{item.answer}</p>
+              <div className="max-w-3xl pb-5 pr-10">
+                <p className="text-sm leading-7 text-body">{item.answer}</p>
               </div>
             )}
           </article>

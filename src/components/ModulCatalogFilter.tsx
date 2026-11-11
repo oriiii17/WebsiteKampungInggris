@@ -31,8 +31,8 @@ export default function ModulCatalogFilter({ modules, hasActiveAccess }: Props) 
 
   return (
     <div>
-      {/* Filter Bar: Clean Flat, Border #E5E7EB */}
-      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 p-4 bg-gray-50 rounded-xl border border-[#E5E7EB]">
+      {/* Filter Bar */}
+      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 p-4 bg-paper-deep rounded-xl border border-rule-strong shadow-sm">
         <div className="flex flex-wrap gap-1.5">
           {levels.map((lv) => (
             <button
@@ -41,8 +41,8 @@ export default function ModulCatalogFilter({ modules, hasActiveAccess }: Props) 
               onClick={() => setLevelFilter(lv)}
               className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
                 levelFilter === lv
-                  ? "bg-[#14532D] text-white"
-                  : "bg-white border border-[#E5E7EB] text-gray-700 hover:bg-gray-100"
+                  ? "bg-leaf text-white"
+                  : "bg-paper-light border border-rule text-body hover:bg-leaf-soft"
               }`}
             >
               {lv === "Semua" ? "Semua Tingkatan" : lv}
@@ -51,21 +51,21 @@ export default function ModulCatalogFilter({ modules, hasActiveAccess }: Props) 
         </div>
 
         <div className="relative w-full md:w-64">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cari kelas..."
-            className="w-full rounded-lg border border-[#E5E7EB] bg-white py-1.5 pl-9 pr-3 text-sm text-gray-900 focus:border-[#14532D] focus:outline-none"
+            className="w-full rounded-lg border border-rule-strong bg-paper-light py-1.5 pl-9 pr-3 text-sm text-ink focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/15"
           />
         </div>
       </div>
 
-      {/* Cards Grid: Semua seragam, background putih, border #E5E7EB */}
+      {/* Katalog modul */}
       {filtered.length === 0 ? (
-        <div className="mt-8 rounded-xl border border-[#E5E7EB] bg-white p-10 text-center">
-          <p className="text-sm font-semibold text-gray-700">
+        <div className="mt-8 rounded-xl border border-rule-strong bg-paper-light p-10 text-center shadow-card">
+          <p className="text-sm font-semibold text-body">
             Tidak ada modul yang cocok dengan pencarian Anda.
           </p>
           <button
@@ -74,7 +74,7 @@ export default function ModulCatalogFilter({ modules, hasActiveAccess }: Props) 
               setLevelFilter("Semua");
               setQuery("");
             }}
-            className="mt-2 text-xs font-bold text-[#14532D] hover:underline"
+            className="mt-2 text-xs font-bold text-earth hover:underline decoration-sunshine decoration-2 underline-offset-4"
           >
             Tampilkan semua modul
           </button>

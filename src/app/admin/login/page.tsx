@@ -37,16 +37,16 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-12 sm:px-6 bg-white">
-      <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 sm:p-8">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-[#14532D] text-white">
+    <div className="workbook-auth px-4 sm:px-6">
+      <div className="workbook-auth-card">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-leaf text-sunshine">
           <ShieldCheck className="h-6 w-6" />
         </div>
 
-        <h1 className="mt-4 text-center text-[24px] sm:text-[28px] font-bold text-gray-900 leading-snug">
+        <h1 className="workbook-auth-heading mt-5 text-center">
           Login Admin Kampung Sapen
         </h1>
-        <p className="mt-1 text-center text-xs text-gray-500 leading-[1.6]">
+        <p className="mt-3 text-center text-sm leading-6 text-muted">
           Portal pengelolaan materi dan kode akses bagi Pengurus & Developer.
         </p>
 
@@ -58,7 +58,7 @@ export default function AdminLoginPage() {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
+            <label className="block text-xs font-bold text-body">
               Email Admin
             </label>
             <div className="relative mt-1">
@@ -69,13 +69,13 @@ export default function AdminLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="pengurus@kampungsapen.id"
-                className="w-full rounded-lg border border-[#E5E7EB] py-2.5 pl-9 pr-3 text-sm text-gray-900 focus:border-[#14532D] focus:outline-none"
+                className="w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
+            <label className="block text-xs font-bold text-body">
               Kata Sandi
             </label>
             <div className="relative mt-1">
@@ -86,14 +86,14 @@ export default function AdminLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-lg border border-[#E5E7EB] py-2.5 pl-9 pr-3 text-sm text-gray-900 focus:border-[#14532D] focus:outline-none"
+                className="w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none"
               />
             </div>
           </div>
 
           {/* Tombol Isi Cepat */}
-          <div className="rounded-lg border border-dashed border-[#E5E7EB] bg-gray-50 p-3">
-            <p className="text-[11px] font-semibold text-gray-500">
+          <div className="border-y border-rule bg-paper py-3">
+            <p className="text-xs font-semibold text-muted">
               Akun uji coba resmi:
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2">
@@ -103,7 +103,7 @@ export default function AdminLoginPage() {
                   setEmail("pengurus@kampungsapen.id");
                   setPassword("sapen2026");
                 }}
-                className="rounded border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                className="min-h-11 rounded-md border border-rule-strong bg-paper-light px-3 py-2 text-xs font-bold text-body hover:bg-paper-deep"
               >
                 Role: Pengurus
               </button>
@@ -113,7 +113,7 @@ export default function AdminLoginPage() {
                   setEmail("dev@kampungsapen.id");
                   setPassword("devsapen2026");
                 }}
-                className="rounded border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                className="min-h-11 rounded-md border border-rule-strong bg-paper-light px-3 py-2 text-xs font-bold text-body hover:bg-paper-deep"
               >
                 Role: Developer
               </button>
@@ -123,7 +123,7 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-[#14532D] hover:bg-[#0F3F22] py-2.5 text-sm font-bold text-white transition disabled:opacity-60"
+            className="min-h-12 w-full rounded-md bg-earth py-3 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:opacity-60"
           >
             {loading ? "Memverifikasi..." : "Masuk ke Panel Admin"}
           </button>

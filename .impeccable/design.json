@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T00:00:00Z",
+  "title": "Design System: Sapen English",
+  "extensions": {
+    "colorMeta": {
+      "ink": { "role": "neutral", "displayName": "Strong Ink", "canonical": "#20251f", "tonalRamp": ["#10130f", "#181b17", "#20251f", "#4a4e49", "#777a76", "#a5a7a4", "#d2d3d1", "#f0f0ef"] },
+      "body": { "role": "neutral", "displayName": "Lesson Copy", "canonical": "#3d4038", "tonalRamp": ["#1f201c", "#2e302a", "#3d4038", "#656760", "#8d8e89", "#b5b6b3", "#dddddc", "#f4f4f3"] },
+      "muted": { "role": "neutral", "displayName": "Supporting Ink", "canonical": "#625f54", "tonalRamp": ["#312f2a", "#4a473f", "#625f54", "#817e75", "#a09e97", "#c0bfbb", "#dfdfdc", "#f6f6f5"] },
+      "forest": { "role": "primary", "displayName": "Forest Ink", "canonical": "#244b3a", "tonalRamp": ["#12251d", "#1b382c", "#244b3a", "#4f6f61", "#7a9389", "#a5b7af", "#d0d9d4", "#f1f4f2"] },
+      "forest-deep": { "role": "primary", "displayName": "Deep Forest", "canonical": "#183b2d", "tonalRamp": ["#0c1e17", "#122d22", "#183b2d", "#435f54", "#6e837b", "#99a8a2", "#c4cdc9", "#eef1ef"] },
+      "forest-soft": { "role": "secondary", "displayName": "Forest Wash", "canonical": "#e6eadf", "tonalRamp": ["#73756f", "#acaea7", "#e6eadf", "#e9ece3", "#edf0e8", "#f1f3ed", "#f5f6f2", "#fbfcfa"] },
+      "paper": { "role": "neutral", "displayName": "Warm Parchment", "canonical": "#f3e9d5", "tonalRamp": ["#7a756b", "#b7afa0", "#f3e9d5", "#f4ebd9", "#f6eee0", "#f8f2e7", "#faf6ef", "#fdfbf8"] },
+      "paper-light": { "role": "neutral", "displayName": "Light Page", "canonical": "#fdf9f0", "tonalRamp": ["#7f7c78", "#bebbb4", "#fdf9f0", "#fdf9f1", "#fdfaf3", "#fefbf6", "#fefdfa", "#ffffff"] },
+      "paper-shadow": { "role": "neutral", "displayName": "Page Edge", "canonical": "#e9ddc6", "tonalRamp": ["#756f63", "#afa796", "#e9ddc6", "#ece2cf", "#efe7d9", "#f3ede3", "#f7f3ec", "#fcfaf7"] },
+      "tomato": { "role": "tertiary", "displayName": "Tomato Red", "canonical": "#ba472f", "tonalRamp": ["#5d2418", "#8c3524", "#ba472f", "#c36a58", "#cd8d80", "#d7b0a7", "#e2d3cf", "#f7f0ee"] },
+      "tomato-deep": { "role": "tertiary", "displayName": "Deep Tomato", "canonical": "#943520", "tonalRamp": ["#4a1b10", "#6f2818", "#943520", "#a45c4b", "#b58378", "#c5aaa4", "#d6d1cf", "#f4eeec"] },
+      "saffron": { "role": "secondary", "displayName": "Saffron Note", "canonical": "#e5bf4f", "tonalRamp": ["#736028", "#ac8f3b", "#e5bf4f", "#e9ca6c", "#edd589", "#f2e0a7", "#f6ebc4", "#fcf8e9"] },
+      "rule": { "role": "neutral", "displayName": "Page Rule", "canonical": "#d2c5ad", "tonalRamp": ["#696256", "#9e9482", "#d2c5ad", "#d9ceb9", "#e0d7c7", "#e8e1d5", "#f0ece3", "#faf9f6"] },
+      "rule-strong": { "role": "neutral", "displayName": "Strong Rule", "canonical": "#b8aa8e", "tonalRamp": ["#5c5547", "#8a806b", "#b8aa8e", "#c4b8a1", "#d0c6b5", "#dcd5c8", "#e8e4da", "#f7f6f3"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Workbook Display", "purpose": "Large editorial headings in Fraunces." },
+      "headline": { "displayName": "Section Headline", "purpose": "Section and page headings in Fraunces." },
+      "body": { "displayName": "Lesson Sans", "purpose": "Reading copy, navigation, and controls in DM Sans." },
+      "label": { "displayName": "Printed Label", "purpose": "Compact badges and section markers in DM Sans." }
+    },
+    "shadows": [
+      { "name": "page-shadow", "value": "0 12px 35px rgba(52, 43, 29, 0.08)", "purpose": "Soft lift under paper cards and auth cards." },
+      { "name": "spread-shadow", "value": "0 18px 42px rgba(52, 43, 29, .13)", "purpose": "Defines the large workbook spread against the page." },
+      { "name": "button-accent", "value": "0 6px 14px rgba(117, 47, 31, 0.15)", "purpose": "Subtle lift for tomato primary action." }
+    ],
+    "motion": [
+      { "name": "standard-transition", "value": "180ms ease", "purpose": "Button and index row state changes." },
+      { "name": "page-open", "value": "700ms cubic-bezier(.16, 1, .3, 1)", "purpose": "Brief opening movement on the home workbook spread; reduced-motion preference disables it." }
+    ],
+    "breakpoints": [
+      { "name": "workbook-spread", "value": "760px", "purpose": "Switches the opening spread between stacked and two-column leaves." },
+      { "name": "sm", "value": "640px", "purpose": "Tailwind small-screen layout scale." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Tomato action with white text for the next learning step.",
+      "html": "<button class=\"ds-btn-primary\">Mulai Belajar</button>",
+      "css": ".ds-btn-primary { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: 12px 20px; border: 0; border-radius: .55rem; background: #ba472f; color: #fff; font: 800 14px/1.4 'DM Sans', system-ui, sans-serif; box-shadow: 0 6px 14px rgba(117, 47, 31, .15); transition: transform 180ms ease, background-color 180ms ease; } .ds-btn-primary:hover { background: #943520; transform: translateY(-1px); } .ds-btn-primary:active { transform: translateY(0) scale(.985); } .ds-btn-primary:focus-visible { outline: 3px solid #ba472f; outline-offset: 3px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Paper button outlined in forest for a neighboring route.",
+      "html": "<button class=\"ds-btn-secondary\">Lihat Kelas</button>",
+      "css": ".ds-btn-secondary { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: 12px 20px; border: 1px solid #244b3a; border-radius: .55rem; background: #fdf9f0; color: #244b3a; font: 800 14px/1.4 'DM Sans', system-ui, sans-serif; transition: background-color 180ms ease, color 180ms ease; } .ds-btn-secondary:hover { background: #e6eadf; } .ds-btn-secondary:focus-visible { outline: 3px solid #ba472f; outline-offset: 3px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "description": "Paper field with a clear warm border and forest focus treatment.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Nama panggilan\" aria-label=\"Nama panggilan\" />",
+      "css": ".ds-input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #b8aa8e; border-radius: .55rem; background: #fdf9f0; color: #20251f; font: 400 14px/1.5 'DM Sans', system-ui, sans-serif; } .ds-input::placeholder { color: #706b5f; opacity: 1; } .ds-input:focus-visible { border-color: #244b3a; outline: 3px solid rgba(36, 75, 58, .18); outline-offset: 1px; }"
+    },
+    {
+      "name": "Workbook Index Row",
+      "kind": "nav",
+      "description": "Ruled contents link with a tomato index mark and forest route cue.",
+      "html": "<a class=\"ds-index-row\" href=\"#kelas\"><span class=\"ds-index-mark\">A</span><span><strong>Kelas</strong><small>Belajar bertahap bersama pengajar</small></span><span class=\"ds-index-arrow\" aria-hidden=\"true\">→</span></a>",
+      "css": ".ds-index-row { display: grid; min-height: 4.4rem; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; border-top: 1px solid #d2c5ad; color: #20251f; text-decoration: none; transition: padding 180ms ease, background-color 180ms ease; } .ds-index-row:hover { padding-inline: .6rem; background: rgba(229, 191, 79, .14); } .ds-index-mark { color: #ba472f; font: 400 1.25rem/1.2 'Fraunces', Georgia, serif; } .ds-index-row strong { display: block; font: 800 1rem/1.4 'DM Sans', system-ui, sans-serif; } .ds-index-row small { display: block; margin-top: .15rem; color: #625f54; font: 400 .8rem/1.4 'DM Sans', system-ui, sans-serif; } .ds-index-arrow { color: #244b3a; } .ds-index-row:focus-visible { outline: 3px solid #ba472f; outline-offset: 3px; }"
+    },
+    {
+      "name": "Workbook Card",
+      "kind": "card",
+      "description": "Light paper surface, warm edge, and quiet ambient lift.",
+      "html": "<article class=\"ds-card\"><strong>Catatan belajar</strong><p>Satu langkah kecil untuk hari ini.</p></article>",
+      "css": ".ds-card { padding: 20px; border: 1px solid #d2c5ad; border-radius: .9rem; background: #fdf9f0; color: #20251f; box-shadow: 0 12px 35px rgba(52, 43, 29, .08); font-family: 'DM Sans', system-ui, sans-serif; } .ds-card strong { font-weight: 800; } .ds-card p { margin: 8px 0 0; color: #3d4038; font-size: 14px; line-height: 1.6; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Buku Latihan Bersama",
+    "overview": "Sapen English feels like a community workbook passed around Kampung Sapen. Warm paper forms the page, forest ink organizes the lesson, tomato red marks the next action, and saffron calls out a useful note. Editorial Fraunces headings give the schoolbook reference an adult, considered voice; DM Sans keeps lessons and controls clear.\n\nThe public home page opens as a two-page spread, with the offer on one leaf and a ruled index of learning routes on the other. Across the wider product, paper surfaces, page edges, printed labels, and ruled hierarchy carry that workbook language into learning and access screens. The actual admin dashboard still contains its own operational layouts and literal utility styling, so do not assume every screen is a two-page spread.",
+    "keyCharacteristics": [
+      "Printed workbook surfaces with clear page and section rhythm.",
+      "Editorial display type paired with practical sans-serif interface text.",
+      "Forest structure, restrained tomato actions, and small saffron annotations.",
+      "Standard semantic links, buttons, and forms with visible keyboard focus."
+    ],
+    "rules": [
+      { "name": "The Margin Note Rule", "body": "Keep saffron and tomato accents selective; neither should replace the parchment or forest as a large page field.", "section": "colors" },
+      { "name": "The Two-Voice Rule", "body": "Reserve Fraunces for headings and editorial marks; use DM Sans for reading copy and controls.", "section": "typography" },
+      { "name": "The Printed Page Rule", "body": "Let paper contrast and page edges carry the structure; shadows stay soft and subordinate.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Fraunces for editorial headings and DM Sans for interface and lesson text.",
+      "Do preserve warm paper, forest ink, and clear rules as the dominant page language.",
+      "Do keep primary tomato actions legible with white text and visible hover/focus states.",
+      "Do maintain 44px minimum touch targets on phone controls.",
+      "Do use Lucide icons consistently for interface symbols."
+    ],
+    "donts": [
+      "Don't use purple-blue neon gradients, excessive glass effects, or AI-template styling.",
+      "Don't make tomato or saffron the dominant page background.",
+      "Don't assume every operational screen shares the public homepage's spread layout.",
+      "Don't use emoji as interface icons."
+    ]
+  }
+}

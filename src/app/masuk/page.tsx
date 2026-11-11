@@ -135,24 +135,24 @@ function MasukContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7]">
-      <div className="mx-auto max-w-md px-4 py-10 sm:px-6">
+    <div className="workbook-auth min-h-screen px-4 sm:px-6">
+      <div className="w-full max-w-xl">
         {/* Logo & judul */}
         <div className="mb-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#14532D]">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-leaf text-sunshine">
             <BookOpen className="h-6 w-6 text-white" />
           </div>
-          <h1 className="mt-4 text-2xl font-extrabold text-gray-900">Masuk ke Ruang Belajar</h1>
-          <p className="mt-1.5 text-sm text-gray-500">Peserta dengan kode akses dapat masuk tanpa email dan kata sandi.</p>
+          <h1 className="workbook-auth-heading mt-4">Masuk ke ruang belajar</h1>
+          <p className="mt-3 text-sm text-muted">Peserta dengan kode akses dapat masuk tanpa email dan kata sandi.</p>
         </div>
 
         {/* Tab */}
-        <div className="mb-5 grid grid-cols-2 gap-1.5 rounded-xl border border-[#E5E7EB] bg-white p-1">
+        <div className="mb-5 grid grid-cols-2 gap-1 border-y border-rule-strong bg-paper-light p-1">
           <button
             type="button"
             onClick={() => { setTab("warga"); setError(null); setNameConflict(null); }}
             className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition ${
-              tab === "warga" ? "bg-[#14532D] text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+              tab === "warga" ? "bg-leaf text-white" : "text-muted hover:text-ink hover:bg-paper-deep"
             }`}
           >
             <KeyRound className="h-4 w-4" />
@@ -162,7 +162,7 @@ function MasukContent() {
             type="button"
             onClick={() => { setTab("umum"); setError(null); setNameConflict(null); }}
             className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition ${
-              tab === "umum" ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+              tab === "umum" ? "bg-leaf text-white" : "text-muted hover:text-ink hover:bg-paper-deep"
             }`}
           >
             Peserta Umum
@@ -170,7 +170,7 @@ function MasukContent() {
         </div>
 
         {/* Form card */}
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-6">
+        <div className="workbook-auth-card max-w-none">
           {error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-800">
               {error}
@@ -179,21 +179,21 @@ function MasukContent() {
 
           {/* Nama bentrok — tanya user */}
           {nameConflict && (
-            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div className="mb-4 border-y border-rule-strong bg-paper p-4">
               <p className="text-sm font-semibold text-amber-900">{nameConflict}</p>
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
                   onClick={() => submitWarga(false)}
                   disabled={loading}
-                  className="flex-1 rounded-lg bg-[#14532D] py-2.5 text-xs font-bold text-white hover:bg-[#0F3F22]"
+                  className="min-h-11 flex-1 rounded-md bg-leaf py-2.5 text-xs font-bold text-white hover:bg-leaf-dark"
                 >
                   Ini akun saya, lanjutkan
                 </button>
                 <button
                   type="button"
                   onClick={() => { setWargaNama(""); setNameConflict(null); }}
-                  className="flex-1 rounded-lg border border-[#E5E7EB] py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                  className="min-h-11 flex-1 rounded-md border border-rule-strong py-2.5 text-xs font-bold text-body hover:bg-paper"
                 >
                   Pakai nama lain
                 </button>
@@ -210,7 +210,7 @@ function MasukContent() {
 
               {/* Nama panggilan */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">Nama Panggilan</label>
+                <label className="block text-xs font-bold text-body">Nama Panggilan</label>
                 <div className="relative mt-1.5">
                   <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
@@ -221,15 +221,15 @@ function MasukContent() {
                     value={wargaNama}
                     onChange={(e) => setWargaNama(e.target.value)}
                     placeholder="Contoh: Budi, Ibu Ani, Pak RT..."
-                    className="w-full rounded-lg border border-[#E5E7EB] py-3 pl-10 pr-3 text-sm text-gray-900 focus:border-[#14532D] focus:outline-none focus:ring-1 focus:ring-[#14532D]"
+                    className="min-h-12 w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none"
                   />
                 </div>
-                <p className="mt-1 text-[11px] text-gray-400">Minimal 3 karakter, hanya huruf dan angka.</p>
+                <p className="mt-1 text-xs text-muted">Minimal 3 karakter, hanya huruf dan angka.</p>
               </div>
 
               {/* Kode Akses */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">Kode Akses</label>
+                <label className="block text-xs font-bold text-body">Kode Akses</label>
                 <div className="mt-1.5">
                   <SixBoxCodeInput
                     value={wargaDigits}
@@ -238,13 +238,13 @@ function MasukContent() {
                     inputRefs={wargaRefs}
                   />
                 </div>
-                <p className="mt-2 text-center text-[11px] text-gray-400">Masukkan 6 karakter kode akses (huruf/angka).</p>
+                <p className="mt-2 text-center text-xs text-muted">Masukkan 6 karakter kode akses (huruf/angka).</p>
               </div>
 
               <button
                 type="submit"
                 disabled={loading || !wargaComplete}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#F59E0B] py-3.5 text-sm font-bold text-gray-950 transition hover:bg-[#D97706] disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]"
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-earth py-3.5 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <>
@@ -259,18 +259,18 @@ function MasukContent() {
                 )}
               </button>
 
-              <p className="text-center text-xs text-gray-500">Belum punya kode akses? Hubungi pengelola program belajar Anda.</p>
+              <p className="text-center text-xs text-muted">Belum punya kode akses? Hubungi pengelola program belajar Anda.</p>
             </form>
           ) : (
             <form onSubmit={handleUmumSubmit} className="space-y-4">
-              <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+                <div className="flex items-center gap-1 border-y border-rule bg-paper p-1">
                 {(["register", "login"] as const).map((m) => (
                   <button
                     key={m}
                     type="button"
                     onClick={() => setUmumMode(m)}
                     className={`flex-1 rounded-md py-2 text-xs font-semibold transition ${
-                      umumMode === m ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                      umumMode === m ? "bg-paper-light text-ink shadow-sm" : "text-muted"
                     }`}
                   >
                     {m === "register" ? "Daftar Baru" : "Sudah Ada Akun"}
@@ -280,34 +280,34 @@ function MasukContent() {
 
               {umumMode === "register" && (
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">Nama Lengkap</label>
+                  <label className="block text-xs font-bold text-body">Nama Lengkap</label>
                   <div className="relative mt-1.5">
                     <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input type="text" required value={umumName} onChange={(e) => setUmumName(e.target.value)} placeholder="Nama lengkap" className="w-full rounded-lg border border-[#E5E7EB] py-3 pl-10 pr-3 text-sm text-gray-900 focus:border-[#14532D] focus:outline-none" />
+                    <input type="text" required value={umumName} onChange={(e) => setUmumName(e.target.value)} placeholder="Nama lengkap" className="min-h-12 w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none" />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">Alamat Email</label>
+                <label className="block text-xs font-bold text-body">Alamat Email</label>
                 <div className="relative mt-1.5">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input type="email" required value={umumEmail} onChange={(e) => setUmumEmail(e.target.value)} placeholder="nama@email.com" className="w-full rounded-lg border border-[#E5E7EB] py-3 pl-10 pr-3 text-sm text-gray-900 focus:border-[#14532D] focus:outline-none" />
+                  <input type="email" required value={umumEmail} onChange={(e) => setUmumEmail(e.target.value)} placeholder="nama@email.com" className="min-h-12 w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">Kata Sandi</label>
+                <label className="block text-xs font-bold text-body">Kata Sandi</label>
                 <div className="relative mt-1.5">
                   <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input type="password" required minLength={6} value={umumPassword} onChange={(e) => setUmumPassword(e.target.value)} placeholder="Minimal 6 karakter" className="w-full rounded-lg border border-[#E5E7EB] py-3 pl-10 pr-3 text-sm text-gray-900 focus:border-[#14532D] focus:outline-none" />
+                  <input type="password" required minLength={6} value={umumPassword} onChange={(e) => setUmumPassword(e.target.value)} placeholder="Minimal 6 karakter" className="min-h-12 w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none" />
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#F59E0B] py-3.5 text-sm font-bold text-gray-950 transition hover:bg-[#D97706] disabled:opacity-60 min-h-[44px]"
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-earth py-3.5 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:opacity-60"
               >
                 {loading ? "Memproses..." : umumMode === "register" ? "Daftar & Pilih Paket" : "Masuk Akun"}
                 <ArrowRight className="h-4 w-4" />
@@ -316,8 +316,8 @@ function MasukContent() {
           )}
         </div>
 
-        <p className="mt-5 text-center text-xs text-gray-500">Pengurus atau Developer?{" "}
-          <Link href="/admin/login" className="font-semibold text-[#14532D] hover:underline">Login Admin di sini</Link>
+        <p className="mt-5 text-center text-xs text-muted">Pengurus atau Developer?{" "}
+          <Link href="/admin/login" className="font-bold text-leaf underline underline-offset-4">Login Admin di sini</Link>
         </p>
       </div>
     </div>

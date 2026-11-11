@@ -40,14 +40,14 @@ Combines a protected 3D flipbook reader with signed-HMAC page URLs, a live SSE q
 - HTTP-only session cookies with automatic expiry.
 - CSS `@media print` protection and auto-watermark on documents.
 - Admin access restricted to `pengurus@kampungsapen.id` and `dev@kampungsapen.id`.
-- Design system locked: primary `#14532D`, accent `#F59E0B`, font Nunito, Lucide React icons only.
+- Current visual palette and component guidance are defined in `DESIGN.md`: deep leaf green, warm paper, brick-orange actions, chalk-yellow highlights, Nunito, and Lucide React icons.
 - One feature per session; do not touch unrelated files or change existing colors/fonts/design.
 
 ## Brand Commitments
 
 - Name: Sapen English (Platform Pembelajaran Bahasa Inggris Komunitas Kampung Sapen).
 - Voice: warm, community-rooted, professional, mobile-first.
-- Visual identity: Forest Green + Amber palette, Nunito rounded typography, Lucide vector icons.
+- Visual identity: deep leaf green, warm paper, brick orange, and chalk-yellow accents, with Nunito typography and Lucide vector icons.
 - Anti-references: no purple/blue neon gradients, no excessive glassmorphism, no AI-template aesthetics.
 
 ## Evidence on Hand
@@ -62,7 +62,7 @@ Combines a protected 3D flipbook reader with signed-HMAC page URLs, a live SSE q
 2. Community access first: RW users get 100% free access with nickname + access code.
 3. Security by default: signed URLs, HTTP-only cookies, print protection, watermarking.
 4. One feature per session; never rewrite stable, working components.
-5. Preserve the existing design system exactly — no new colors, fonts, or visual styles.
+5. Keep visual decisions in `DESIGN.md`; preserve product behavior and page structure unless a task explicitly asks to change them.
 
 ## Accessibility & Inclusion
 

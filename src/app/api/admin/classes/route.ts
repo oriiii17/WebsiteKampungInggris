@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
-import { getClasses, upsertClass, deleteClass } from "@/lib/db";
+import { getClasses, getClassByIdOrSlug, upsertClass, deleteClass } from "@/lib/db";
 import { ClassItem, ClassModule, ClassQuiz } from "@/lib/types";
 
 function slugify(str: string): string {
@@ -61,6 +61,8 @@ function buildClass(body: any, existing?: ClassItem): ClassItem {
   const id = body.id ? String(body.id) : (existing?.id || `class-${Date.now()}`);
   const slug = body.slug ? slugify(String(body.slug)) : (existing?.slug || `${slugify(title || "kelas")}-${Date.now().toString().slice(-4)}`);
   const modules = normalizeModules(body.modules ?? existing?.modules ?? [], id);
+  const status = ["draft", "berjalan", "selesai"].includes(body.status) ? body.status : (existing?.status || "draft");
+  const isPublished = body.isPublished !== undefined ? Boolean(body.isPublished) : (status !== "draft");
   return {
     id,
     slug,
@@ -73,54 +75,100 @@ function buildClass(body: any, existing?: ClassItem): ClassItem {
     moduleIds: Array.isArray(body.moduleIds) ? body.moduleIds : (existing?.moduleIds || []),
     modules,
     gameTemplateIds: Array.isArray(body.gameTemplateIds) ? body.gameTemplateIds : (existing?.gameTemplateIds || []),
-    isPublished: body.isPublished !== undefined ? Boolean(body.isPublished) : (existing?.isPublished !== false),
+    isPublished,
     createdAt: existing?.createdAt || body.createdAt || new Date().toISOString(),
     tingkat: ["Pemula", "Menengah", "Lanjutan"].includes(body.tingkat) ? body.tingkat : (existing?.tingkat || "Pemula"),
     jadwal: String(body.jadwal ?? existing?.jadwal ?? ""),
     kodeAkses: String(body.kodeAkses ?? existing?.kodeAkses ?? ""),
-    status: ["draft", "berjalan", "selesai"].includes(body.status) ? body.status : (existing?.status || "draft"),
+    status,
   };
 }
 
 export async function GET() {
-  const classes = await getClasses(true);
-  return NextResponse.json({ ok: true, classes });
+  try {
+    const classes = await getClasses(true);
+    return NextResponse.json({ ok: true, classes });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Gagal memuat kelas.";
+    console.error("[api/admin/classes GET]", err);
+    return NextResponse.json({ ok: false, error: message, classes: [] }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession();
-  if (!isAdminSession(session)) return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
+  if (!isAdminSession(session)) return NextResponse.json({ ok: false, error: "Akses ditolak." }, { status: 403 });
   try {
     const body = await req.json();
-    if (!String(body.title || "").trim()) return NextResponse.json({ error: "Judul kelas wajib diisi." }, { status: 400 });
-    const saved = await upsertClass(buildClass(body));
-    return NextResponse.json({ ok: true, class: saved });
+    if (!String(body.title || "").trim()) return NextResponse.json({ ok: false, error: "Judul kelas wajib diisi." }, { status: 400 });
+    const toSave = buildClass(body);
+    await upsertClass(toSave);
+    const verified = await getClassByIdOrSlug(toSave.id);
+    if (!verified) {
+      console.error("[api/admin/classes POST] verifikasi gagal, kelas tidak ditemukan setelah simpan", toSave.id);
+      return NextResponse.json({ ok: false, error: "Kelas gagal tersimpan ke database (verifikasi setelah simpan tidak menemukan data). Coba lagi." }, { status: 500 });
+    }
+    const classes = await getClasses(true);
+    console.log("[api/admin/classes POST] tersimpan & terverifikasi", { id: verified.id, title: verified.title, modules: verified.modules?.length || 0 });
+    return NextResponse.json({ ok: true, class: verified, classes, verified: true });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Gagal membuat kelas." }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Gagal membuat kelas.";
+    console.error("[api/admin/classes POST]", err);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession();
-  if (!isAdminSession(session)) return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
+  if (!isAdminSession(session)) return NextResponse.json({ ok: false, error: "Akses ditolak." }, { status: 403 });
   try {
     const body = await req.json();
-    if (!body.id) return NextResponse.json({ error: "ID kelas diperlukan." }, { status: 400 });
+    if (!body.id) return NextResponse.json({ ok: false, error: "ID kelas diperlukan." }, { status: 400 });
     const all = await getClasses(true);
     const existing = all.find((c) => c.id === body.id);
-    const saved = await upsertClass(buildClass(body, existing));
-    return NextResponse.json({ ok: true, class: saved });
+    if (!existing) return NextResponse.json({ ok: false, error: `Kelas dengan ID ${body.id} tidak ditemukan di database.` }, { status: 404 });
+    const toSave = buildClass(body, existing);
+    await upsertClass(toSave);
+    const verified = await getClassByIdOrSlug(toSave.id);
+    if (!verified) {
+      console.error("[api/admin/classes PATCH] verifikasi gagal", toSave.id);
+      return NextResponse.json({ ok: false, error: "Perubahan kelas gagal tersimpan ke database (verifikasi gagal)." }, { status: 500 });
+    }
+    const classes = await getClasses(true);
+    console.log("[api/admin/classes PATCH] tersimpan & terverifikasi", { id: verified.id, title: verified.title, modules: verified.modules?.length || 0 });
+    return NextResponse.json({ ok: true, class: verified, classes, verified: true });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Gagal memperbarui kelas." }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Gagal memperbarui kelas.";
+    console.error("[api/admin/classes PATCH]", err);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession();
-  if (!isAdminSession(session)) return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "ID kelas diperlukan." }, { status: 400 });
-  const ok = await deleteClass(id);
-  return NextResponse.json({ ok });
+  if (!isAdminSession(session)) return NextResponse.json({ ok: false, error: "Akses ditolak." }, { status: 403 });
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ ok: false, error: "ID kelas diperlukan." }, { status: 400 });
+    const ok = await deleteClass(id);
+    const stillThere = await getClassByIdOrSlug(id);
+    if (ok && stillThere) {
+      console.error("[api/admin/classes DELETE] masih ada setelah hapus", id);
+      return NextResponse.json({ ok: false, error: "Kelas gagal dihapus dari database (masih ditemukan setelah penghapusan)." }, { status: 500 });
+    }
+    if (!ok && !stillThere) {
+      return NextResponse.json({ ok: true, deleted: false, message: "Kelas tidak ditemukan (mungkin sudah dihapus)." });
+    }
+    if (!ok) {
+      return NextResponse.json({ ok: false, error: "Gagal menghapus kelas dari database." }, { status: 500 });
+    }
+    const classes = await getClasses(true);
+    console.log("[api/admin/classes DELETE] terhapus & terverifikasi", { id });
+    return NextResponse.json({ ok: true, deleted: true, classes, verified: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Gagal menghapus kelas.";
+    console.error("[api/admin/classes DELETE]", err);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
 }

@@ -1,110 +1,67 @@
-import React from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  BookOpen,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Gamepad2,
-  GraduationCap,
-  Trophy,
-} from "lucide-react";
-import { getServerSession } from "@/lib/auth";
+import { ArrowRight, BookOpen, Calendar, Clock, Gamepad2 } from "lucide-react";
 import { getClasses, getModules } from "@/lib/db";
 
-export default async function KelasIndexPage() {
-  const [session, classes, modules] = await Promise.all([
-    getServerSession(),
-    getClasses(false),
-    getModules(false),
-  ]);
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
+export default async function KelasIndexPage() {
+  const [classes, modules] = await Promise.all([getClasses(false), getModules(false)]);
   const moduleMap = new Map(modules.map((m) => [m.id, m]));
 
   return (
-    <div className="bg-[#FDFBF7] min-h-screen py-12 sm:py-16">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <div className="inline-flex items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3.5 py-1 text-xs font-bold text-[#14532D] mb-4">
-            <GraduationCap className="h-4 w-4" />
-            Program Kelas Terstruktur
+    <div className="workbook-page min-h-screen">
+      <section className="workbook-wrap pb-14 pt-12 sm:pb-20 sm:pt-16">
+        <div className="mb-12 grid gap-8 border-b-2 border-ink pb-8 md:grid-cols-[1fr_auto] md:items-end">
+          <div>
+            <p className="workbook-print-note">Program belajar · daftar kelas</p>
+            <h1 className="mt-3 max-w-3xl text-4xl sm:text-6xl">Pilih kelas yang pas untukmu.</h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-body">Setiap kelas memadukan materi bacaan, latihan, dan game edukatif. Buka rincian untuk melihat isi kelas serta pilihan pendaftaran.</p>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">
-            Pilihan Kelas Belajar Bahasa Inggris
-          </h1>
-          <p className="mt-3 text-sm sm:text-base text-gray-600 leading-relaxed">
-            Setiap kelas disusun langsung oleh tim pengajar, mencakup modul flipbook interaktif, tugas mandiri, serta permainan edukatif dengan durasi akses fleksibel.
-          </p>
+          <Link href="/materi" className="inline-flex min-h-11 items-center gap-2 font-extrabold text-leaf underline decoration-sunshine decoration-2 underline-offset-4 hover:text-earth">Jelajahi semua materi <ArrowRight className="h-4 w-4" /></Link>
         </div>
 
-        {/* Editorial Table Layout */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left" role="table">
-            <thead>
-              <tr className="border-b-2 border-[#E5E7EB] text-xs font-bold uppercase tracking-wider text-gray-500">
-                <th className="pb-3 pr-4">Kelas</th>
-                <th className="pb-3 pr-4">Durasi</th>
-                <th className="pb-3 pr-4">Modul & Game</th>
-                <th className="pb-3 pr-4">Harga</th>
-                <th className="pb-3">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E5E7EB]">
-              {classes.map((cls, index) => {
-                const modCount = cls.moduleIds?.length || 0;
-                const gameCount = cls.gameTemplateIds?.length || 0;
-                return (
-                  <tr key={cls.id} className={`hover:bg-[#FDFBF7] transition-colors ${index % 2 === 1 ? "bg-[#FDFBF7]/50" : ""}`}>
-                    <td className="py-5 pr-4">
-                      <h2 className="text-lg font-extrabold text-gray-900 leading-snug">{cls.title}</h2>
-                      {cls.subtitle && <p className="mt-0.5 text-xs font-semibold text-[#14532D]">{cls.subtitle}</p>}
-                      <p className="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-2">{cls.description}</p>
-                    </td>
-                    <td className="py-5 pr-4 text-sm text-gray-600">
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-[#14532D] mb-2">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {cls.durationDays} Hari Akses
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                        <Clock className="h-3.5 w-3.5" />
-                        24 Jam Mandiri
-                      </div>
-                    </td>
-                    <td className="py-5 pr-4 text-xs text-gray-600 space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="h-3.5 w-3.5 text-[#14532D] shrink-0" />
-                        <span>{modCount > 0 ? `${modCount} Modul Materi & Latihan` : "Materi Bacaan Terstruktur"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Gamepad2 className="h-3.5 w-3.5 text-[#F59E0B] shrink-0" />
-                        <span>{gameCount > 0 ? `${gameCount} Sesi Game Interaktif` : "Game Kosakata & Kuis Live"}</span>
-                      </div>
-                    </td>
-                    <td className="py-5 pr-4">
-                      <div className="flex items-baseline justify-between">
-                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Investasi Belajar</p>
-                        <span className="text-xs font-bold text-gray-500">/ {cls.durationDays} hari</span>
-                      </div>
-                      <p className="text-2xl font-black text-gray-900">Rp {cls.priceIdr.toLocaleString("id-ID")}</p>
-                    </td>
-                    <td className="py-5">
-                      <Link
-                        href={`/kelas/${cls.slug}`}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14532D] hover:bg-[#0F3F22] py-3 px-5 text-sm font-extrabold text-white transition min-h-[44px]"
-                      >
-                        <span>Daftar & Ikuti Kelas</span>
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 gap-x-10 md:grid-cols-[minmax(0,1fr)_15rem]">
+          <div>
+            <div className="hidden grid-cols-[1fr_7rem_8rem_12rem] gap-4 border-b border-rule py-3 text-xs font-extrabold uppercase tracking-wider text-muted md:grid">
+              <span>Nama kelas</span><span>Durasi</span><span>Isi belajar</span><span>Biaya & pendaftaran</span>
+            </div>
+            {classes.length > 0 ? classes.map((cls, index) => {
+              const modCount = cls.moduleIds?.length || 0;
+              const gameCount = cls.gameTemplateIds?.length || 0;
+              const associatedModules = cls.moduleIds?.map((id) => moduleMap.get(id)).filter(Boolean).length || modCount;
+              const moduleLabel = associatedModules > 0 ? `${associatedModules} modul` : "Materi terstruktur";
+              return (
+                <article key={cls.id} className="grid gap-5 border-b border-rule py-7 md:grid-cols-[minmax(0,1fr)_7rem_8rem_12rem] md:items-center md:gap-4">
+                  <div>
+                    <p className="mb-2 text-xs font-bold text-earth">LEMBAR {String(index + 1).padStart(2, "0")}</p>
+                    <h2 className="text-2xl sm:text-3xl">{cls.title}</h2>
+                    {cls.subtitle && <p className="mt-1 text-sm font-bold text-leaf">{cls.subtitle}</p>}
+                    <p className="mt-3 max-w-2xl text-sm leading-6 text-body">{cls.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm font-semibold text-body md:block">
+                    <Calendar className="h-4 w-4 text-leaf md:mb-2" /><span>{cls.durationDays} hari akses</span>
+                  </div>
+                  <div className="flex gap-5 text-sm text-body md:block">
+                    <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-leaf" />{moduleLabel}</span>
+                    <span className="mt-2 flex items-center gap-2"><Gamepad2 className="h-4 w-4 text-earth" />{gameCount > 0 ? `${gameCount} sesi` : "Game kelas"}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-4 border-t border-rule pt-4 md:block md:border-0 md:pt-0">
+                    <div><span className="block text-xs font-semibold text-muted">Investasi belajar</span><strong className="font-display text-2xl">Rp {cls.priceIdr.toLocaleString("id-ID")}</strong></div>
+                    <Link href={`/kelas/${cls.slug}`} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-earth px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-earth-dark md:mt-3">Lihat kelas <ArrowRight className="h-4 w-4" /></Link>
+                  </div>
+                </article>
+              );
+            }) : <p className="border-b border-rule py-8 text-sm text-muted">Kelas belum tersedia.</p>}
+          </div>
+          <aside className="mt-10 h-fit border-t-2 border-leaf bg-paper-light p-5 md:mt-0">
+            <h2 className="text-xl">Sebelum memilih</h2>
+            <p className="mt-3 text-sm leading-6 text-body">Warga dengan kode akses dapat belajar tanpa biaya. Peserta umum dapat melihat paket dan mendaftar melalui akun.</p>
+            <Link href="/paket" className="mt-5 inline-flex min-h-11 items-center gap-2 font-extrabold text-leaf underline decoration-sunshine underline-offset-4">Lihat paket <ArrowRight className="h-4 w-4" /></Link>
+            <div className="mt-6 border-t border-rule pt-4 text-xs leading-5 text-muted"><Clock className="mb-2 h-4 w-4 text-earth" />Durasi akses dan cakupan materi tercantum pada setiap kelas.</div>
+          </aside>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

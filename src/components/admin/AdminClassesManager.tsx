@@ -110,28 +110,75 @@ export default function AdminClassesManager({ notify }: Props) {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.title.trim()) { notify("Nama kelas wajib diisi."); return; }
+    if (!form.title.trim()) { notify("Gagal: Nama kelas wajib diisi."); return; }
     setSaving(true);
     try {
       const payload = { ...form, modules: (form.modules || []).map((m, i) => ({ ...m, urutan: i + 1, kelasId: form.id })) };
       const method = editingId ? "PATCH" : "POST";
       const res = await fetch("/api/admin/classes", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal menyimpan kelas.");
-      notify(editingId ? `Kelas "${form.title}" diperbarui.` : `Kelas "${form.title}" dibuat.`);
-      // keep editing the saved class so admin can upload files / manage materi
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        const msg = data?.error || `Gagal menyimpan kelas (HTTP ${res.status}).`;
+        notify(`Gagal menyimpan ke database: ${msg}`);
+        alert(`Gagal menyimpan kelas ke database:\n${msg}`);
+        return;
+      }
+      if (!data.verified || !data.class) {
+        notify("Peringatan: respons server tidak mengonfirmasi verifikasi simpan. Segarkan dan cek daftar kelas.");
+      }
       const saved: ClassItem = data.class || payload;
       setEditingId(saved.id);
       setForm({ ...saved, modules: saved.modules || payload.modules });
-      loadClasses();
-    } catch (e: any) { notify(e.message || "Gagal menyimpan kelas."); }
-    finally { setSaving(false); }
+      if (Array.isArray(data.classes)) setClasses(data.classes);
+      // verifikasi ulang dari DB
+      const check = await fetch("/api/admin/classes", { cache: "no-store" }).then(r => r.json()).catch(() => null);
+      if (check?.ok && Array.isArray(check.classes)) {
+        setClasses(check.classes);
+        const found = check.classes.find((c: any) => c.id === saved.id);
+        if (!found) {
+          notify("Gagal verifikasi: kelas tidak ditemukan di database setelah simpan.");
+          alert("Kelas tidak ditemukan di database setelah simpan. Periksa koneksi/database.");
+          return;
+        }
+      }
+      notify(editingId ? `Kelas "${saved.title}" tersimpan & terverifikasi di database.` : `Kelas "${saved.title}" dibuat & terverifikasi di database.`);
+      await loadClasses();
+    } catch (e: any) {
+      const msg = e?.message || "Gagal menyimpan kelas.";
+      notify(`Gagal menyimpan ke database: ${msg}`);
+      alert(`Gagal menyimpan kelas:\n${msg}`);
+    } finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Yakin ingin menghapus kelas ini?")) return;
-    const res = await fetch(`/api/admin/classes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (res.ok) { notify("Kelas dihapus."); if (editingId === id) resetForm(); loadClasses(); }
+    try {
+      const res = await fetch(`/api/admin/classes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        const msg = data?.error || `Gagal menghapus kelas (HTTP ${res.status}).`;
+        notify(`Gagal menghapus dari database: ${msg}`);
+        alert(`Gagal menghapus kelas:\n${msg}`);
+        return;
+      }
+      const check = await fetch("/api/admin/classes", { cache: "no-store" }).then(r => r.json()).catch(() => null);
+      if (check?.ok && Array.isArray(check.classes)) {
+        setClasses(check.classes);
+        const still = check.classes.find((c: any) => c.id === id);
+        if (still) {
+          notify("Gagal verifikasi: kelas masih ada di database setelah hapus.");
+          alert("Kelas masih ditemukan di database setelah hapus.");
+          return;
+        }
+      }
+      if (editingId === id) resetForm();
+      notify("Kelas terhapus & terverifikasi hilang dari database.");
+      await loadClasses();
+    } catch (e: any) {
+      const msg = e?.message || "Gagal menghapus kelas.";
+      notify(`Gagal menghapus: ${msg}`);
+      alert(`Gagal menghapus kelas:\n${msg}`);
+    }
   }
 
   return (
