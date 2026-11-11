@@ -1,0 +1,11 @@
+
+> website-kampung-inggris-sapen@1.0.0 dev
+> next dev -p 3101
+
+   ▲ Next.js 15.5.29
+   - Local:        http://localhost:3101
+   - Network:      http://10.59.181.144:3101
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 9.4s

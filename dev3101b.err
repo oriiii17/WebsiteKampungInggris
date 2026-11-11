@@ -1,0 +1,149 @@
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[2]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[3]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[2]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[3]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[2]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[3]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+ ⨯ ./src/app/page.tsx
+Error:   [31mx[0m Expression expected
+   ,-[[36;1;4mC:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\page.tsx[0m:1:1]
+ [2m1[0m | </div>
+   : [35;1m^[0m
+ [2m2[0m |         </div>
+ [2m3[0m |       </section>
+   `----
+  [31mx[0m Unterminated regexp literal
+   ,-[[36;1;4mC:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\page.tsx[0m:1:1]
+ [2m1[0m | </div>
+   : [35;1m ^^^^^[0m
+ [2m2[0m |         </div>
+ [2m3[0m |       </section>
+   `----
+  [31mx[0m Expression expected
+   ,-[[36;1;4mC:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\page.tsx[0m:1:1]
+ [2m1[0m | </div>
+   : [35;1m  ^^^^[0m
+ [2m2[0m |         </div>
+ [2m3[0m |       </section>
+   `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/page.tsx
+ ⨯ ./src/app/page.tsx
+Error:   [31mx[0m Expression expected
+   ,-[[36;1;4mC:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\page.tsx[0m:1:1]
+ [2m1[0m | </div>
+   : [35;1m^[0m
+ [2m2[0m |         </div>
+ [2m3[0m |       </section>
+   `----
+  [31mx[0m Unterminated regexp literal
+   ,-[[36;1;4mC:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\page.tsx[0m:1:1]
+ [2m1[0m | </div>
+   : [35;1m ^^^^^[0m
+ [2m2[0m |         </div>
+ [2m3[0m |       </section>
+   `----
+  [31mx[0m Expression expected
+   ,-[[36;1;4mC:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\page.tsx[0m:1:1]
+ [2m1[0m | </div>
+   : [35;1m  ^^^^[0m
+ [2m2[0m |         </div>
+ [2m3[0m |       </section>
+   `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/page.tsx
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[2]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[3]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[2]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[3]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[2]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[3]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[2]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[3]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+ ⨯ ./src/app/globals.css:1:1
+Syntax error: C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css The `bg-offwhite` class does not exist. If `bg-offwhite` is a custom class, make sure it is defined within a `@layer` directive.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@tailwind[39m base[33m;[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m[36m@tailwind[39m components[33m;[39m
+ [90m 3 | [39m[36m@tailwind[39m utilities[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[2]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[14].oneOf[10].use[3]!C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\globals.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError

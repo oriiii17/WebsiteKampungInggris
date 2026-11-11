@@ -1,0 +1,64 @@
+[
+  {
+    "step": "login",
+    "url": "http://localhost:3101/masuk?tab=warga",
+    "status": 200
+  },
+  {
+    "step": "locked_before",
+    "locked": true
+  },
+  {
+    "step": "after_redeem",
+    "locked": false,
+    "canvas": 0,
+    "text": "Sapen English\n\nEnglish Learning Platform\n\nBeranda\nKelas\nMateri\nGame\nPaket\nTentang\nFAQ\nW\nWarga Bukti FlowC\nKelas\nKelas Percakapan & Kosakata Praktis\nBab 1: Sapaan & Perkenalan\n\nKELAS PERCAKAPAN & KOSAKATA PRAKTIS › BAB & MATERI\n\nBab 1: Sapaan & Perkenalan\n\nDasar menyapa, memperkenalkan diri, dan membuka percakapan.\n\nDaftar Bab\n1\nBab 1: Sapaan & Perkenalan\n2\nBab 2: Percakapan Sehari-hari\n\nBab 1: Sap"
+  },
+  {
+    "step": "flipbook_state",
+    "url": "http://localhost:3101/kelas/conversation-starter/modul/cm-conv-1",
+    "canvas": 0,
+    "hasBreadcrumb": true,
+    "hasDaftar": true,
+    "text": "Sapen English\n\nEnglish Learning Platform\n\nBeranda\nKelas\nMateri\nGame\nPaket\nTentang\nFAQ\nW\nWarga Bukti FlowC\nKelas\nKelas Percakapan & Kosakata Praktis\nBab 1: Sapaan & Perkenalan\n\nKELAS PERCAKAPAN & KOSAKATA PRAKTIS › BAB & MATERI\n\nBab 1: Sapaan & Perkenalan\n\nDasar menyapa, memperkenalkan diri, dan membuka percakapan.\n\nDaftar Bab\n1\nBab 1: Sapaan & Perkenalan\n2\nBab 2: Percakapan Sehari-hari\n\nBab 1: Sapaan & Perkenalan\n\nFlipbook Materi • Muat per halaman\n\n-\n100%\n+\nDownload (materi-uji-flipbook-4hal.pd"
+  },
+  {
+    "step": "click_zoom_in",
+    "before": "100%",
+    "after": "125%"
+  },
+  {
+    "step": "click_zoom_out",
+    "after": "100%"
+  },
+  {
+    "step": "click_fullscreen",
+    "fullscreen": true
+  },
+  {
+    "step": "click_download",
+    "ok": true,
+    "suggested": "materi-uji-flipbook-4hal.pdf"
+  },
+  {
+    "step": "session_before_logout",
+    "session": {
+      "id": "warga-1794390094000-5eokgj",
+      "name": "Warga Bukti FlowC",
+      "role": "peserta",
+      "origin": "warga_kode",
+      "codeUsed": "QTU-OP3",
+      "rw": "RW 06",
+      "rtRw": "RW 06",
+      "deviceId": "dev-5ngz9tzh-mwbxj40j",
+      "watermarkText": "Warga Bukti FlowC · RW 06"
+    }
+  },
+  {
+    "step": "logout",
+    "afterUrl": "http://localhost:3101/",
+    "sessionAfter": {
+      "session": null
+    }
+  }
+]

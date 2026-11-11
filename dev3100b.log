@@ -1,0 +1,14 @@
+
+> website-kampung-inggris-sapen@1.0.0 dev
+> next dev -p 3100
+
+   ▲ Next.js 15.5.29
+   - Local:        http://localhost:3100
+   - Network:      http://172.20.10.8:3100
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 9.5s
+ ○ Compiling /api/auth/session ...
+ ✓ Compiled /api/auth/session in 5.6s (372 modules)
+ GET /api/auth/session 200 in 6623ms

@@ -1,0 +1,79 @@
+{
+  "log": [
+    {
+      "step": "login",
+      "url": "http://localhost:3101/masuk?tab=warga",
+      "status": 200,
+      "body": "{\"ok\":true,\"session\":{\"id\":\"warga-1794389948862-5h9t6i\",\"name\":\"Warga FlowC Browser\",\"role\":\"peserta\",\"origin\":\"warga_kode\",\"codeUsed\":\"QTU-OP3\",\"rw\":\"RW 06\",\"rtRw\":\"RW 06\",\"deviceId\":\"dev-9mp5oqpq-mwbxfzvj\",\"watermarkText\":\"Warga FlowC Browser · RW 06\"}}"
+    },
+    {
+      "step": "materi",
+      "url": "http://localhost:3101/kelas/conversation-starter/modul/cm-conv-1",
+      "canvas": 0,
+      "hasKelas": true,
+      "hasBab": true,
+      "hasDaftar": false,
+      "hasFlipbook": false,
+      "snippet": "Sapen English\n\nEnglish Learning Platform\n\nBeranda\nKelas\nMateri\nGame\nPaket\nTentang\nFAQ\nW\nWarga FlowC Browser\nKelas\nKelas Percakapan & Kosakata Praktis\nBab 1: Sapaan & Perkenalan\n\nKELAS PERCAKAPAN & KOSAKATA PRAKTIS › BAB & MATERI\n\nBab 1: Sapaan & Perkenalan\n\nDasar menyapa, memperkenalkan diri, dan membuka percakapan.\n\nMateri Terkunci\n\nMasukkan kode "
+    },
+    {
+      "step": "zoom_in",
+      "before": null,
+      "after": null,
+      "result": {
+        "ok": false,
+        "sel": "notfound"
+      }
+    },
+    {
+      "step": "zoom_out",
+      "after": null,
+      "result": {
+        "ok": false,
+        "sel": "notfound"
+      }
+    },
+    {
+      "step": "fullscreen",
+      "result": {
+        "ok": false,
+        "sel": "notfound"
+      },
+      "state": {
+        "fullscreen": false,
+        "label": ""
+      }
+    },
+    {
+      "step": "download",
+      "ok": false,
+      "href": null,
+      "result": {
+        "ok": false,
+        "sel": "notfound"
+      }
+    },
+    {
+      "step": "session_before_logout",
+      "session": {
+        "id": "warga-1794389948862-5h9t6i",
+        "name": "Warga FlowC Browser",
+        "role": "peserta",
+        "origin": "warga_kode",
+        "codeUsed": "QTU-OP3",
+        "rw": "RW 06",
+        "rtRw": "RW 06",
+        "deviceId": "dev-9mp5oqpq-mwbxfzvj",
+        "watermarkText": "Warga FlowC Browser · RW 06"
+      }
+    },
+    {
+      "step": "logout",
+      "afterUrl": "http://localhost:3101/",
+      "sessionAfter": {
+        "session": null
+      }
+    }
+  ],
+  "controlsFound": []
+}

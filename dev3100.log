@@ -1,0 +1,97 @@
+
+> website-kampung-inggris-sapen@1.0.0 dev
+> next dev -p 3100
+
+   ▲ Next.js 15.5.29
+   - Local:        http://localhost:3100
+   - Network:      http://172.20.10.8:3100
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 12s
+ ○ Compiling / ...
+ ✓ Compiled / in 11.2s (752 modules)
+ ✓ Compiled in 2.9s (264 modules)
+ GET / 200 in 7356ms
+ ✓ Compiled in 1737ms (264 modules)
+ GET / 200 in 3554ms
+ ✓ Compiled in 1006ms (264 modules)
+ ○ Compiling /api/admin/classes/upload-module-file ...
+ ✓ Compiled /api/admin/classes/upload-module-file in 2.5s (427 modules)
+ POST /api/admin/classes/upload-module-file 403 in 3664ms
+ ○ Compiling /api/secure-class-file/[classId]/[moduleId] ...
+ ✓ Compiled /api/secure-class-file/[classId]/[moduleId] in 959ms (429 modules)
+ GET /api/secure-class-file/class-conversation-starter/cm-conv-1?kind=pdf&code=SAPEN-CONV 200 in 9317ms
+ ○ Compiling /api/auth/admin ...
+ ✓ Compiled /api/auth/admin in 1848ms (419 modules)
+ POST /api/auth/admin 200 in 2478ms
+ ✓ Compiled /api/admin/classes/upload-module-file in 180ms (179 modules)
+ POST /api/auth/admin 200 in 3664ms
+ POST /api/admin/classes/upload-module-file 200 in 568ms
+ ○ Compiling /api/admin/games ...
+ ✓ Compiled /api/admin/games in 846ms (431 modules)
+ GET /api/admin/games 200 in 2786ms
+ POST /api/auth/admin 200 in 5007ms
+ POST /api/admin/games 200 in 9203ms
+ GET /api/admin/games 200 in 2115ms
+ ✓ Compiled in 1071ms
+ ✓ Compiled /api/auth/admin in 450ms (169 modules)
+ POST /api/auth/admin 200 in 3146ms
+ ○ Compiling /api/admin/games ...
+ ✓ Compiled /api/admin/games in 630ms (179 modules)
+ GET /api/admin/games 200 in 2664ms
+ POST /api/admin/games 200 in 3373ms
+ GET /api/admin/games 200 in 1413ms
+ POST /api/auth/admin 200 in 576ms
+ GET /api/admin/games 200 in 1113ms
+ POST /api/admin/games 200 in 3641ms
+ GET /api/admin/games 200 in 847ms
+ POST /api/auth/admin 200 in 846ms
+ GET /api/admin/games 403 in 69ms
+ POST /api/auth/admin 200 in 775ms
+ GET /api/admin/games 200 in 1151ms
+ POST /api/auth/admin 200 in 510ms
+ GET /api/admin/games 200 in 1033ms
+ ○ Compiling / ...
+ ✓ Compiled / in 2.4s (507 modules)
+ POST /api/admin/games 200 in 5477ms
+ GET / 200 in 7315ms
+ POST /api/admin/games 200 in 4735ms
+ POST /api/admin/games 200 in 4490ms
+ POST /api/admin/games 200 in 3219ms
+ POST /api/admin/games 200 in 3265ms
+ POST /api/admin/games 200 in 3122ms
+ POST /api/admin/games 200 in 4249ms
+ POST /api/admin/games 200 in 5224ms
+ POST /api/admin/games 200 in 3704ms
+ POST /api/admin/games 200 in 2883ms
+ POST /api/admin/games 200 in 3689ms
+ POST /api/admin/games 200 in 2615ms
+ POST /api/admin/games 200 in 3374ms
+ POST /api/admin/games 200 in 5218ms
+ GET /api/admin/games 200 in 1465ms
+ ○ Compiling /masuk ...
+ ✓ Compiled /masuk in 3.3s (750 modules)
+ GET /masuk?tab=warga 200 in 4459ms
+ GET /masuk?tab=warga 200 in 788ms
+ ○ Compiling /api/auth/warga-rw ...
+ ✓ Compiled /api/auth/warga-rw in 919ms (750 modules)
+ ○ Compiling /kelas/[slug] ...
+ ✓ Compiled /kelas/[slug] in 1645ms (776 modules)
+ POST /api/auth/warga-rw 200 in 6568ms
+ ○ Compiling /modul ...
+ ✓ Compiled /modul in 3.1s (783 modules)
+ GET /kelas/conversation-starter 200 in 11922ms
+ ○ Compiling /kelas/[slug]/modul/[moduleId] ...
+ ✓ Compiled /kelas/[slug]/modul/[moduleId] in 1468ms (821 modules)
+ GET /kelas/conversation-starter/modul/cm-conv-1 200 in 6912ms
+ ○ Compiling /akun ...
+ ✓ Compiled /akun in 1731ms (833 modules)
+ GET /akun 200 in 3061ms
+ ○ Compiling /api/auth/session ...
+ DELETE /api/auth/session 500 in 20722ms
+ GET /api/auth/session 500 in 17954ms
+ GET /akun 500 in 4676ms
+ GET /api/auth/session 500 in 148ms
+ GET /api/auth/session 500 in 2652ms
+ GET /api/auth/session 500 in 288ms

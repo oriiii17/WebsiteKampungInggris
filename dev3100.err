@@ -1,0 +1,76 @@
+ ⨯ [TypeError: __webpack_modules__[moduleId] is not a function] {
+  digest: '3165606214'
+}
+ ⨯ ./src/app/api/auth/session/route.ts
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\api\auth\session\route.ts
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/app/api/auth/session/route.ts
+ ⨯ ./src/app/api/auth/session/route.ts
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\api\auth\session\route.ts
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/app/api/auth/session/route.ts
+ ⨯ ./src/app/api/auth/session/route.ts
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\api\auth\session\route.ts
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/app/api/auth/session/route.ts
+ ⨯ ./src/app/api/auth/session/route.ts
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\api\auth\session\route.ts
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/app/api/auth/session/route.ts
+ ⨯ ./src/app/api/auth/session/route.ts
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\api\auth\session\route.ts
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/app/api/auth/session/route.ts
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\cache\webpack\client-development-fallback\0.pack.gz_' -> 'C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\cache\webpack\client-development-fallback\0.pack.gz'
+ ⨯ ./src/app/api/auth/session/route.ts
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\api\auth\session\route.ts
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/app/api/auth/session/route.ts
+ ⨯ ./src/app/api/auth/session/route.ts
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\api\auth\session\route.ts
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/app/api/auth/session/route.ts
+ ⨯ ./src/app/api/auth/session/route.ts
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\app\api\auth\session\route.ts
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/app/api/auth/session/route.ts

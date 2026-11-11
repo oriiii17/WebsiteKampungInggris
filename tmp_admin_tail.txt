@@ -1,0 +1,436 @@
+﻿                <p className="text-[11px] text-[#1A2E1A]/60">Dashboard Admin</p>
+              </div>
+              <div className="hidden items-center gap-2 md:flex">
+                <span className="rounded-md border border-[#E5E7EB] bg-[#FDFBF7] px-2.5 py-1 text-xs font-bold text-[#14532D]">{roleLabel}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={fetchOverview} className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7]">
+                <RefreshCw className="h-4 w-4" />
+                <span className="hidden sm:inline">Muat Ulang</span>
+              </button>
+              <div className="relative">
+                <button type="button" onClick={() => setShowExport(!showExport)} className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7]">
+                  <Download className="h-4 w-4" />
+                  <span className="hidden sm:inline">Ekspor</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+                {showExport && (
+                  <div className="absolute right-0 top-full z-30 mt-1.5 min-w-[240px] rounded-xl border border-[#E5E7EB] bg-white">
+                    <div className="p-2">
+                      <p className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#1A2E1A]/60">Format</p>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs text-[#1A2E1A] hover:bg-[#FDFBF7]"><input type="radio" name="exportFormat" checked={exportFormat === "excel"} onChange={() => setExportFormat("excel")} className="text-[#14532D]" /><FileSpreadsheet className="h-3.5 w-3.5 text-[#14532D]" />Excel (.xlsx)</label>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs text-[#1A2E1A] hover:bg-[#FDFBF7]"><input type="radio" name="exportFormat" checked={exportFormat === "csv"} onChange={() => setExportFormat("csv")} className="text-[#14532D]" /><FileText className="h-3.5 w-3.5 text-[#14532D]" />CSV (.csv)</label>
+                    </div>
+                    <div className="border-t border-[#E5E7EB]" />
+                    <p className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#1A2E1A]/60">Jenis Data</p>
+                    <div className="max-h-64 overflow-y-auto p-1">
+                      {exportTypes.map((t) => (
+                        <label key={t.value} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs text-[#1A2E1A] hover:bg-[#FDFBF7]"><input type="radio" name="exportType" checked={exportType === t.value} onChange={() => { setExportType(t.value); setShowExport(false); handleExport(); }} className="text-[#14532D]" />{t.icon}<span>{t.label}</span></label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button type="button" onClick={handleLogout} disabled={loggingOut} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7]">
+                <LogOut className="h-4 w-4 text-[#14532D]" />
+                <span className="hidden sm:inline">Keluar</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div className="mx-auto max-w-6xl space-y-6">
+            <div className="max-w-3xl">
+              <h1 className="text-2xl font-extrabold tracking-tight text-[#1A2E1A] sm:text-[30px]">Dashboard Pengelolaan Kampung Inggris Sapen</h1>
+              <p className="mt-1 text-sm leading-relaxed text-[#1A2E1A]/75">Gunakan sidebar untuk pindah tugas. Kelas, PDF, dan Quiz & Game diprioritaskan untuk kerja harian.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatCard label="Modul Aktif" value={`${data.stats.totalModules}`} subValue="Flipbook terbit" icon={<BookOpen className="h-4 w-4" />} />
+              <StatCard label="Kode Akses" value={`${data.stats.totalCodes}`} subValue={`${data.stats.activeDevices} perangkat aktif`} icon={<KeyRound className="h-4 w-4" />} />
+              <StatCard label="Soal & Kosakata" value={`${data.stats.totalQuizQuestions + data.stats.totalFlashcards}`} subValue="Item latihan" icon={<Gamepad2 className="h-4 w-4" />} />
+              <StatCard label="Pendapatan" value={`Rp ${data.stats.totalRevenueIdr.toLocaleString("id-ID")}`} subValue="Langganan umum" icon={<CreditCard className="h-4 w-4" />} />
+            </div>
+
+            {toast && (
+              <div className="flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-bold text-[#14532D]">
+                <CheckCircle2 className="h-5 w-5 text-[#14532D]" />
+                {toast}
+              </div>
+            )}
+
+      {tab === "classes" && (
+        <AdminClassesManager modules={data.modules || []} notify={notify} />
+      )}
+
+      {tab === "warga" && (
+        <AdminWargaManager
+          warga={data.warga || []}
+          rwCodes={data.rwCodes || []}
+          loginLog={data.loginLog || []}
+          stats={data.stats}
+          onRefresh={fetchOverview}
+          notify={notify}
+        />
+      )}
+
+      {tab === "testimoni" && (
+        <AdminTestimoniManager testimoni={data.testimoni || []} onRefresh={fetchOverview} notify={notify} />
+      )}
+
+      {tab === "codes" && (
+        <CodesTab
+          data={data}
+          codeValue={codeValue}
+          setCodeValue={setCodeValue}
+          codeLabel={codeLabel}
+          setCodeLabel={setCodeLabel}
+          codeRtRw={codeRtRw}
+          setCodeRtRw={setCodeRtRw}
+          holderType={holderType}
+          setHolderType={setHolderType}
+          maxDevices={maxDevices}
+          setMaxDevices={setMaxDevices}
+          validDays={validDays}
+          setValidDays={setValidDays}
+          savingCode={savingCode}
+          setSavingCode={setSavingCode}
+          generateRandomCode={generateRandomCode}
+          handleCreateCode={handleCreateCode}
+          handleCodeAction={handleCodeAction}
+          buildWhatsAppShareUrl={buildWhatsAppShareUrl}
+          notify={notify}
+        />
+      )}
+
+      {tab === "games" && (
+        <AdminHostGameTab notify={notify} />
+      )}
+
+      {tab === "modules" && null}
+
+        {tab === "payments" && (
+          <PaymentsTab
+            data={data}
+            isDev={isDev}
+            manualName={manualName}
+            setManualName={setManualName}
+            manualEmail={manualEmail}
+            setManualEmail={setManualEmail}
+            manualPlanId={manualPlanId}
+            setManualPlanId={setManualPlanId}
+            manualDurationDays={manualDurationDays}
+            setManualDurationDays={setManualDurationDays}
+            savingManualGrant={savingManualGrant}
+            setSavingManualGrant={setSavingManualGrant}
+            handleGrantManualAccess={handleGrantManualAccess}
+            handleSubAction={handleSubAction}
+            handleDeleteSub={handleDeleteSub}
+            fetchOverview={fetchOverview}
+            notify={notify}
+          />
+        )}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, subValue, icon }: { label: string; value: string; subValue?: string; icon: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-[#E5E7EB] bg-[#FDFBF7] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-[#1A2E1A]/60">{label}</p>
+        <span className="rounded-md border border-[#E5E7EB] bg-white p-1.5 text-[#14532D]">{icon}</span>
+      </div>
+      <p className="mt-3 text-2xl font-extrabold text-[#1A2E1A]">{value}</p>
+      {subValue && <p className="mt-0.5 text-[11px] text-[#1A2E1A]/65">{subValue}</p>}
+    </div>
+  );
+}
+
+function CodesTab(props: any) {
+  const { data, codeValue, setCodeValue, codeLabel, setCodeLabel, codeRtRw, setCodeRtRw, holderType, setHolderType, maxDevices, setMaxDevices, validDays, setValidDays, savingCode, setSavingCode, generateRandomCode, handleCreateCode, handleCodeAction, buildWhatsAppShareUrl, notify } = props;
+  return (
+    <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-12">
+      <div className="lg:col-span-5">
+        <form onSubmit={handleCreateCode} className="space-y-4 rounded-xl border border-[#E5E7EB] bg-white p-6">
+          <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
+            <Plus className="h-5 w-5 text-[#14532D]" /> Buat Kode Akses Warga Baru
+          </h2>
+          <p className="text-xs text-slate-500">Buat 1 kode per Kepala Keluarga (KK) atau per warga, lalu bagikan langsung ke WhatsApp warga.</p>
+          <div>
+            <label className="block text-xs font-bold text-slate-700">Nama Keluarga / Warga Penerima</label>
+            <input type="text" required value={codeLabel} onChange={(e) => setCodeLabel(e.target.value)} placeholder="Contoh: Keluarga Bpk. Hendra" className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold focus:border-[#14532D] focus:outline-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700">Wilayah RT / RW</label>
+              <input type="text" value={codeRtRw} onChange={(e) => setCodeRtRw(e.target.value)} placeholder="RT 01 / RW 02" className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold focus:border-[#14532D] focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700">Tipe Pemegang</label>
+              <select value={holderType} onChange={(e) => setHolderType(e.target.value as "keluarga" | "individu")} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold">
+                <option value="keluarga">Per Keluarga (KK)</option>
+                <option value="individu">Per Orang</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700">Kode Unik</label>
+              <button type="button" onClick={generateRandomCode} className="text-xs font-bold text-[#14532D] underline">Acak Kode Otomatis</button>
+            </div>
+            <input type="text" required value={codeValue} onChange={(e) => setCodeValue(e.target.value.toUpperCase())} className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm font-extrabold uppercase tracking-wider focus:border-[#14532D] focus:outline-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700">Batas Perangkat (HP/Laptop)</label>
+              <input type="number" min={1} max={50} value={maxDevices} onChange={(e) => setMaxDevices(Number(e.target.value))} className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700">Masa Berlaku</label>
+              <select value={validDays} onChange={(e) => setValidDays(Number(e.target.value))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold">
+                <option value={30}>1 Bulan (30 Hari)</option>
+                <option value={90}>3 Bulan (90 Hari)</option>
+                <option value={180}>6 Bulan</option>
+                <option value={365}>1 Tahun Penuh</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" disabled={savingCode} className="w-full rounded-xl bg-[#F59E0B] py-3.5 text-sm font-extrabold text-gray-900 hover:bg-[#d97706] transition disabled:opacity-60">
+            {savingCode ? "Menyimpan..." : "Simpan & Buat Kode Warga"}
+          </button>
+        </form>
+      </div>
+
+      <div className="space-y-4 lg:col-span-7">
+        <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
+          <Users className="h-5 w-5 text-[#14532D]" />
+          Daftar Kode Akses Warga ({data.accessCodes.length})
+        </h2>
+        {data.accessCodes.map((ac: any) => (
+          <div key={ac.id} className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-lg bg-emerald-50 px-3 py-1 font-mono text-sm font-extrabold text-[#14532D] border border-emerald-200">{ac.code}</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${ac.isActive ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>{ac.isActive ? "Aktif" : "Nonaktif"}</span>
+                  <span className="text-xs font-semibold text-slate-500">{ac.rtRw}</span>
+                </div>
+                <h3 className="mt-2 text-base font-extrabold text-slate-900">{ac.label}</h3>
+                <p className="text-xs text-slate-500">Perangkat terpakai: <strong>{ac.devices.length} / {ac.maxDevices} perangkat</strong> â€¢ Berlaku s/d {new Date(ac.expiresAt).toLocaleDateString("id-ID")}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => { navigator.clipboard.writeText(ac.code); notify(`Kode ${ac.code} disalin!`); }} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><Copy className="h-3.5 w-3.5" /> Salin</button>
+                <a href={buildWhatsAppShareUrl(ac)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl bg-[#14532D] px-3.5 py-2 text-xs font-extrabold text-white hover:bg-[#0f3d21]"><Send className="h-3.5 w-3.5" /> Kirim WhatsApp</a>
+              </div>
+            </div>
+            {ac.devices.length > 0 && <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600"><strong>Pemakai:</strong> {ac.devices.map((d: any) => `${d.participantName} (${d.deviceLabel})`).join(", ")}</div>}
+            <div className="mt-3 flex flex-wrap gap-3 border-t border-slate-100 pt-3 text-xs font-bold">
+              <button type="button" onClick={() => handleCodeAction(ac.id, "toggle")} className="text-slate-600 hover:text-slate-900 underline">{ac.isActive ? "Nonaktifkan Sementara" : "Aktifkan Kembali"}</button>
+              {ac.devices.length > 0 && <button type="button" onClick={() => handleCodeAction(ac.id, "reset_devices")} className="text-amber-700 hover:text-amber-900 underline">Reset Perangkat ({ac.devices.length})</button>}
+              <button type="button" onClick={() => handleCodeAction(ac.id, "delete")} className="text-rose-600 hover:text-rose-800 underline">Hapus Kode</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ModulesTab(props: any) {
+  const { data, modTitle, setModTitle, modSubtitle, setModSubtitle, modLevel, setModLevel, modTheme, setModTheme, modDuration, setModDuration, modAudience, setModAudience, modDescription, setModDescription, modPriceIdr, setModPriceIdr, modPracticeEnabled, setModPracticeEnabled, modQuestion, setModQuestion, modOptionA, setModOptionA, modOptionB, setModOptionB, modOptionC, setModOptionC, modOptionD, setModOptionD, modCorrectIdx, setModCorrectIdx, modExplanation, setModExplanation, modSyllabus, setModSyllabus, pdfFile, setPdfFile, uploadProgress, setUploadProgress, handleUploadPdfModule, handleDeleteModule, notify } = props;
+  return (
+    <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-12">
+      <div className="lg:col-span-6">
+        <form onSubmit={handleUploadPdfModule} className="space-y-4 rounded-xl border border-[#E5E7EB] bg-white p-6">
+          <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900"><FileUp className="h-5 w-5 text-[#14532D]" /> Unggah Modul Baru (PDF / PowerPoint â†’ Flipbook)</h2>
+          <p className="text-xs leading-relaxed text-slate-500">Saat Anda memilih file <strong>.PDF</strong> atau <strong>.PPTX/.PPT</strong>, sistem otomatis mengubah setiap halaman menjadi gambar terproteksi di <strong>Private Storage</strong> sehingga file asli tidak pernah bocor ke browser peserta. Untuk PPTX, disarankan ekspor ke PDF terlebih dahulu agar kualitas flipbook optimal.</p>
+          <div><label className="block text-xs font-bold text-slate-700">Judul Kelas / Modul</label><input type="text" required value={modTitle} onChange={(e) => setModTitle(e.target.value)} placeholder="Contoh: Kelas Vocabulary Wisata Sapen" className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold" /></div>
+          <div><label className="block text-xs font-bold text-slate-700">Subjudul Singkat</label><input type="text" value={modSubtitle} onChange={(e) => setModSubtitle(e.target.value)} placeholder="Contoh: 100 Ungkapan Praktis Menyambut Wisatawan Mancanegara" className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-xs font-bold text-slate-700">Level Kelas</label><select value={modLevel} onChange={(e) => setModLevel(e.target.value as any)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold"><option value="Pemula">Pemula</option><option value="Anak-Anak">Anak-Anak</option><option value="Menengah">Menengah</option><option value="Lanjutan">Lanjutan</option></select></div>
+            <div><label className="block text-xs font-bold text-slate-700">Warna Sampul Katalog</label><select value={modTheme} onChange={(e) => setModTheme(e.target.value as any)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold"><option value="emerald">Hijau Sapen</option><option value="amber">Kuning Hangat</option><option value="sky">Biru Cerah</option><option value="violet">Ungu Akademik</option><option value="rose">Merah Muda</option></select></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-xs font-bold text-slate-700">Info Durasi</label><input type="text" value={modDuration} onChange={(e) => setModDuration(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold" /></div>
+            <div><label className="block text-xs font-bold text-slate-700">Target Peserta</label><input type="text" value={modAudience} onChange={(e) => setModAudience(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold" /></div>
+          </div>
+          <div><label className="block text-xs font-bold text-slate-700">Deskripsi Kelas (Tampil di Halaman Publik)</label><textarea rows={2} value={modDescription} onChange={(e) => setModDescription(e.target.value)} placeholder="Penjelasan singkat tentang manfaat kelas ini..." className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm" /></div>
+          <div><label className="block text-xs font-bold text-slate-700">Daftar Materi / Silabus (1 baris = 1 topik)</label><textarea rows={3} value={modSyllabus} onChange={(e) => setModSyllabus(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm" /></div>
+          <div><label className="block text-xs font-bold text-slate-700">Harga Modul (Rp)</label><input type="number" min={0} step={1000} value={modPriceIdr} onChange={(e) => setModPriceIdr(Number(e.target.value))} placeholder="0" className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold" /><span className="text-[11px] text-slate-500">*0 = Modul gratis. Pengurus/developer dapat menentukan harga materi di sini.</span></div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={modPracticeEnabled} onChange={(e) => setModPracticeEnabled(e.target.checked)} className="rounded text-[#14532D] focus:ring-[#14532D] h-4 w-4" /><span className="text-xs font-black text-slate-900">Berikan Tugas / Latihan Mandiri pada Modul Ini</span></label>
+            <p className="text-[11px] text-slate-500 leading-relaxed">Jika dicentang, admin menentukan soal tugas mandiri, opsi pilihan, kunci jawaban benar, dan pembahasan. Jika tidak dicentang, modul tampil bersih tanpa latihan mandiri.</p>
+            {modPracticeEnabled && (
+              <div className="space-y-3 pt-3 border-t border-slate-200">
+                <div><label className="block text-xs font-bold text-slate-700">Isi Pertanyaan Tugas Mandiri *</label><input type="text" value={modQuestion} onChange={(e) => setModQuestion(e.target.value)} placeholder="Contoh: What is the best response to 'Nice to meet you'?" className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold" /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div><label className="block text-[11px] font-bold text-slate-700">Pilihan A</label><input type="text" value={modOptionA} onChange={(e) => setModOptionA(e.target.value)} placeholder="Pilihan A" className="mt-0.5 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs" /></div>
+                  <div><label className="block text-[11px] font-bold text-slate-700">Pilihan B</label><input type="text" value={modOptionB} onChange={(e) => setModOptionB(e.target.value)} placeholder="Pilihan B" className="mt-0.5 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs" /></div>
+                  <div><label className="block text-[11px] font-bold text-slate-700">Pilihan C</label><input type="text" value={modOptionC} onChange={(e) => setModOptionC(e.target.value)} placeholder="Pilihan C" className="mt-0.5 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs" /></div>
+                  <div><label className="block text-[11px] font-bold text-slate-700">Pilihan D</label><input type="text" value={modOptionD} onChange={(e) => setModOptionD(e.target.value)} placeholder="Pilihan D" className="mt-0.5 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="block text-[11px] font-bold text-slate-700">Kunci Jawaban Benar</label><select value={modCorrectIdx} onChange={(e) => setModCorrectIdx(Number(e.target.value))} className="mt-0.5 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold"><option value={0}>Pilihan A</option><option value={1}>Pilihan B</option><option value={2}>Pilihan C</option><option value={3}>Pilihan D</option></select></div>
+                  <div><label className="block text-[11px] font-bold text-slate-700">Pembahasan Singkat</label><input type="text" value={modExplanation} onChange={(e) => setModExplanation(e.target.value)} placeholder="Alasan mengapa jawaban tersebut benar" className="mt-0.5 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs" /></div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 p-4">
+            <label className="block text-xs font-extrabold text-[#14532D]">Pilih File PDF atau PowerPoint (.pdf, .pptx, .ppt)</label>
+            <input type="file" accept=".pdf,.pptx,.ppt,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="mt-2 block w-full text-xs text-slate-700 file:mr-3 file:rounded-xl file:border-0 file:bg-[#14532D] file:px-4 file:py-2 file:text-xs file:font-bold file:text-white hover:file:bg-[#0f3d21]" />
+            <p className="mt-1.5 text-[11px] text-slate-500">*Jika dikosongkan, sistem akan membuatkan halaman template otomatis. File PPTX: ekspor ke PDF dulu dari PowerPoint/Google Slides untuk hasil terbaik.</p>
+          </div>
+          {uploadProgress && <div className="rounded-xl bg-amber-50 p-3.5 text-xs font-extrabold text-amber-900 border border-amber-200">â³ {uploadProgress}</div>}
+          <button type="submit" disabled={Boolean(uploadProgress)} className="w-full rounded-xl bg-[#F59E0B] py-3.5 text-sm font-extrabold text-gray-900 hover:bg-[#d97706] transition disabled:opacity-60">{uploadProgress ? "Sedang Mengonversi PDF..." : "Konversi PDF ke Flipbook & Terbitkan"}</button>
+        </form>
+      </div>
+
+      <div className="space-y-4 lg:col-span-6">
+        <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900"><BookOpen className="h-5 w-5 text-[#14532D]" /> Modul Aktif di Katalog ({data.modules.length})</h2>
+        {data.modules.map((m: any) => (
+          <div key={m.id} className="flex flex-col justify-between gap-4 rounded-xl border border-[#E5E7EB] bg-white p-5 sm:flex-row sm:items-center">
+            <div><span className="rounded-md bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-[#14532D] border border-emerald-200">Level {m.level} â€¢ {m.totalPages} Halaman Flipbook</span><h3 className="mt-1.5 text-base font-extrabold text-slate-900">{m.title}</h3><p className="text-xs text-slate-500">{m.subtitle}</p></div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link href={`/belajar/${m.slug}`} className="inline-flex items-center gap-1 rounded-xl bg-[#14532D] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#0f3d21] transition"><ExternalLink className="h-3.5 w-3.5" /> Buka Reader</Link>
+              <button type="button" onClick={() => handleDeleteModule(m.id)} className="rounded-xl border border-rose-200 p-2 text-rose-600 hover:bg-rose-50" title="Hapus Modul"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GamesTab(props: any) {
+  const { data, selectedModId, setSelectedModId, gameKind, setGameKind, qText, setQText, qOptA, setQOptA, qOptB, setQOptB, qOptC, setQOptC, qOptD, setQOptD, qCorrect, setQCorrect, qExplain, setQExplain, fcEn, setFcEn, fcPhonetic, setFcPhonetic, fcId, setFcId, fcExEn, setFcExEn, fcExId, setFcExId, mpEn, setMpEn, mpId, setMpId, wcType, setWcType, wcClue, setWcClue, wcBlank, setWcBlank, wcAnswer, setWcAnswer, wcHint, setWcHint, activeModQuizzes, activeModFlashcards, activeModMatching, activeModWords, handleCreateGameItem, handleDeleteGameItem, notify } = props;
+  return (
+    <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-12">
+      <div className="lg:col-span-6">
+        <form onSubmit={handleCreateGameItem} className="space-y-4 rounded-xl border border-[#E5E7EB] bg-white p-6">
+          <h2 className="text-lg font-extrabold text-slate-900">Pembuat Soal & Game Tanpa Coding</h2>
+          <div><label className="block text-xs font-bold text-slate-700">1. Pilih Modul Tujuan</label><select value={selectedModId} onChange={(e) => setSelectedModId(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-bold">{data.modules.map((m: any) => <option key={m.id} value={m.id}>{m.title}</option>)}</select></div>
+          <div><label className="block text-xs font-bold text-slate-700">2. Pilih Format Permainan</label><div className="mt-1.5 grid grid-cols-2 gap-2">{
+            [{ id: "quiz" as const, label: "Quiz Pilihan Ganda" }, { id: "flashcard" as const, label: "Flashcard Kosakata" }, { id: "matching" as const, label: "Matching Kata & Arti" }, { id: "word" as const, label: "Susun Kata / Rumpang" }].map((g) => (
+              <button key={g.id} type="button" onClick={() => setGameKind(g.id)} className={`rounded-xl border py-2.5 px-3 text-xs font-extrabold transition ${gameKind === g.id ? "border-[#14532D] bg-emerald-50 text-[#14532D]" : "border-slate-200 text-slate-600"}`}>{g.label}</button>
+            ))}
+          </div></div>
+          {gameKind === "quiz" && (
+            <div className="space-y-3 border-t border-slate-100 pt-3">
+              <input type="text" required value={qText} onChange={(e) => setQText(e.target.value)} placeholder="Tulis pertanyaan quiz di sini..." className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold" />
+              <div className="grid grid-cols-2 gap-2.5">
+                <input type="text" required value={qOptA} onChange={(e) => setQOptA(e.target.value)} placeholder="Pilihan A" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" required value={qOptB} onChange={(e) => setQOptB(e.target.value)} placeholder="Pilihan B" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" required value={qOptC} onChange={(e) => setQOptC(e.target.value)} placeholder="Pilihan C" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+                <input type="text" required value={qOptD} onChange={(e) => setQOptD(e.target.value)} placeholder="Pilihan D" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+              </div>
+              <div><label className="block text-xs font-bold text-slate-700">Jawaban Benar:</label><select value={qCorrect} onChange={(e) => setQCorrect(Number(e.target.value))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold"><option value={0}>Pilihan A</option><option value={1}>Pilihan B</option><option value={2}>Pilihan C</option><option value={3}>Pilihan D</option></select></div>
+              <textarea rows={2} required value={qExplain} onChange={(e) => setQExplain(e.target.value)} placeholder="Tulis pembahasan singkat mengapa jawaban tersebut benar..." className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm" />
+            </div>
+          )}
+          {gameKind === "flashcard" && (
+            <div className="space-y-3 border-t border-slate-100 pt-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                <input type="text" required value={fcEn} onChange={(e) => setFcEn(e.target.value)} placeholder="Kata Inggris (mis. Friendly)" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-semibold" />
+                <input type="text" value={fcPhonetic} onChange={(e) => setFcPhonetic(e.target.value)} placeholder="Cara baca (mis. FREND-li)" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm" />
+              </div>
+              <input type="text" required value={fcId} onChange={(e) => setFcId(e.target.value)} placeholder="Arti Bahasa Indonesia (mis. Ramah)" className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-semibold" />
+              <input type="text" value={fcExEn} onChange={(e) => setFcExEn(e.target.value)} placeholder="Contoh kalimat Inggris (opsional)" className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+              <input type="text" value={fcExId} onChange={(e) => setFcExId(e.target.value)} placeholder="Terjemahan contoh kalimat (opsional)" className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+          )}
+          {gameKind === "matching" && (
+            <div className="space-y-3 border-t border-slate-100 pt-3">
+              <input type="text" required value={mpEn} onChange={(e) => setMpEn(e.target.value)} placeholder="Kata / Frasa Inggris (mis. Good evening)" className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold" />
+              <input type="text" required value={mpId} onChange={(e) => setMpId(e.target.value)} placeholder="Pasangan Arti Indonesia (mis. Selamat malam)" className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold" />
+            </div>
+          )}
+          {gameKind === "word" && (
+            <div className="space-y-3 border-t border-slate-100 pt-3">
+              <select value={wcType} onChange={(e) => setWcType(e.target.value as any)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold"><option value="scramble">Susun Kata Acak (Word Scramble)</option><option value="fill_blank">Isian Kalimat Rumpang</option></select>
+              <input type="text" required value={wcClue} onChange={(e) => setWcClue(e.target.value)} placeholder="Instruksi / Arti kata (mis. Susun kata yang artinya GURU)" className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm" />
+              {wcType === "fill_blank" && <input type="text" required value={wcBlank} onChange={(e) => setWcBlank(e.target.value)} placeholder="Kalimat rumpang pakai ___ (mis. They ___ studying now.)" className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm" />}
+              <div className="grid grid-cols-2 gap-2.5">
+                <input type="text" required value={wcAnswer} onChange={(e) => setWcAnswer(e.target.value.toUpperCase())} placeholder="Kata Jawaban (mis. TEACHER)" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-extrabold uppercase" />
+                <input type="text" value={wcHint} onChange={(e) => setWcHint(e.target.value)} placeholder="Petunjuk / Hint singkat" className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm" />
+              </div>
+            </div>
+          )}
+          <button type="submit" className="w-full rounded-xl bg-[#F59E0B] py-3.5 text-sm font-extrabold text-gray-900 hover:bg-[#d97706] transition">+ Tambahkan ke Modul Sekarang</button>
+        </form>
+      </div>
+
+      <div className="space-y-4 lg:col-span-6">
+        <h2 className="text-lg font-extrabold text-slate-900">Daftar Soal pada Modul Terpilih</h2>
+        <div className="rounded-xl border border-[#E5E7EB] bg-white p-5 space-y-4">
+          <div><h3 className="text-xs font-extrabold uppercase tracking-wider text-[#14532D]">Quiz Pilihan Ganda ({activeModQuizzes.length})</h3><div className="mt-2 space-y-2">{activeModQuizzes.map((q: any) => <div key={q.id} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs"><span className="font-semibold text-slate-800">{q.question}</span><button type="button" onClick={() => handleDeleteGameItem("quiz", q.id)} className="text-rose-600 hover:underline shrink-0">Hapus</button></div>)}</div></div>
+          <div className="border-t border-slate-100 pt-3"><h3 className="text-xs font-extrabold uppercase tracking-wider text-amber-700">Flashcard Kosakata ({activeModFlashcards.length})</h3><div className="mt-2 flex flex-wrap gap-2">{activeModFlashcards.map((f: any) => <span key={f.id} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold">{f.english} = {f.indonesian}<button type="button" onClick={() => handleDeleteGameItem("flashcard", f.id)} className="text-rose-500">Ã—</button></span>)}</div></div>
+          <div className="border-t border-slate-100 pt-3"><h3 className="text-xs font-extrabold uppercase tracking-wider text-sky-700">Matching ({activeModMatching.length}) & Susun Kata ({activeModWords.length})</h3><div className="mt-2 flex flex-wrap gap-2">{activeModMatching.map((m: any) => <span key={m.id} className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-900">{m.english} â†” {m.indonesian}<button type="button" onClick={() => handleDeleteGameItem("matching", m.id)} className="text-rose-600 font-bold">Ã—</button></span>)} {activeModWords.map((w: any) => <span key={w.id} className="inline-flex items-center gap-1.5 rounded-xl bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-900">[{w.answer}]<button type="button" onClick={() => handleDeleteGameItem("word", w.id)} className="text-rose-600 font-bold">Ã—</button></span>)}</div></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PaymentsTab(props: any) {
+  const { data, isDev, manualName, setManualName, manualEmail, setManualEmail, manualPlanId, setManualPlanId, manualDurationDays, setManualDurationDays, savingManualGrant, setSavingManualGrant, handleGrantManualAccess, handleSubAction, handleDeleteSub, fetchOverview, notify } = props;
+  return (
+    <div className="mt-6 space-y-6">
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-amber-100 p-2 text-amber-800"><CreditCard className="h-5 w-5" /></div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2"><span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">Feature Flag: PAYMENT_ENABLED = false</span><span className="text-xs text-amber-800 font-medium">(Pembayaran Otomatis Segera Dibuka)</span></div>
+            <p className="mt-1 text-xs text-amber-800 leading-relaxed">Semua tombol pembayaran di halaman publik saat ini berstatus dinonaktifkan dengan label <strong>"Pembayaran segera dibuka"</strong>. Anda dapat memberikan akses materi secara manual kepada murid atau pengguna umum tertentu menggunakan form di bawah ini.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-[#E5E7EB] bg-white p-6">
+        <h2 className="text-base font-extrabold text-slate-900 mb-1">Beri Akses Materi Manual (Admin Grant)</h2>
+        <p className="text-xs text-slate-500 mb-4">Gunakan form ini untuk mengaktifkan akses modul berbayar bagi murid les umum atau donatur.</p>
+        <form onSubmit={handleGrantManualAccess} className="grid grid-cols-1 gap-3 sm:grid-cols-4 items-end">
+          <div><label className="block text-xs font-bold text-slate-700 mb-1">Nama Pengguna</label><input type="text" value={manualName} onChange={(e) => setManualName(e.target.value)} placeholder="Contoh: Rina Anggraini" required className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 focus:border-[#14532D] focus:outline-none" /></div>
+          <div><label className="block text-xs font-bold text-slate-700 mb-1">Alamat Email</label><input type="email" value={manualEmail} onChange={(e) => setManualEmail(e.target.value)} placeholder="rina@example.com" required className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 focus:border-[#14532D] focus:outline-none" /></div>
+          <div><label className="block text-xs font-bold text-slate-700 mb-1">Durasi Akses</label><select value={manualDurationDays} onChange={(e) => setManualDurationDays(Number(e.target.value))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs text-slate-900 focus:border-[#14532D] focus:outline-none"><option value={30}>30 Hari (1 Bulan)</option><option value={90}>90 Hari (3 Bulan)</option><option value={180}>180 Hari (6 Bulan)</option><option value={365}>365 Hari (1 Tahun)</option></select></div>
+          <button type="submit" disabled={savingManualGrant} className="rounded-xl bg-[#14532D] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#0f3d21] disabled:bg-slate-300 transition">{savingManualGrant ? "Menyimpan..." : "+ Berikan Akses Materi"}</button>
+        </form>
+      </div>
+
+      <div className="rounded-xl border border-[#E5E7EB] bg-white p-6">
+        <h2 className="text-lg font-extrabold text-slate-900">Riwayat Pembayaran & Langganan Peserta Umum ({data.subscriptions.length})</h2>
+        {data.subscriptions.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">Belum ada transaksi dari pengunjung luar kampung. Anda dapat menambahkan akses manual di atas.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="border-b border-slate-200 text-slate-500"><tr><th className="py-2.5 pr-4">Order ID</th><th className="py-2.5 pr-4">Peserta</th><th className="py-2.5 pr-4">Paket</th><th className="py-2.5 pr-4">Metode</th><th className="py-2.5 pr-4">Berlaku S/d</th><th className="py-2.5 pr-4">Status</th><th className="py-2.5 text-right">Aksi</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">{data.subscriptions.map((s: any) => <tr key={s.id}><td className="py-3 pr-4 font-mono text-xs text-slate-500">{s.orderId}</td><td className="py-3 pr-4"><p className="font-bold text-slate-900">{s.userName}</p><p className="text-xs text-slate-500">{s.userEmail}</p></td><td className="py-3 pr-4 font-semibold text-slate-800">{s.planName}</td><td className="py-3 pr-4 text-xs text-slate-600">{s.paymentMethod}</td><td className="py-3 pr-4 text-xs text-slate-600">{s.expiresAt ? new Date(s.expiresAt).toLocaleDateString("id-ID") : "â€”"}</td><td className="py-3 pr-4"><span className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold ${s.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{s.status === "active" ? "Aktif" : s.status}</span></td><td className="py-3 text-right space-x-1.5 whitespace-nowrap"><button type="button" onClick={() => handleSubAction(s.id, "extend30")} className="rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100" title="Perpanjang 30 hari">+30 Hari</button><button type="button" onClick={() => handleSubAction(s.id, "toggle")} className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-200">{s.status === "active" ? "Nonaktifkan" : "Aktifkan"}</button><button type="button" onClick={() => handleDeleteSub(s.id)} className="rounded-lg bg-red-50 px-2 py-1 text-[11px] font-bold text-red-600 hover:bg-red-100">Hapus</button></td></tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {isDev && (
+        <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 text-white">
+          <h2 className="text-lg font-extrabold text-amber-300">Panel Diagnostik Khusus Role Developer</h2>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 text-xs">
+            <div className="rounded-xl bg-white/5 p-4"><p className="text-slate-400">Mode Database</p><p className="mt-1 font-bold text-white">{data.diagnostics.supabaseUrl}</p></div>
+            <div className="rounded-xl bg-white/5 p-4"><p className="text-slate-400">Private Storage Materi</p><p className="mt-1 font-bold text-emerald-300">{data.diagnostics.privateStorageMode}</p></div>
+            <div className="rounded-xl bg-white/5 p-4"><p className="text-slate-400">Payment Gateway</p><p className="mt-1 font-bold text-amber-300">Midtrans ({data.diagnostics.midtransEnvironment})</p></div>
+          </div>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-xs text-slate-300">
+            <span>Siap dihubungkan ke Supabase & Midtrans cukup dengan menyalin <code>.env.example</code> menjadi <code>.env.local</code> dan menjalankan <code>supabase/schema.sql</code>.</span>
+            <button type="button" onClick={async () => { if (!confirm("Reset seluruh data lokal kembali ke data awal?")) return; await fetch("/api/admin/overview", { method: "POST" }); notify("Database lokal di-reset ke data awal."); fetchOverview(); }} className="rounded-xl bg-rose-600 px-4 py-2 font-extrabold text-white hover:bg-rose-500">Reset Data Demo</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,271 @@
+{
+  "persistence": {
+    "adminLogin": 200,
+    "listCount": 14,
+    "dbCount": 14,
+    "persisted": true
+  },
+  "flowA": {
+    "pin": "495364",
+    "hostPath": "/game/host/495364",
+    "playPath": "/game/play/495364",
+    "peserta": "Peserta Bukti AB",
+    "joinStatus": 200,
+    "joinOk": true,
+    "answerOk": true,
+    "correct": true
+  },
+  "flowB": {
+    "pin": "495364",
+    "start": 200,
+    "reveal": 200,
+    "next": 200,
+    "finalStatus": "podium",
+    "podium": [
+      {
+        "name": "Peserta Bukti AB",
+        "score": 992
+      }
+    ]
+  },
+  "flowC": {
+    "wargaLogin": 409,
+    "kelas": "/kelas/conversation-starter -> /modul/cm-conv-1",
+    "pdfStatus": 200,
+    "pdfCT": "application/pdf",
+    "pdfLen": 1416,
+    "logoutDELETE": 200,
+    "sessionAfter": {
+      "session": null
+    },
+    "localStorage": "sapen_last_quiz_name cleared by client (Navbar/AccountClient) on logout; server session cookie expired by DELETE"
+  },
+  "games7": [
+    {
+      "pin": "716874",
+      "gameId": "game-1794384449818-k49w",
+      "title": "Bukti Kuis Live 1 Soal",
+      "kind": "kuis_live",
+      "soal": 1,
+      "create": 200,
+      "hostId": "admin-developer",
+      "join": {
+        "status": 200,
+        "ok": true,
+        "playerName": "P-kuis_live"
+      },
+      "start": 200,
+      "answer": {
+        "status": 200,
+        "ok": true,
+        "correct": true
+      },
+      "reveal": 200,
+      "next": 200,
+      "finalStatus": "podium",
+      "podium": [
+        {
+          "name": "P-kuis_live",
+          "score": 993
+        }
+      ],
+      "playersCount": 1
+    },
+    {
+      "pin": "607822",
+      "gameId": "game-1794384461557-cktb",
+      "title": "Bukti Tebak Kata 1 Soal",
+      "kind": "tebak_kata",
+      "soal": 1,
+      "create": 200,
+      "hostId": "admin-developer",
+      "join": {
+        "status": 200,
+        "ok": true,
+        "playerName": "P-tebak_kata"
+      },
+      "start": 200,
+      "answer": {
+        "status": 200,
+        "ok": true,
+        "correct": true
+      },
+      "reveal": 200,
+      "next": 200,
+      "finalStatus": "podium",
+      "podium": [
+        {
+          "name": "P-tebak_kata",
+          "score": 993
+        }
+      ],
+      "playersCount": 1
+    },
+    {
+      "pin": "671339",
+      "gameId": "game-1794384468025-62mg",
+      "title": "Bukti Pasangkan Kata 1 Soal",
+      "kind": "pasangkan_kata",
+      "soal": 1,
+      "create": 200,
+      "hostId": "admin-developer",
+      "join": {
+        "status": 200,
+        "ok": true,
+        "playerName": "P-pasangkan_kata"
+      },
+      "start": 200,
+      "answer": {
+        "status": 200,
+        "ok": true,
+        "correct": true
+      },
+      "reveal": 200,
+      "next": 200,
+      "finalStatus": "podium",
+      "podium": [
+        {
+          "name": "P-pasangkan_kata",
+          "score": 995
+        }
+      ],
+      "playersCount": 1
+    },
+    {
+      "pin": "217502",
+      "gameId": "game-1794384474951-f2n1",
+      "title": "Bukti Susun Kalimat 1 Soal",
+      "kind": "susun_kalimat",
+      "soal": 1,
+      "create": 200,
+      "hostId": "admin-developer",
+      "join": {
+        "status": 200,
+        "ok": true,
+        "playerName": "P-susun_kalimat"
+      },
+      "start": 200,
+      "answer": {
+        "status": 200,
+        "ok": true,
+        "correct": false
+      },
+      "reveal": 200,
+      "next": 200,
+      "finalStatus": "podium",
+      "podium": [
+        {
+          "name": "P-susun_kalimat",
+          "score": 0
+        }
+      ],
+      "playersCount": 1
+    },
+    {
+      "pin": "058147",
+      "gameId": "game-1794384483991-nyge",
+      "title": "Bukti Tebak Gambar 1 Soal",
+      "kind": "tebak_gambar",
+      "soal": 1,
+      "create": 200,
+      "hostId": "admin-developer",
+      "join": {
+        "status": 200,
+        "ok": true,
+        "playerName": "P-tebak_gambar"
+      },
+      "start": 200,
+      "answer": {
+        "status": 200,
+        "ok": true,
+        "correct": true
+      },
+      "reveal": 200,
+      "next": 200,
+      "finalStatus": "podium",
+      "podium": [
+        {
+          "name": "P-tebak_gambar",
+          "score": 993
+        }
+      ],
+      "playersCount": 1
+    },
+    {
+      "pin": "528357",
+      "gameId": "game-1794384491342-ct8i",
+      "title": "Bukti Kata Hilang 1 Soal",
+      "kind": "kata_hilang",
+      "soal": 1,
+      "create": 200,
+      "hostId": "admin-developer",
+      "join": {
+        "status": 200,
+        "ok": true,
+        "playerName": "P-kata_hilang"
+      },
+      "start": 200,
+      "answer": {
+        "status": 200,
+        "ok": true,
+        "correct": true
+      },
+      "reveal": 200,
+      "next": 200,
+      "finalStatus": "podium",
+      "podium": [
+        {
+          "name": "P-kata_hilang",
+          "score": 993
+        }
+      ],
+      "playersCount": 1
+    },
+    {
+      "pin": "919738",
+      "gameId": "game-1794384497342-atpj",
+      "title": "Bukti Duel Kata Cepat 1 Soal",
+      "kind": "duel_kata_cepat",
+      "soal": 1,
+      "create": 200,
+      "hostId": "admin-developer",
+      "join": {
+        "status": 200,
+        "ok": true,
+        "playerName": "P-duel_kata_cepat"
+      },
+      "start": 200,
+      "answer": {
+        "status": 200,
+        "ok": true,
+        "correct": true
+      },
+      "reveal": 200,
+      "next": 200,
+      "finalStatus": "podium",
+      "podium": [
+        {
+          "name": "P-duel_kata_cepat",
+          "score": 987
+        }
+      ],
+      "playersCount": 1
+    }
+  ],
+  "servers": {
+    "start3000": {
+      "port": 3000,
+      "pid": 6840,
+      "session200": true
+    },
+    "dev3101": {
+      "port": 3101,
+      "pid": 1576,
+      "session200": true
+    }
+  },
+  "build": {
+    "npm_run_build": "sukses (exit 0)",
+    "tsc_src": "clean"
+  }
+}

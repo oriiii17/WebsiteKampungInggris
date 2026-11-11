@@ -1,0 +1,39 @@
+{
+  "log": [
+    {
+      "click": "login_warga_submit",
+      "url": "http://localhost:3101/masuk",
+      "apiStatus": null,
+      "t": "2026-11-11T09:37:17.464Z"
+    },
+    {
+      "click": "zoom_in",
+      "ok": false,
+      "t": "2026-11-11T09:37:31.705Z"
+    },
+    {
+      "click": "zoom_out",
+      "ok": false,
+      "t": "2026-11-11T09:37:31.731Z"
+    },
+    {
+      "click": "fullscreen",
+      "ok": false,
+      "t": "2026-11-11T09:37:31.749Z"
+    },
+    {
+      "click": "download",
+      "ok": false,
+      "t": "2026-11-11T09:37:31.773Z"
+    },
+    {
+      "click": "session_before_logout",
+      "session": {
+        "session": null
+      },
+      "t": "2026-11-11T09:37:39.667Z"
+    }
+  ],
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation",
+  "stack": "page.evaluate: Execution context was destroyed, most likely because of a navigation\n    at C:\\Users\\Orikonba Ronsumbre\\Documents\\WebsiteKampungInggris\\.tmp-flowc-browser.js:78:16"
+}

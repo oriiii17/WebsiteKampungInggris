@@ -1,0 +1,140 @@
+   ▲ Next.js 15.5.29
+   - Local:        http://localhost:3101
+   - Network:      http://10.59.181.144:3101
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 13.8s
+ ○ Compiling / ...
+ ✓ Compiled / in 20.7s (752 modules)
+ ✓ Compiled in 1708ms (264 modules)
+ ○ Compiling /masuk ...
+ ✓ Compiled /masuk in 2.3s (683 modules)
+ GET /masuk?tab=warga 200 in 3567ms
+ ○ Compiling /api/auth/warga-rw ...
+ ✓ Compiled /api/auth/warga-rw in 1538ms (750 modules)
+ ○ Compiling /kelas/[slug] ...
+ POST /api/auth/warga-rw 409 in 7405ms
+ ✓ Compiled /kelas/[slug] in 4.1s (776 modules)
+ GET /kelas/conversation-starter 200 in 9957ms
+ ○ Compiling /kelas/[slug]/modul/[moduleId] ...
+ ✓ Compiled /kelas/[slug]/modul/[moduleId] in 5.5s (814 modules)
+ GET /kelas/conversation-starter/modul/cm-conv-1 200 in 12405ms
+ ○ Compiling /akun ...
+ ✓ Compiled /akun in 7.2s (826 modules)
+ GET /akun 200 in 8494ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 4.4s (831 modules)
+ GET /login?next=/akun 200 in 6809ms
+ ○ Compiling /admin/login ...
+ ✓ Compiled /admin/login in 3.9s (840 modules)
+ GET /admin/login 200 in 4867ms
+ ○ Compiling /api/auth/admin ...
+ ✓ Compiled /api/auth/admin in 3.8s (842 modules)
+ ○ Compiling /admin ...
+ POST /api/auth/admin 200 in 6303ms
+ ✓ Compiled /admin in 9.9s (933 modules)
+ GET /admin 200 in 12006ms
+ GET /admin?tab=games 200 in 12974ms
+ GET /admin/login 200 in 838ms
+ ○ Compiling / ...
+ ✓ Compiled /api/auth/session in 2.7s (554 modules)
+ ✓ Compiled in 5.5s (348 modules)
+ GET /api/auth/session 200 in 11111ms
+ GET / 200 in 19195ms
+ GET /api/auth/session 200 in 240ms
+ ○ Compiling /api/auth/admin ...
+ ✓ Compiled /api/auth/admin in 1951ms (573 modules)
+ POST /api/auth/admin 200 in 4735ms
+ ○ Compiling /api/admin/games ...
+ ✓ Compiled /api/admin/games in 3.9s (909 modules)
+ GET /api/admin/games 200 in 6817ms
+ ○ Compiling /api/auth/warga-rw ...
+ ✓ Compiled /api/auth/warga-rw in 2.7s (577 modules)
+ POST /api/auth/warga-rw 200 in 7701ms
+ ○ Compiling /api/secure-class-file/[classId]/[moduleId] ...
+ ✓ Compiled /api/secure-class-file/[classId]/[moduleId] in 4.3s (913 modules)
+ GET /api/secure-class-file/class-conversation-starter/cm-conv-1?kind=pdf&code=SAPEN-CONV 200 in 11515ms
+ POST /api/auth/admin 200 in 1362ms
+ GET /api/admin/games 200 in 1428ms
+ ○ Compiling /api/game/live/create ...
+ ✓ Compiled /api/game/live/create in 6.3s (887 modules)
+ POST /api/game/live/create 200 in 9105ms
+ ○ Compiling /api/game/live/[pin]/join ...
+ ✓ Compiled /api/game/live/[pin]/join in 2.9s (889 modules)
+ POST /api/game/live/364011/join 200 in 5725ms
+ ○ Compiling /api/game/live/[pin]/action ...
+ ✓ Compiled /api/game/live/[pin]/action in 3.2s (891 modules)
+ POST /api/game/live/364011/action 200 in 5889ms
+ ○ Compiling /api/game/live/[pin]/answer ...
+ ✓ Compiled /api/game/live/[pin]/answer in 3.8s (893 modules)
+ POST /api/game/live/364011/answer 200 in 6912ms
+ POST /api/game/live/364011/action 200 in 102ms
+ POST /api/game/live/364011/action 200 in 75ms
+ ○ Compiling /api/game/live/[pin]/stream ...
+ ✓ Compiled /api/game/live/[pin]/stream in 1587ms (895 modules)
+ GET /api/game/live/364011/stream 200 in 3441ms
+ POST /api/auth/admin 200 in 1081ms
+ GET /api/admin/games 200 in 2845ms
+ ○ Compiling /masuk ...
+ POST /api/game/live/create 200 in 1786ms
+ ✓ Compiled /api/game/live/[pin]/join in 2.7s (556 modules)
+ ✓ Compiled (558 modules)
+ POST /api/game/live/118696/join 200 in 3100ms
+ GET /masuk?tab=warga 200 in 5523ms
+ ○ Compiling /api/game/live/[pin]/action ...
+ ✓ Compiled /api/game/live/[pin]/action in 897ms (560 modules)
+ POST /api/game/live/118696/action 200 in 1168ms
+ ○ Compiling /api/game/live/[pin]/answer ...
+ ✓ Compiled /api/game/live/[pin]/answer in 1022ms (562 modules)
+ POST /api/game/live/118696/answer 200 in 1225ms
+ POST /api/game/live/118696/action 200 in 152ms
+ POST /api/game/live/118696/action 200 in 198ms
+ GET /masuk? 200 in 1233ms
+ ○ Compiling /api/game/live/[pin]/stream ...
+ ✓ Compiled /api/game/live/[pin]/stream in 910ms (564 modules)
+ GET /api/game/live/118696/stream 200 in 1059ms
+ GET /kelas/conversation-starter/modul/cm-conv-1 200 in 4826ms
+ GET /akun 200 in 1613ms
+ ○ Compiling /api/auth/session ...
+ ✓ Compiled /api/auth/session in 2.2s (553 modules)
+ GET /api/auth/session 200 in 4618ms
+ GET /login?next=/akun 200 in 3333ms
+ ○ Compiling /api/auth/warga-rw ...
+ ✓ Compiled /api/auth/warga-rw in 2.1s (543 modules)
+ POST /api/auth/warga-rw 200 in 8773ms
+ GET /masuk?tab=warga 200 in 720ms
+ POST /api/auth/warga-rw 200 in 4903ms
+ ○ Compiling /modul ...
+ ✓ Compiled /modul in 5.2s (882 modules)
+ GET /modul 200 in 6976ms
+ GET /kelas/conversation-starter/modul/cm-conv-1 200 in 3283ms
+ GET /akun 200 in 1821ms
+ ○ Compiling /api/auth/session ...
+ ✓ Compiled /api/auth/session in 1837ms (550 modules)
+ GET /api/auth/session 200 in 2663ms
+ DELETE /api/auth/session 200 in 141ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1595ms (572 modules)
+ GET /api/auth/session 200 in 2285ms
+ GET / 200 in 10010ms
+ GET / 200 in 7888ms
+ GET /masuk?tab=warga 200 in 858ms
+ POST /api/auth/warga-rw 200 in 5356ms
+ GET /modul 200 in 5726ms
+ GET /modul 200 in 6562ms
+ GET /kelas/conversation-starter/modul/cm-conv-1 200 in 2914ms
+ ○ Compiling /api/secure-class-file/[classId]/[moduleId] ...
+ ✓ Compiled /api/secure-class-file/[classId]/[moduleId] in 3.5s (572 modules)
+ GET /api/secure-class-file/class-conversation-starter/cm-conv-1?kind=pdf&code=SAPEN-CONV 200 in 7291ms
+ GET /api/secure-class-file/class-conversation-starter/cm-conv-1?kind=pdf&code=SAPEN-CONV 200 in 735ms
+ GET /api/secure-class-file/class-conversation-starter/cm-conv-1?kind=original&download=1&code=SAPEN-CONV 200 in 1560ms
+ GET /akun 200 in 1320ms
+ ○ Compiling /api/auth/session ...
+ ✓ Compiled /api/auth/session in 1708ms (574 modules)
+ GET /api/auth/session 200 in 4438ms
+ DELETE /api/auth/session 200 in 154ms
+ GET /api/auth/session 200 in 4434ms
+ GET / 200 in 10983ms
+ GET / 200 in 12079ms
+ ✓ Compiled in 3.8s (348 modules)

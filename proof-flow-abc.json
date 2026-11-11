@@ -1,0 +1,15 @@
+{
+  "steps": [
+    "C1 loginUrl http://localhost:3101/masuk?tab=warga",
+    "C2 kelas sapaan= true bab= true",
+    "C3 materi {\"crumb\":false,\"daftar\":false,\"prevnext\":false,\"canvas\":0}",
+    "C3 controls []",
+    "A0 adminUrl http://localhost:3101/admin/login",
+    "A1 hasBuktiKuis false",
+    "A2 hostUrl http://localhost:3101/admin/login",
+    "A3 PIN "
+  ],
+  "errors": [
+    "flowC:page.evaluate: Execution context was destroyed, most likely because of a navigation"
+  ]
+}

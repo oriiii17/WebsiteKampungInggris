@@ -1,0 +1,37 @@
+Failed to compile.
+
+./src/components/admin/AdminGameManager.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\components\admin\AdminGameManager.tsx
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/components/admin/AdminGameManager.tsx
+./src/components/AdminDashboardClient.tsx
+
+./src/components/game/HostLiveSessionClient.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\components\game\HostLiveSessionClient.tsx
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/components/game/HostLiveSessionClient.tsx
+./src/app/game/host/[pin]/page.tsx
+
+./src/components/game/PlayerLiveGameClient.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\src\components\game\PlayerLiveGameClient.tsx
+    1: stream did not contain valid UTF-8
+
+Import trace for requested module:
+./src/components/game/PlayerLiveGameClient.tsx
+./src/app/game/play/[pin]/page.tsx
+
+
+> Build failed because of webpack errors
