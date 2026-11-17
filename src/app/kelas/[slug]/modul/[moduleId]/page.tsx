@@ -12,10 +12,12 @@ export default async function ClassModulePage({
   const { slug, moduleId } = await params;
   const [session, cls] = await Promise.all([getServerSession(), getClassByIdOrSlug(slug)]);
   if (!cls) notFound();
+  if (!cls.isPublished && !isAdminSession(session)) notFound();
   const mod = (cls.modules || []).find((m) => m.id === moduleId);
   if (!mod) notFound();
+  if (mod.status !== "terbit" && !isAdminSession(session)) notFound();
 
-  let enrolled = isAdminSession(session);
+  let enrolled = isAdminSession(session) || session?.origin === "warga_kode";
   if (!enrolled && session?.email) {
     const enrs = await getUserEnrollments(session.email);
     enrolled = enrs.some((e) => e.classId === cls.id);

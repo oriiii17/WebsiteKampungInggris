@@ -1,3 +1,5 @@
-import PaketPage from "../paket/page";
+import { redirect } from "next/navigation";
 
-export default PaketPage;
+export default function BerlanggananPage() {
+  redirect("/kelas");
+}

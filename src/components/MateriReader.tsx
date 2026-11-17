@@ -123,23 +123,23 @@ export default function MateriReader({
             </h2>
             <p className="mt-2 text-sm text-gray-600 leading-relaxed">
               Modul <strong>{module.title}</strong> dapat diakses oleh peserta dengan kode akses,
-              atau peserta umum dengan paket belajar aktif.
+              atau peserta umum yang terdaftar pada kelas ini.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto pt-2">
             <Link
-              href={`/login?next=/materi/${module.slug}`}
+              href={`/masuk?next=/materi/${module.slug}`}
               className="flex items-center justify-center gap-2 rounded-xl bg-[#14532D] hover:bg-[#0F3F22] px-5 py-3.5 text-sm font-extrabold text-white transition shadow-sm min-h-[44px]"
             >
               <KeyRound className="h-4 w-4" />
               Masuk ke Platform
             </Link>
             <Link
-              href="/paket"
+              href="/kelas"
               className="flex items-center justify-center gap-2 rounded-xl border-2 border-[#14532D] bg-white hover:bg-green-50 px-5 py-3.5 text-sm font-extrabold text-[#14532D] transition min-h-[44px]"
             >
-              Lihat Paket Belajar Umum
+              Lihat Kelas Individual
             </Link>
           </div>
 

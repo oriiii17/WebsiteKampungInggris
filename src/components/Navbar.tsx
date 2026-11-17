@@ -2,8 +2,9 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, CreditCard, ChevronDown, Gamepad2, GraduationCap, KeyRound, LogOut, Settings, User } from "lucide-react";
+import { BookOpen, ShoppingCart, ChevronDown, Gamepad2, GraduationCap, KeyRound, LogOut, Settings, User } from "lucide-react";
 import { SessionPayload } from "@/lib/types";
 import { SITE_CONFIG } from "@/config/site";
 import styles from "./Navbar.module.css";
@@ -47,18 +48,26 @@ export default function Navbar({ session }: NavbarProps) {
   if (isAdminRoute && isAdmin) {
     return <header className="hidden" aria-hidden="true" />;
   }
+  if (isAdmin && pathname.startsWith("/game/host")) {
+    return <header className="hidden" aria-hidden="true" />;
+  }
 
   const publicNavLinks = [
     { href: "/", label: "Beranda" },
     { href: "/kelas", label: "Kelas" },
-    { href: "/materi", label: "Materi" },
     { href: "/game", label: "Game" },
-    { href: "/paket", label: "Paket" },
-    { href: "/#tentang", label: "Tentang" },
-    { href: "/#faq", label: "FAQ" },
+    { href: "/tentang", label: "Tentang" },
+    { href: "/faq", label: "FAQ" },
   ];
 
   async function handleLogout() {
+    if (isAdmin) {
+      try {
+        const { createBrowserSupabaseClient } = await import("@/lib/supabase");
+        const supabase = createBrowserSupabaseClient();
+        if (supabase) await supabase.auth.signOut({ scope: "local" });
+      } catch {}
+    }
     try { await fetch("/api/auth/session", { method: "DELETE" }); } catch {}
     try { localStorage.removeItem("sapen_last_quiz_name"); } catch {}
     setOpen(false);
@@ -73,26 +82,24 @@ export default function Navbar({ session }: NavbarProps) {
     <header className={`${styles.navbar} ${scrolled ? styles.navbarScrolled : ""}`}>
       <div className={styles.inner}>
         <Link href="/" className={styles.brand}>
-          <span className={styles.brandCopy}>
-            <span className={styles.brandName}>{SITE_CONFIG.name}</span>
-            <span className={styles.brandTagline}>Belajar bahasa Inggris bersama</span>
-          </span>
+          <Image src="/sapen-english-village-logo.jpg" alt={`${SITE_CONFIG.name} — English Village`} width={651} height={453} priority className={styles.brandLogo} />
         </Link>
 
         <nav className={styles.desktopNav} aria-label="Navigasi utama">
           {publicNavLinks.map((item) => {
-            const active = item.href === "/" ? pathname === "/" : item.href.startsWith("/#") ? false : pathname.startsWith(item.href);
+            const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return <Link key={item.href} href={item.href} className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}>{item.label}</Link>;
           })}
         </nav>
 
         <div className={styles.desktopActions}>
+          <Link href="/keranjang" className={styles.cartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-4 w-4" /><span>Keranjang</span></Link>
           {!session ? (
             <>
-              <Link href="/login" className={styles.signIn}>
+              <Link href="/masuk" className={styles.signIn}>
                 Masuk
               </Link>
-              <Link href="/masuk" className={styles.signUp}>
+              <Link href="/daftar" className={styles.signUp}>
                 Daftar
               </Link>
             </>
@@ -111,7 +118,7 @@ export default function Navbar({ session }: NavbarProps) {
                   </div>
                   <Link href="/akun" onClick={() => setOpen(false)} className={styles.menuItem}><Settings />Akun Saya / Pengaturan Akun</Link>
                   {isAdmin && <Link href="/admin" onClick={() => setOpen(false)} className={styles.menuItem}><GraduationCap />Panel Pengurus</Link>}
-                  <button type="button" onClick={handleLogout} className={styles.menuLogout}><LogOut />Log Out</button>
+                  <button type="button" onClick={handleLogout} className={styles.menuLogout}><LogOut />Keluar</button>
                 </div>
               )}
             </div>
@@ -119,12 +126,13 @@ export default function Navbar({ session }: NavbarProps) {
         </div>
 
         <div className={styles.mobileActions}>
+          <Link href="/keranjang" className={styles.mobileCartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-5 w-5" /></Link>
           {session ? (
             <button type="button" onClick={() => setOpen((v) => !v)} className={styles.mobileAccountButton} aria-label="Menu akun" aria-expanded={open}>{initial}</button>
           ) : (
             <>
-              <Link href="/login" className={styles.mobileSignIn}>Masuk</Link>
-              <Link href="/masuk" className={styles.mobileSignUp}>Daftar</Link>
+              <Link href="/masuk" className={styles.mobileSignIn}>Masuk</Link>
+              <Link href="/daftar" className={styles.mobileSignUp}>Daftar</Link>
             </>
           )}
         </div>
@@ -136,7 +144,7 @@ export default function Navbar({ session }: NavbarProps) {
           <div className={styles.mobileAccountLinks}>
               <Link href="/akun" onClick={() => setOpen(false)} className={styles.mobileAccountLink}><User />Akun</Link>
               {isAdmin && <Link href="/admin" onClick={() => setOpen(false)} className={styles.mobileAccountLink}><GraduationCap />Panel Pengurus</Link>}
-              <button type="button" onClick={handleLogout} className={styles.mobileLogout}><LogOut />Log Out</button>
+              <button type="button" onClick={handleLogout} className={styles.mobileLogout}><LogOut />Keluar</button>
             </div>
         </div>
       )}
@@ -145,11 +153,10 @@ export default function Navbar({ session }: NavbarProps) {
         <Link href="/" className={`${styles.bottomLink} ${pathname === "/" ? styles.bottomLinkActive : ""}`}><GraduationCap />Beranda</Link>
         <Link href="/kelas" className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen />Kelas</Link>
         <Link href="/game" className={`${styles.bottomLink} ${pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 />Game</Link>
-        <Link href="/paket" className={`${styles.bottomLink} ${pathname.startsWith("/paket") ? styles.bottomLinkActive : ""}`}><CreditCard />Paket</Link>
         {session ? (
           <Link href="/akun" className={`${styles.bottomLink} ${pathname.startsWith("/akun") ? styles.bottomLinkActive : ""}`}><User />Akun</Link>
         ) : (
-          <Link href="/login" className={`${styles.bottomLink} ${pathname.startsWith("/login") ? styles.bottomLinkActive : ""}`}><KeyRound />Masuk</Link>
+          <Link href="/masuk" className={`${styles.bottomLink} ${pathname.startsWith("/masuk") ? styles.bottomLinkActive : ""}`}><KeyRound />Masuk</Link>
         )}
       </nav>
     </header>

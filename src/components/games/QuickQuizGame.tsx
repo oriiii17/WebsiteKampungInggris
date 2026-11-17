@@ -105,7 +105,7 @@ export default function QuickQuizGame({ session }: Props) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               gameId: "quick-quiz",
-              gameTitle: "Kuis Kilat Bahasa Inggris",
+              gameTitle: "Soal Pilihan Ganda",
               score: finalScore,
             }),
           });
@@ -174,7 +174,7 @@ export default function QuickQuizGame({ session }: Props) {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-red-50">
             <Zap className="h-7 w-7 text-red-600" />
           </div>
-          <h1 className="text-xl font-bold text-[#111827] mb-1">Kuis Kilat Bahasa Inggris</h1>
+          <h1 className="text-xl font-bold text-[#111827] mb-1">Soal Pilihan Ganda</h1>
           <p className="text-sm text-[#6B7280] mb-1">Mixed Skills • Sulit</p>
           <p className="text-sm text-[#6B7280] mb-5 leading-relaxed">
             <strong>10 pertanyaan</strong>, <strong>15 detik</strong> per soal, <strong>3 nyawa</strong>.

@@ -5,19 +5,52 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getServerSession } from "@/lib/auth";
 import { SITE_CONFIG } from "@/config/site";
+import AppDialogProvider from "@/components/AppDialogProvider";
 
 export const metadata: Metadata = {
   title: `${SITE_CONFIG.name} | ${SITE_CONFIG.tagline}`,
   description: SITE_CONFIG.shortDesc,
+  metadataBase: process.env.NEXT_PUBLIC_SITE_URL
+    ? new URL(process.env.NEXT_PUBLIC_SITE_URL)
+    : undefined,
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+    siteName: SITE_CONFIG.name,
+    title: `${SITE_CONFIG.name} | ${SITE_CONFIG.tagline}`,
+    description: SITE_CONFIG.shortDesc,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_CONFIG.name} | ${SITE_CONFIG.tagline}`,
+    description: SITE_CONFIG.shortDesc,
+  },
 };
 
-export default async function RootLayout({
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "EducationalOrganization",
+  name: "Sapen English Village / Kampung Inggris Sapen",
+  description: "Platform belajar Bahasa Inggris untuk warga RW 06, RW 07, dan RW 08 Kelurahan Demangan serta peserta umum.",
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Kelurahan Demangan, Gondokusuman, Yogyakarta",
+    addressRegion: "Daerah Istimewa Yogyakarta",
+    addressCountry: "ID",
+  },
+  areaServed: ["RW 06 Demangan", "RW 07 Demangan", "RW 08 Demangan", "Yogyakarta"],
+};
+
+async function NavbarWithSession() {
+  const session = await getServerSession();
+  return <Navbar session={session} />;
+}
+
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getServerSession();
-
   return (
     <html lang="id">
       <head>
@@ -29,10 +62,14 @@ export default async function RootLayout({
         />
       </head>
       <body className="flex min-h-screen flex-col font-sans">
-        <Suspense fallback={<div className="h-16 bg-paper border-b border-rule" />}>
-          <Navbar session={session} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, "\\u003c") }} />
+        <AppDialogProvider>
+        <a href="#main-content" className="skip-link">Lewati ke konten utama</a>
+        <Suspense fallback={<div className="navbar-fallback bg-paper border-b border-rule" aria-hidden="true" />}>
+          <NavbarWithSession />
         </Suspense>
-        <main className="flex-1">{children}</main>
+        <main id="main-content" tabIndex={-1} className="flex-1">{children}</main>
+        </AppDialogProvider>
         <Footer />
       </body>
     </html>

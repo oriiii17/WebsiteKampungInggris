@@ -733,55 +733,7 @@ export function createInitialSeedData(): DatabaseSchema {
       },
     ],
 
-    accessCodes: [
-      {
-        id: "code-1",
-        code: "SAPEN-RT01-KK01",
-        label: "Keluarga Bpk. Slamet Riyadi",
-        rtRw: "RT 01 / RW 01",
-        holderType: "keluarga",
-        maxDevices: 4,
-        expiresAt: "2027-12-31T23:59:59.000Z",
-        isActive: true,
-        createdBy: "Pengurus Sapen",
-        createdAt: "2026-11-01T09:00:00.000Z",
-        devices: [
-          {
-            deviceId: "seed-dev-1",
-            participantName: "Rizky Saputra",
-            deviceLabel: "Android Chrome",
-            lastSeenAt: "2026-11-07T10:15:00.000Z",
-            createdAt: "2026-11-03T10:15:00.000Z",
-          },
-        ],
-      },
-      {
-        id: "code-2",
-        code: "SAPEN-RT02-KK08",
-        label: "Keluarga Ibu Siti Rahayu",
-        rtRw: "RT 02 / RW 01",
-        holderType: "keluarga",
-        maxDevices: 4,
-        expiresAt: "2027-12-31T23:59:59.000Z",
-        isActive: true,
-        createdBy: "Pengurus Sapen",
-        createdAt: "2026-11-02T09:00:00.000Z",
-        devices: [],
-      },
-      {
-        id: "code-3",
-        code: "SAPEN-PEMUDA",
-        label: "Karang Taruna Kampung Sapen",
-        rtRw: "RW 01 - RW 03",
-        holderType: "keluarga",
-        maxDevices: 15,
-        expiresAt: "2027-06-30T23:59:59.000Z",
-        isActive: true,
-        createdBy: "Pengurus Sapen",
-        createdAt: "2026-11-03T09:00:00.000Z",
-        devices: [],
-      },
-    ],
+    accessCodes: [],
 
     externalUsers: [],
     subscriptions: [],
@@ -1131,11 +1083,11 @@ export function createInitialSeedData(): DatabaseSchema {
       },
     ],
 
-    // ── Kode RW: 1 kode bersama per RW ──
+    // Kode lama dipertahankan sebagai kode pertama tiap RW saat migrasi awal.
     rwCodes: [
-      createRwCodeRecord("RW 06", "QTU-OP3"),
-      createRwCodeRecord("RW 07", "MXR-7KA"),
-      createRwCodeRecord("RW 08", "BNJ-5WF"),
+      createRwCodeRecord("RW 06", "QTU-OP3", "rw-06-1"),
+      createRwCodeRecord("RW 07", "MXR-7KA", "rw-07-1"),
+      createRwCodeRecord("RW 08", "BNJ-5WF", "rw-08-1"),
     ],
 
     // ── Warga terdaftar (kosong saat seed, akan terisi dari login) ──

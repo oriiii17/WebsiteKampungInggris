@@ -14,17 +14,12 @@ export async function GET(
 
   const session = await getServerSession();
   const isAdmin = isAdminSession(session);
-  let hasAccess = isAdmin;
+  if (!cls.isPublished && !isAdmin) return new NextResponse("Kelas belum dipublikasikan.", { status: 404 });
+  if (mod.status !== "terbit" && !isAdmin) return new NextResponse("Materi belum diterbitkan.", { status: 404 });
+  let hasAccess = isAdmin || session?.origin === "warga_kode";
   if (!hasAccess && session?.email) {
     const enrs = await getUserEnrollments(session.email);
     hasAccess = enrs.some((e) => e.classId === cls.id);
-  }
-  // Kode akses per kelas (client-unlocked) is honored by allowing access when a token/header is not possible in mock;
-  // but for secure file we require session enrollment/admin. Public kode-unlock is client-side; for file serving we allow
-  // if ?code= matches class kodeAkses (mock-friendly) or session has access.
-  const code = req.nextUrl.searchParams.get("code") || "";
-  if (!hasAccess && cls.kodeAkses && code && code.toUpperCase() === cls.kodeAkses.toUpperCase()) {
-    hasAccess = true;
   }
   if (!hasAccess) return new NextResponse("Akses ditolak.", { status: 403 });
 

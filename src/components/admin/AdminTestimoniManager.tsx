@@ -9,6 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { TestimoniRecord } from "@/lib/types";
+import { useAppDialog } from "@/components/AppDialogProvider";
 
 interface AdminTestimoniManagerProps {
   testimoni: TestimoniRecord[];
@@ -21,6 +22,7 @@ export default function AdminTestimoniManager({
   onRefresh,
   notify,
 }: AdminTestimoniManagerProps) {
+  const dialog = useAppDialog();
   const [showAddForm, setShowAddForm] = useState(false);
   const [nama, setNama] = useState("");
   const [rw, setRw] = useState("RW 06");
@@ -40,7 +42,7 @@ export default function AdminTestimoniManager({
   }
 
   async function handleDelete(t: TestimoniRecord) {
-    if (!confirm(`Hapus ulasan dari "${t.nama}"?`)) return;
+    if (!(await dialog.confirm(`Hapus ulasan dari "${t.nama}"?`, "Hapus ulasan?"))) return;
     const res = await fetch(`/api/admin/testimoni?id=${encodeURIComponent(t.id)}`, {
       method: "DELETE",
     });

@@ -8,8 +8,9 @@ export function getBuiltinGames(): GameRecord[] {
   return [
     {
       id: "game-kuis-live",
-      title: "Quick Quiz (Kuis Kilat Kelas)",
+      title: "Soal Pilihan Ganda",
       kind: "kuis_live",
+      description: "Jawab pertanyaan Bahasa Inggris dengan memilih satu dari empat opsi.",
       migratedFromTemplateId: "quick-quiz",
       createdAt: t,
       updatedAt: t,
@@ -23,6 +24,7 @@ export function getBuiltinGames(): GameRecord[] {
       id: "game-tebak-kata",
       title: "Tebak Kata (Vocabulary)",
       kind: "tebak_kata",
+      description: "Tebak kata Bahasa Inggris dari petunjuk yang diberikan.",
       migratedFromTemplateId: "word-match",
       createdAt: t,
       updatedAt: t,
@@ -34,6 +36,7 @@ export function getBuiltinGames(): GameRecord[] {
       id: "game-pasangkan-kata",
       title: "Pasangkan Kata (Vocabulary Match)",
       kind: "pasangkan_kata",
+      description: "Cocokkan kosakata Bahasa Inggris dengan artinya.",
       migratedFromTemplateId: "word-match",
       createdAt: t,
       updatedAt: t,
@@ -45,6 +48,7 @@ export function getBuiltinGames(): GameRecord[] {
       id: "game-susun-kalimat",
       title: "Susun Kalimat (Word Builder)",
       kind: "susun_kalimat",
+      description: "Susun kata-kata menjadi kalimat Bahasa Inggris yang benar.",
       migratedFromTemplateId: "word-builder",
       createdAt: t,
       updatedAt: t,
@@ -56,6 +60,7 @@ export function getBuiltinGames(): GameRecord[] {
       id: "game-tebak-gambar",
       title: "Tebak Gambar",
       kind: "tebak_gambar",
+      description: "Tebak nama benda dalam Bahasa Inggris dari gambar.",
       createdAt: t,
       updatedAt: t,
       questions: [
@@ -66,6 +71,7 @@ export function getBuiltinGames(): GameRecord[] {
       id: "game-kata-hilang",
       title: "Kata Hilang (Fill in the Blank)",
       kind: "kata_hilang",
+      description: "Lengkapi kalimat Bahasa Inggris dengan kata yang tepat.",
       createdAt: t,
       updatedAt: t,
       questions: [
@@ -76,6 +82,7 @@ export function getBuiltinGames(): GameRecord[] {
       id: "game-duel-kata-cepat",
       title: "Duel Kata Cepat",
       kind: "duel_kata_cepat",
+      description: "Jawab petunjuk kosakata dengan cepat dan tepat.",
       migratedFromTemplateId: "quick-quiz",
       createdAt: t,
       updatedAt: t,

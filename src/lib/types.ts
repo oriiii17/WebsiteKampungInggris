@@ -1,18 +1,18 @@
-export type UserRole = "pengurus" | "developer" | "peserta";
+export type UserRole = "pengurus" | "developer" | "peserta" | "umum";
 
 // ============================================================
-// WARGA RW — Model login khusus warga Kampung Sapen per RW
+// WARGA RW - Model login khusus warga Kampung Sapen per RW
 // ============================================================
 export interface WargaRecord {
   id: string;
   namaPanggilan: string;
   rw: "RW 06" | "RW 07" | "RW 08";
-  deviceId: string;
   createdAt: string;
   lastLoginAt: string;
   isBlocked: boolean;
   totalGamesPlayed: number;
   highScore: number;
+  avatarDataUrl?: string;
 }
 
 export interface LoginLogEntry {
@@ -20,18 +20,18 @@ export interface LoginLogEntry {
   wargaId: string;
   namaPanggilan: string;
   rw: string;
-  deviceId: string;
   loginAt: string;
   ipHint?: string;
 }
 
 export interface RwCode {
+  id: string;
   rw: "RW 06" | "RW 07" | "RW 08";
   codeHash: string;       // bcrypt hash dari kode asli
   codeDisplay: string;    // format tampilan, e.g. "QTU-OP3"
   isActive: boolean;
   updatedAt: string;
-  forceLogoutAt?: string; // jika diset, semua sesi warga RW ini sebelum waktu ini tidak valid
+  forceLogoutAt?: string;
 }
 
 export interface TestimoniRecord {
@@ -53,11 +53,10 @@ export interface SessionPayload {
   origin: AccessOrigin;
   codeUsed?: string;
   rtRw?: string;
-  rw?: "RW 06" | "RW 07" | "RW 08"; // ← baru: RW warga
-  deviceId?: string;
-  expiresAt?: string; // ISO string masa aktif kode atau langganan
+  rw?: "RW 06" | "RW 07" | "RW 08";
+  expiresAt?: string;
   watermarkText: string;
-  rwForceLogoutAt?: string; // validasi paksa keluar RW
+  avatarDataUrl?: string;
 }
 
 export interface SyllabusItem {
@@ -214,18 +213,10 @@ export interface ClassEnrollment {
   userEmail: string;
   userName: string;
   startsAt: string;
-  expiresAt: string;
+  expiresAt?: string;
   status: "active" | "expired";
   paidAmountIdr: number;
   paymentMethod?: string;
-  createdAt: string;
-}
-
-export interface RegisteredDevice {
-  deviceId: string;
-  participantName: string;
-  deviceLabel: string;
-  lastSeenAt: string;
   createdAt: string;
 }
 
@@ -235,12 +226,10 @@ export interface AccessCode {
   label: string;
   rtRw: string;
   holderType: "keluarga" | "individu";
-  maxDevices: number;
-  expiresAt: string;
+  expiresAt: string | null;
   isActive: boolean;
   createdBy: string;
   createdAt: string;
-  devices: RegisteredDevice[];
 }
 
 export interface SubscriptionPlan {
@@ -260,6 +249,7 @@ export interface ExternalUser {
   email: string;
   passwordHash: string;
   createdAt: string;
+  avatarDataUrl?: string;
 }
 
 export interface SubscriptionRecord {
@@ -400,6 +390,7 @@ export interface GameRecord {
   id: string;
   title: string;
   kind: GameKind;
+  description?: string;
   questions: GameQuestion[];
   createdAt: string;
   updatedAt: string;

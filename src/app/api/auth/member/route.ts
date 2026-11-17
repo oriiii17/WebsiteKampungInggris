@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   encodeSessionToken,
-  hashPassword,
   SESSION_COOKIE_NAME,
 } from "@/lib/auth";
-import {
-  getActiveSubscriptionForEmail,
-  readLocalDb,
-  writeLocalDb,
-} from "@/lib/db";
+import { getActiveSubscriptionForEmail } from "@/lib/db";
 import { SessionPayload } from "@/lib/types";
+import { createPublicSupabaseClient } from "@/lib/supabase";
+import { checkApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
+import { isHttpsRequest } from "@/lib/request-security";
 
 export async function POST(req: NextRequest) {
+  const limit = checkApiRateLimit(`member:${getRequestIp(req)}`, 10, 10 * 60 * 1000);
+  if (!limit.allowed) return NextResponse.json({ error: "Terlalu banyak percobaan masuk. Coba lagi nanti." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
   try {
     const body = await req.json();
-    const mode = body.mode === "register" ? "register" : "login";
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
-    const name = String(body.name || "").trim();
+    if (body.mode === "register") {
+      return NextResponse.json({ error: "Gunakan alur pendaftaran peserta umum." }, { status: 400 });
+    }
 
     if (!email || !email.includes("@") || password.length < 4) {
       return NextResponse.json(
@@ -26,50 +27,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const db = await readLocalDb();
-    let user = db.externalUsers.find((u) => u.email.toLowerCase() === email);
-
-    if (mode === "register") {
-      if (!name) {
-        return NextResponse.json(
-          { error: "Mohon isi Nama Lengkap Anda untuk mendaftar." },
-          { status: 400 }
-        );
-      }
-      if (user) {
-        return NextResponse.json(
-          { error: "Email ini sudah terdaftar. Silakan pilih menu Masuk." },
-          { status: 409 }
-        );
-      }
-      user = {
-        id: `usr-${Date.now()}`,
-        name,
-        email,
-        passwordHash: hashPassword(password),
-        createdAt: new Date().toISOString(),
-      };
-      db.externalUsers.push(user);
-      await writeLocalDb(db);
-    } else {
-      if (!user || user.passwordHash !== hashPassword(password)) {
-        return NextResponse.json(
-          { error: "Email atau kata sandi belum sesuai." },
-          { status: 401 }
-        );
-      }
+    const authClient = createPublicSupabaseClient();
+    if (!authClient) {
+      return NextResponse.json({ error: "Layanan login belum tersedia." }, { status: 503 });
     }
+    const { data: authData, error: authError } = await authClient.auth.signInWithPassword({ email, password });
+    if (authError || !authData.user) {
+      return NextResponse.json(
+        { error: "Email atau kata sandi belum sesuai." },
+        { status: 401 }
+      );
+    }
+
+    const profile = await authClient.from("profiles").select("full_name,role").eq("id", authData.user.id).maybeSingle();
+    const role = profile.data?.role || authData.user.user_metadata?.role;
+    if (role !== "umum" && role !== "peserta") {
+      return NextResponse.json({ error: "Akun ini tidak dapat masuk melalui Peserta Umum." }, { status: 403 });
+    }
+    const authName = profile.data?.full_name || String(authData.user.user_metadata?.full_name || email.split("@")[0]);
 
     const activeSub = await getActiveSubscriptionForEmail(email);
 
     const session: SessionPayload = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: "peserta",
+      id: authData.user.id,
+      name: authName,
+      email,
+      role,
       origin: activeSub ? "luar_langganan" : "luar_belum_aktif",
       expiresAt: activeSub?.expiresAt,
-      watermarkText: `${user.name} • ${user.email}`,
+      watermarkText: `${authName} • ${email}`,
     };
 
     const res = NextResponse.json({
@@ -82,6 +68,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
+      secure: isHttpsRequest(req),
     });
     return res;
   } catch (err) {

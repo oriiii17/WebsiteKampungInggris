@@ -1,6 +1,6 @@
 .navbar {
-  --nav-chalk: #183b2d;
-  --nav-leaf: #355d49;
+  --nav-chalk: #244b3a;
+  --nav-leaf: #244b3a;
   --nav-paper: #f3e9d5;
   --nav-paper-light: #fdf9f0;
   --nav-earth: #ba472f;
@@ -13,24 +13,24 @@
   top: 0;
   z-index: 40;
   color: var(--nav-ink);
-  background: var(--nav-paper);
+  background: var(--nav-paper-light);
   border-bottom: 1px solid var(--nav-rule);
-  transition: background-color 180ms ease, border-color 180ms ease;
+  transition: background-color 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease;
 }
 
 .navbarScrolled {
   background: var(--nav-paper-light);
-  border-bottom-color: #b8aa8e;
+  border-bottom-color: var(--nav-rule);
 }
 
 .inner {
-  width: min(100% - 2rem, 76rem);
-  min-height: 70px;
+  width: min(100% - 2rem, 1280px);
+  min-height: 76px;
   margin-inline: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
+  gap: clamp(0.5rem, 1.5vw, 1.5rem);
 }
 
 .brand {
@@ -42,22 +42,13 @@
   text-decoration: none;
 }
 
-.brandMark {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  color: var(--nav-paper-light);
-  background: var(--nav-chalk);
-  border: 1px solid rgba(253, 249, 240, .35);
-  border-radius: 4px 8px 8px 4px;
-  box-shadow: inset 4px 0 0 rgba(229, 191, 79, .8);
-}
-
-.brandMark svg {
-  width: 23px;
-  height: 23px;
-  stroke-width: 1.8;
+.brandLogo {
+  display: block;
+  width: 112px;
+  height: 68px;
+  object-fit: contain;
+  object-position: center;
+  flex: 0 0 auto;
 }
 
 .brandCopy {
@@ -97,7 +88,8 @@
   display: inline-flex;
   align-items: center;
   padding: 0.55rem 0.72rem;
-  color: #443e34;
+  border-radius: 8px;
+  color: var(--nav-muted);
   font-size: 0.84rem;
   font-weight: 750;
   text-decoration: none;
@@ -106,7 +98,7 @@
 
 .navLink:hover {
   color: var(--nav-chalk);
-  background: rgba(36, 75, 58, 0.09);
+  background: var(--nav-paper);
 }
 
 .navLinkActive {
@@ -125,9 +117,27 @@
 }
 
 .desktopActions {
+  display: none;
   align-items: center;
   gap: 0.55rem;
 }
+
+.cartAction,
+.mobileCartAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  color: var(--nav-leaf);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.cartAction { padding: 0.45rem 0.65rem; border: 1px solid var(--nav-rule); border-radius: 10px; }
+.cartAction:hover, .mobileCartAction:hover { background: var(--nav-paper); }
+.mobileCartAction { width: 40px; }
 
 .signIn,
 .signUp,
@@ -145,18 +155,31 @@
 }
 
 .signIn {
-  color: var(--nav-chalk);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.9rem;
+  color: var(--nav-leaf);
+  background: var(--nav-paper-light);
+  border: 1.5px solid var(--nav-leaf);
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: color 150ms ease, background-color 150ms ease;
 }
 
 .signIn:hover {
-  color: var(--nav-earth);
+  color: var(--nav-paper-light);
+  background: var(--nav-leaf);
 }
 
 .signUp {
   color: var(--nav-paper-light);
   background: var(--nav-earth);
   border: 1px solid var(--nav-earth);
-  border-radius: 6px;
+  border-radius: 12px;
 }
 
 .signUp:hover {
@@ -179,7 +202,7 @@
 }
 
 .accountButton:hover {
-  border-color: #b7aa95;
+  border-color: var(--nav-rule);
 }
 
 .avatar {
@@ -216,7 +239,7 @@
   padding: 0.45rem;
   background: var(--nav-paper-light);
   border: 1px solid var(--nav-rule);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: 0 10px 24px rgba(45, 51, 43, 0.12);
 }
 
@@ -257,7 +280,7 @@
   color: var(--nav-ink);
   background: transparent;
   border: 0;
-  border-radius: 5px;
+  border-radius: 8px;
   font: inherit;
   font-size: 0.8rem;
   font-weight: 700;
@@ -277,11 +300,11 @@
 }
 
 .menuLogout {
-  color: #873e2c;
+  color: var(--nav-muted);
 }
 
 .menuLogout:hover {
-  background: #f4e8df;
+  background: var(--nav-paper);
 }
 
 .mobileActions {
@@ -304,11 +327,24 @@
   text-decoration: none;
 }
 
+.mobileSignIn {
+  color: var(--nav-leaf);
+  background: var(--nav-paper-light);
+  border: 1.5px solid var(--nav-leaf);
+  border-radius: 10px;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.mobileSignIn:hover {
+  color: var(--nav-paper-light);
+  background: var(--nav-leaf);
+}
+
 .mobileSignUp {
   padding-inline: 0.9rem;
   color: var(--nav-paper-light);
   background: var(--nav-earth);
-  border-radius: 6px;
+  border-radius: 12px;
 }
 
 .mobileAccountButton {
@@ -366,7 +402,7 @@
   color: var(--nav-leaf);
   background: transparent;
   border: 1px solid var(--nav-rule);
-  border-radius: 6px;
+  border-radius: 12px;
   font: inherit;
   font-size: 0.72rem;
   font-weight: 800;
@@ -375,12 +411,12 @@
 }
 
 .mobileLogout {
-  color: #873e2c;
-  border-color: #dec5b7;
+  color: var(--nav-muted);
+  border-color: var(--nav-rule);
 }
 
 .mobileLogout:hover {
-  background: #f4e8df;
+  background: var(--nav-paper);
 }
 
 .mobileAccountLink svg,
@@ -462,6 +498,14 @@
   }
 }
 
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .inner { width: calc(100% - 2rem); gap: 0.5rem; }
+  .brandLogo { width: 96px; height: 60px; }
+  .navLink { padding-inline: 0.48rem; font-size: 0.78rem; }
+  .desktopActions { gap: 0.35rem; }
+  .signIn, .signUp { padding-inline: 0.65rem; font-size: 0.8rem; }
+}
+
 @media (max-width: 359px) {
   .brandTagline {
     display: none;
@@ -470,7 +514,7 @@
 
 @media (max-width: 380px) {
   .inner {
-    width: calc(100% - 1.2rem);
+    width: calc(100% - 1rem);
     min-height: 68px;
     gap: 0.4rem;
   }
@@ -479,9 +523,9 @@
     gap: 0.5rem;
   }
 
-  .brandMark {
-    width: 38px;
-    height: 38px;
+  .brandLogo {
+    width: 92px;
+    height: 62px;
   }
 
   .brandName {

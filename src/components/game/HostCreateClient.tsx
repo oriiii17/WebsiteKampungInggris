@@ -44,7 +44,7 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
-        <Link href="/game" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4" /><span>Kembali ke Beranda Game</span></Link>
+        <Link href="/admin?tab=game-builder" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4" /><span>Kembali ke Kelola Game</span></Link>
         <span className="text-xs font-bold text-[#14532D] bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">Mode Host & Layar Proyektor</span>
       </div>
 

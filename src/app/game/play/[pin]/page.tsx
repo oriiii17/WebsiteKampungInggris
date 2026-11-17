@@ -16,8 +16,10 @@ export default async function PlayerGamePage({
   }
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-white">
-      <PlayerLiveGameClient pin={pin} />
+    <div className="workbook-page flex min-h-screen w-full justify-center text-ink">
+      <div className="w-full max-w-[1200px] min-w-0 px-2 sm:px-4 lg:px-6">
+        <PlayerLiveGameClient pin={pin} />
+      </div>
     </div>
   );
 }

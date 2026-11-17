@@ -2,14 +2,15 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+import { createBrowserSupabaseClient } from "@/lib/supabase";
 import {
   BookOpen,
   CheckCircle2,
+  AlertCircle,
   Copy,
   CreditCard,
-  Database,
-  Download,
   ExternalLink,
   Gamepad2,
   GraduationCap,
@@ -26,13 +27,10 @@ import {
   Users,
   MessageSquare,
   ChevronDown,
-  FileSpreadsheet,
-  FileText,
   Radio,
 } from "lucide-react";
 import {
   ModuleItem,
-  AccessCode,
   SubscriptionRecord,
   QuizQuestion,
   FlashcardItem,
@@ -50,7 +48,9 @@ import AdminTestimoniManager from "@/components/admin/AdminTestimoniManager";
 import AdminClassesManager from "@/components/admin/AdminClassesManager";
 import AdminHostGameTab from "@/components/admin/AdminHostGameTab";
 import AdminGameManager from "@/components/admin/AdminGameManager";
-import { getMockOverviewData } from "@/lib/mock-data";
+import AdminCodesManager from "@/components/admin/AdminCodesManager";
+import "@/components/admin/AdminTheme.css";
+import { useAppDialog } from "@/components/AppDialogProvider";
 
 interface AdminOverviewData {
   session: SessionPayload;
@@ -64,7 +64,6 @@ interface AdminOverviewData {
   stats: {
     totalModules: number;
     totalCodes: number;
-    activeDevices: number;
     activeSubscribers: number;
     totalRevenueIdr: number;
     totalQuizQuestions: number;
@@ -80,7 +79,6 @@ interface AdminOverviewData {
     pendingTestimoni?: number;
   };
   modules: ModuleItem[];
-  accessCodes: AccessCode[];
   subscriptions: SubscriptionRecord[];
   quizzes: QuizQuestion[];
   flashcards: FlashcardItem[];
@@ -89,6 +87,7 @@ interface AdminOverviewData {
   warga?: WargaRecord[];
   loginLog?: LoginLogEntry[];
   rwCodes?: Array<{
+    id: string;
     rw: "RW 06" | "RW 07" | "RW 08";
     codeDisplay: string;
     isActive: boolean;
@@ -102,16 +101,8 @@ interface AdminOverviewData {
   plans?: Array<{ id: string; name: string; priceIdr: number; durationDays: number }>;
 }
 
-const exportTypes = [
-  { value: "all", label: "Semua Data (Lengkap)", icon: <Database className="h-3.5 w-3.5 text-gray-400" /> },
-  { value: "warga", label: "Warga Sapen & Log Login", icon: <Users className="h-3.5 w-3.5 text-gray-400" /> },
-  { value: "external-users", label: "Peserta Umum & Langganan", icon: <UserPlus className="h-3.5 w-3.5 text-gray-400" /> },
-  { value: "enrollments", label: "Pendaftaran Kelas", icon: <GraduationCap className="h-3.5 w-3.5 text-gray-400" /> },
-  { value: "leaderboard", label: "Leaderboard Kuis", icon: <Trophy className="h-3.5 w-3.5 text-gray-400" /> },
-  { value: "access-codes", label: "Kode Akses & Perangkat", icon: <KeyRound className="h-3.5 w-3.5 text-gray-400" /> },
-] as const;
-
 export default function AdminDashboardClient() {
+  const dialog = useAppDialog();
   const router = useRouter();
   const searchParams = useSearchParams();
   const validTabs = ["classes", "warga", "testimoni", "codes", "games", "game-builder", "public", "payments"] as const;
@@ -122,23 +113,12 @@ export default function AdminDashboardClient() {
 
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabType>(initialTab);
   const [toast, setToast] = useState<string | null>(null);
 
-  const [showExport, setShowExport] = useState(false);
-  const [exportFormat, setExportFormat] = useState<"excel" | "csv">("excel");
-  const [exportType, setExportType] = useState("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-
-  // State Kode Akses Warga
-  const [codeValue, setCodeValue] = useState("QTU-OP3");
-  const [codeLabel, setCodeLabel] = useState("");
-  const [codeRtRw, setCodeRtRw] = useState("RT 01 / RW 06");
-  const [holderType, setHolderType] = useState<"keluarga" | "individu">("keluarga");
-  const [maxDevices, setMaxDevices] = useState(4);
-  const [validDays, setValidDays] = useState(365);
-  const [savingCode, setSavingCode] = useState(false);
 
   // State Manual Subscription Grant
   const [manualName, setManualName] = useState("");
@@ -162,29 +142,44 @@ export default function AdminDashboardClient() {
 
   async function handleLogout() {
     setLoggingOut(true);
-    await fetch("/api/auth/session", { method: "DELETE" });
-    router.push("/");
-    router.refresh();
+    try {
+      const supabase = createBrowserSupabaseClient();
+      if (supabase) await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // Tetap hapus sesi aplikasi lokal jika jaringan Supabase tidak tersedia.
+    } finally {
+      try { await fetch("/api/auth/session", { method: "DELETE" }); } catch {}
+      router.push("/admin/masuk");
+      router.refresh();
+      setLoggingOut(false);
+    }
   }
 
-  const notify = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast((prev) => (prev === msg ? null : prev)), 4000);
-  };
+  const notify = useCallback((msg: string) => {
+    const safeMessage = msg.includes('Gagal upsert ke tabel "subscription_plans"') || msg.includes("42501")
+      ? "Paket belum dapat disimpan karena izin database Supabase. Minta admin teknis memeriksa kebijakan akses paket."
+      : msg;
+    setToast(safeMessage);
+    setTimeout(() => setToast((prev) => (prev === safeMessage ? null : prev)), 5000);
+  }, []);
 
   const fetchOverview = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch("/api/admin/overview");
-      if (res.ok) {
-        setData(await res.json());
-      } else {
-        setData(getMockOverviewData());
-      }
+      if (!res.ok) {
+        setData(null);
+        setLoadError(res.status === 401 || res.status === 403
+          ? "Sesi admin tidak valid. Silakan masuk kembali."
+          : "Data dashboard belum dapat dimuat. Coba lagi.");
+      } else setData(await res.json());
     } catch {
-      setData(getMockOverviewData());
+      setData(null);
+      setLoadError("Data dashboard belum dapat dimuat. Periksa koneksi lalu coba lagi.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -193,69 +188,9 @@ export default function AdminDashboardClient() {
 
   // (legacy module/game state removed; kuis live dipisah ke tab Host Kuis / Game)
 
-  const handleExport = async () => {
-    const params = new URLSearchParams({ type: exportType, format: exportFormat });
-    try {
-      const res = await fetch(`/api/admin/export?${params.toString()}`);
-      if (!res.ok) throw new Error("Gagal mengekspor data");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const contentDisposition = res.headers.get("Content-Disposition");
-      let filename = `sapen-export-${new Date().toISOString().slice(0, 10)}.${exportFormat === "excel" ? "xlsx" : "csv"}`;
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="(.+)"/);
-        if (match) filename = match[1];
-      }
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(url);
-      const typeLabel = exportTypes.find((t) => t.value === exportType)?.label || exportType;
-      notify(`Berhasil ekspor ${typeLabel} ke ${exportFormat.toUpperCase()}!`);
-    } catch (err) {
-      alert("Gagal mengekspor data: " + (err instanceof Error ? err.message : "Unknown error"));
-    }
-  };
-
-  function generateRandomCode() {
-    const num = Math.floor(100 + Math.random() * 900);
-    const rt = codeRtRw.match(/\d+/)?.[0]?.padStart(2, "0") || "01";
-    setCodeValue(`SAPEN-RT${rt}-${num}`);
-  }
-
-  async function handleCreateCode(e: React.FormEvent) {
-    e.preventDefault();
-    setSavingCode(true);
-    const res = await fetch("/api/admin/codes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: codeValue, label: codeLabel, rtRw: codeRtRw, holderType, maxDevices, validDays }),
-    });
-    const out = await res.json();
-    setSavingCode(false);
-    if (!res.ok) { alert(out.error || "Gagal membuat kode."); return; }
-    setCodeLabel("");
-    generateRandomCode();
-    notify(`Kode akses ${out.code.code} berhasil dibuat!`);
-    fetchOverview();
-  }
-
-  async function handleCodeAction(codeId: string, action: "toggle" | "reset_devices" | "delete") {
-    await fetch("/api/admin/codes", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codeId, action }) });
-    notify("Data kode akses diperbarui.");
-    fetchOverview();
-  }
-
-  function buildWhatsAppShareUrl(ac: AccessCode) {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const text = `Halo *${ac.label}* (${ac.rtRw})! \n\nBerikut *Kode Akses Gratis* belajar Bahasa Inggris di Website *Kampung Inggris Sapen*:\n\nKode Akses: *${ac.code}*\nKuota: Maksimal ${ac.maxDevices} perangkat\nBerlaku s/d: ${new Date(ac.expiresAt).toLocaleDateString("id-ID")}\n\nCara masuk:\n1. Buka ${origin}/masuk?tab=warga\n2. Ketik Nama Panggilan & Kode *${ac.code}*\n3. Langsung baca semua modul Flipbook & mainkan Quiz!\n\nSalam hangat,\nPengurus Kampung Sapen`;
-    return `https://wa.me/?text=${encodeURIComponent(text)}`;
-  }
-
   async function handleGrantManualAccess(e: React.FormEvent) {
     e.preventDefault();
-    if (!manualName.trim() || !manualEmail.trim()) { alert("Nama dan email wajib diisi."); return; }
+    if (!manualName.trim() || !manualEmail.trim()) { await dialog.alert("Nama dan email wajib diisi."); return; }
     setSavingManualGrant(true);
     try {
       const res = await fetch("/api/admin/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: manualName, userEmail: manualEmail, planId: manualPlanId, durationDays: manualDurationDays }) });
@@ -263,7 +198,7 @@ export default function AdminDashboardClient() {
       if (!res.ok) throw new Error(json.error || "Gagal memberikan akses.");
       notify(`Akses materi berhasil diberikan kepada ${manualName}!`);
       setManualName(""); setManualEmail(""); fetchOverview();
-    } catch (err: any) { alert(err.message); } finally { setSavingManualGrant(false); }
+    } catch (err: any) { await dialog.alert(err.message); } finally { setSavingManualGrant(false); }
   }
 
   async function handleSubAction(id: string, action: "toggle" | "extend30") {
@@ -272,13 +207,25 @@ export default function AdminDashboardClient() {
   }
 
   async function handleDeleteSub(id: string) {
-    if (!confirm("Hapus data langganan ini?")) return;
+    if (!(await dialog.confirm("Hapus data langganan ini?", "Hapus langganan?"))) return;
     const res = await fetch(`/api/admin/subscriptions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     if (res.ok) { notify("Langganan dihapus."); fetchOverview(); }
   }
 
-  if (loading || !data) {
+  if (loading) {
     return <div className="bg-[#FDFBF7] p-16 text-center text-sm font-bold text-[#1A2E1A]/70">Memuat Dashboard Pengurus Kampung Inggris Sapen...</div>;
+  }
+  if (!data) {
+    return (
+      <section role="alert" className="mx-auto max-w-xl p-8 text-center">
+        <h1 className="text-xl font-bold text-[#1A2E1A]">Dashboard belum dapat dibuka</h1>
+        <p className="mt-2 text-sm text-[#1A2E1A]/75">{loadError || "Data dashboard belum dapat dimuat."}</p>
+        <div className="mt-5 flex flex-wrap justify-center gap-3">
+          <button type="button" onClick={fetchOverview} className="min-h-11 rounded-md bg-earth px-4 py-2 text-sm font-bold text-white">Coba lagi</button>
+          <Link href="/admin/masuk" className="inline-flex min-h-11 items-center rounded-md border border-rule px-4 py-2 text-sm font-bold text-leaf">Masuk kembali</Link>
+        </div>
+      </section>
+    );
   }
 
   const isDev = data.session.role === "developer";
@@ -290,7 +237,8 @@ export default function AdminDashboardClient() {
       title: "Kelola",
       items: [
         { id: "classes" as const, label: "Kelas", icon: GraduationCap },
-        { id: "codes" as const, label: "Kelola Akses Peserta", icon: KeyRound },
+        { id: "warga" as const, label: "Akses RW & Peserta", icon: KeyRound },
+        { id: "codes" as const, label: "Peserta & Akses Kelas", icon: Users },
         { id: "game-builder" as const, label: "Kelola Game", icon: Gamepad2 },
         { id: "games" as const, label: "Host Kuis / Game", icon: Radio },
         { id: "public" as const, label: "Situs Publik", icon: ExternalLink, href: "/" },
@@ -303,11 +251,8 @@ export default function AdminDashboardClient() {
     <aside className="flex h-full w-[250px] flex-col border-r border-[#E5E7EB] bg-white">
       <div className="border-b border-[#E5E7EB] px-4 py-4">
         <Link href="/admin" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#14532D] text-white">
-            <GraduationCap className="h-5 w-5" />
-          </div>
+          <Image src="/sapen-english-village-logo.jpg" alt="Sapen English Village" width={651} height={453} priority className="h-auto w-[104px] shrink-0" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-[#1A2E1A]">Kampung Inggris Sapen</p>
             <p className="text-[11px] font-semibold text-[#1A2E1A]/60">Panel Pengurus</p>
           </div>
         </Link>
@@ -354,7 +299,7 @@ export default function AdminDashboardClient() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#1A2E1A]">
+    <div className="admin-theme min-h-screen bg-[#FDFBF7] text-[#1A2E1A]">
       <div className="hidden md:fixed md:inset-y-0 md:left-0 md:z-30 md:block">{sidebar}</div>
 
       {sidebarOpen && (
@@ -372,8 +317,7 @@ export default function AdminDashboardClient() {
                 <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0 md:hidden">
-                <p className="truncate text-sm font-black text-[#1A2E1A]">Kampung Inggris Sapen</p>
-                <p className="text-[11px] text-[#1A2E1A]/60">Dashboard Pengurus</p>
+                <Image src="/sapen-english-village-logo.jpg" alt="Sapen English Village" width={651} height={453} priority className="h-auto w-[88px]" />
               </div>
               <div className="hidden items-center gap-2 md:flex">
                 <span className="rounded-md border border-[#E5E7EB] bg-[#FDFBF7] px-2.5 py-1 text-xs font-bold text-[#14532D]">{roleLabel}</span>
@@ -384,29 +328,6 @@ export default function AdminDashboardClient() {
                 <RefreshCw className="h-4 w-4" />
                 <span className="hidden sm:inline">Muat Ulang</span>
               </button>
-              <div className="relative">
-                <button type="button" onClick={() => setShowExport(!showExport)} className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7]">
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">Ekspor</span>
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </button>
-                {showExport && (
-                  <div className="absolute right-0 top-full z-30 mt-1.5 min-w-[240px] rounded-xl border border-[#E5E7EB] bg-white">
-                    <div className="p-2">
-                      <p className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#1A2E1A]/60">Format</p>
-                      <label className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs text-[#1A2E1A] hover:bg-[#FDFBF7]"><input type="radio" name="exportFormat" checked={exportFormat === "excel"} onChange={() => setExportFormat("excel")} className="text-[#14532D]" /><FileSpreadsheet className="h-3.5 w-3.5 text-[#14532D]" />Excel (.xlsx)</label>
-                      <label className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs text-[#1A2E1A] hover:bg-[#FDFBF7]"><input type="radio" name="exportFormat" checked={exportFormat === "csv"} onChange={() => setExportFormat("csv")} className="text-[#14532D]" /><FileText className="h-3.5 w-3.5 text-[#14532D]" />CSV (.csv)</label>
-                    </div>
-                    <div className="border-t border-[#E5E7EB]" />
-                    <p className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#1A2E1A]/60">Jenis Data</p>
-                    <div className="max-h-64 overflow-y-auto p-1">
-                      {exportTypes.map((t) => (
-                        <label key={t.value} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-xs text-[#1A2E1A] hover:bg-[#FDFBF7]"><input type="radio" name="exportType" checked={exportType === t.value} onChange={() => { setExportType(t.value); setShowExport(false); handleExport(); }} className="text-[#14532D]" />{t.icon}<span>{t.label}</span></label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
               <button type="button" onClick={handleLogout} disabled={loggingOut} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7]">
                 <LogOut className="h-4 w-4 text-[#14532D]" />
                 <span className="hidden sm:inline">Keluar</span>
@@ -415,23 +336,23 @@ export default function AdminDashboardClient() {
           </div>
         </header>
 
-        <main className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div className="mx-auto max-w-6xl space-y-6">
+        <main className="px-3 py-4 sm:px-4 lg:px-6 lg:py-6">
+          <div className="mx-auto max-w-[1680px] space-y-5">
             <div className="max-w-3xl">
               <h1 className="text-2xl font-extrabold tracking-tight text-[#1A2E1A] sm:text-[30px]">Dashboard Pengelolaan Kampung Inggris Sapen</h1>
               <p className="mt-1 text-sm leading-relaxed text-[#1A2E1A]/75">Kelola kelas, akses peserta, kuis live, situs publik, dan pembayaran dari sidebar.</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
               <StatCard label="Modul Aktif" value={`${data.stats.totalModules}`} subValue="Flipbook terbit" icon={<BookOpen className="h-4 w-4" />} />
-              <StatCard label="Kode Akses" value={`${data.stats.totalCodes}`} subValue={`${data.stats.activeDevices} perangkat aktif`} icon={<KeyRound className="h-4 w-4" />} />
+              <StatCard label="Kode Akses" value={`${data.stats.totalCodes}`} subValue="Kode aktif" icon={<KeyRound className="h-4 w-4" />} />
               <StatCard label="Soal & Kosakata" value={`${data.stats.totalQuizQuestions + data.stats.totalFlashcards}`} subValue="Item latihan" icon={<Gamepad2 className="h-4 w-4" />} />
               <StatCard label="Pendapatan" value={`Rp ${data.stats.totalRevenueIdr.toLocaleString("id-ID")}`} subValue="Langganan umum" icon={<CreditCard className="h-4 w-4" />} />
             </div>
 
             {toast && (
-              <div className="flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-bold text-[#14532D]">
-                <CheckCircle2 className="h-5 w-5 text-[#14532D]" />
+              <div role="status" className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm font-bold ${toast.includes("izin database Supabase") ? "border-amber-300 bg-amber-50 text-amber-950" : "border-[#E5E7EB] bg-white text-[#14532D]"}`}>
+                {toast.includes("izin database Supabase") ? <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-800" /> : <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#14532D]" />}
                 {toast}
               </div>
             )}
@@ -443,7 +364,6 @@ export default function AdminDashboardClient() {
       {tab === "warga" && (
         <AdminWargaManager
           warga={data.warga || []}
-          rwCodes={data.rwCodes || []}
           loginLog={data.loginLog || []}
           stats={data.stats}
           onRefresh={fetchOverview}
@@ -456,26 +376,9 @@ export default function AdminDashboardClient() {
       )}
 
       {tab === "codes" && (
-        <CodesTab
+        <AdminCodesManager
           data={data}
-          codeValue={codeValue}
-          setCodeValue={setCodeValue}
-          codeLabel={codeLabel}
-          setCodeLabel={setCodeLabel}
-          codeRtRw={codeRtRw}
-          setCodeRtRw={setCodeRtRw}
-          holderType={holderType}
-          setHolderType={setHolderType}
-          maxDevices={maxDevices}
-          setMaxDevices={setMaxDevices}
-          validDays={validDays}
-          setValidDays={setValidDays}
-          savingCode={savingCode}
-          setSavingCode={setSavingCode}
-          generateRandomCode={generateRandomCode}
-          handleCreateCode={handleCreateCode}
-          handleCodeAction={handleCodeAction}
-          buildWhatsAppShareUrl={buildWhatsAppShareUrl}
+          onRefresh={fetchOverview}
           notify={notify}
         />
       )}
@@ -530,97 +433,8 @@ function StatCard({ label, value, subValue, icon }: { label: string; value: stri
   );
 }
 
-function CodesTab(props: any) {
-  const { data, codeValue, setCodeValue, codeLabel, setCodeLabel, codeRtRw, setCodeRtRw, holderType, setHolderType, maxDevices, setMaxDevices, validDays, setValidDays, savingCode, setSavingCode, generateRandomCode, handleCreateCode, handleCodeAction, buildWhatsAppShareUrl, notify } = props;
-  return (
-    <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-12">
-      <div className="lg:col-span-5">
-        <form onSubmit={handleCreateCode} className="space-y-4 rounded-xl border border-[#E5E7EB] bg-white p-6">
-          <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
-            <Plus className="h-5 w-5 text-[#14532D]" /> Buat Kode Akses Warga Baru
-          </h2>
-          <p className="text-xs text-slate-500">Buat 1 kode per Kepala Keluarga (KK) atau per warga, lalu bagikan langsung ke WhatsApp warga.</p>
-          <div>
-            <label className="block text-xs font-bold text-slate-700">Nama Keluarga / Warga Penerima</label>
-            <input type="text" required value={codeLabel} onChange={(e) => setCodeLabel(e.target.value)} placeholder="Contoh: Keluarga Bpk. Hendra" className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold focus:border-[#14532D] focus:outline-none" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700">Wilayah RT / RW</label>
-              <input type="text" value={codeRtRw} onChange={(e) => setCodeRtRw(e.target.value)} placeholder="RT 01 / RW 02" className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold focus:border-[#14532D] focus:outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700">Tipe Pemegang</label>
-              <select value={holderType} onChange={(e) => setHolderType(e.target.value as "keluarga" | "individu")} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold">
-                <option value="keluarga">Per Keluarga (KK)</option>
-                <option value="individu">Per Orang</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-slate-700">Kode Unik</label>
-              <button type="button" onClick={generateRandomCode} className="text-xs font-bold text-[#14532D] underline">Acak Kode Otomatis</button>
-            </div>
-            <input type="text" required value={codeValue} onChange={(e) => setCodeValue(e.target.value.toUpperCase())} className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm font-extrabold uppercase tracking-wider focus:border-[#14532D] focus:outline-none" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700">Batas Perangkat (HP/Laptop)</label>
-              <input type="number" min={1} max={50} value={maxDevices} onChange={(e) => setMaxDevices(Number(e.target.value))} className="mt-1 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700">Masa Berlaku</label>
-              <select value={validDays} onChange={(e) => setValidDays(Number(e.target.value))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold">
-                <option value={30}>1 Bulan (30 Hari)</option>
-                <option value={90}>3 Bulan (90 Hari)</option>
-                <option value={180}>6 Bulan</option>
-                <option value={365}>1 Tahun Penuh</option>
-              </select>
-            </div>
-          </div>
-          <button type="submit" disabled={savingCode} className="w-full rounded-xl bg-[#F59E0B] py-3.5 text-sm font-extrabold text-gray-900 hover:bg-[#d97706] transition disabled:opacity-60">
-            {savingCode ? "Menyimpan..." : "Simpan & Buat Kode Warga"}
-          </button>
-        </form>
-      </div>
-
-      <div className="space-y-4 lg:col-span-7">
-        <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
-          <Users className="h-5 w-5 text-[#14532D]" />
-          Daftar Kode Akses Warga ({data.accessCodes.length})
-        </h2>
-        {data.accessCodes.map((ac: any) => (
-          <div key={ac.id} className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-lg bg-emerald-50 px-3 py-1 font-mono text-sm font-extrabold text-[#14532D] border border-emerald-200">{ac.code}</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${ac.isActive ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>{ac.isActive ? "Aktif" : "Nonaktif"}</span>
-                  <span className="text-xs font-semibold text-slate-500">{ac.rtRw}</span>
-                </div>
-                <h3 className="mt-2 text-base font-extrabold text-slate-900">{ac.label}</h3>
-                <p className="text-xs text-slate-500">Perangkat terpakai: <strong>{ac.devices.length} / {ac.maxDevices} perangkat</strong> â€¢ Berlaku s/d {new Date(ac.expiresAt).toLocaleDateString("id-ID")}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => { navigator.clipboard.writeText(ac.code); notify(`Kode ${ac.code} disalin!`); }} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><Copy className="h-3.5 w-3.5" /> Salin</button>
-                <a href={buildWhatsAppShareUrl(ac)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl bg-[#14532D] px-3.5 py-2 text-xs font-extrabold text-white hover:bg-[#0f3d21]"><Send className="h-3.5 w-3.5" /> Kirim WhatsApp</a>
-              </div>
-            </div>
-            {ac.devices.length > 0 && <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600"><strong>Pemakai:</strong> {ac.devices.map((d: any) => `${d.participantName} (${d.deviceLabel})`).join(", ")}</div>}
-            <div className="mt-3 flex flex-wrap gap-3 border-t border-slate-100 pt-3 text-xs font-bold">
-              <button type="button" onClick={() => handleCodeAction(ac.id, "toggle")} className="text-slate-600 hover:text-slate-900 underline">{ac.isActive ? "Nonaktifkan Sementara" : "Aktifkan Kembali"}</button>
-              {ac.devices.length > 0 && <button type="button" onClick={() => handleCodeAction(ac.id, "reset_devices")} className="text-amber-700 hover:text-amber-900 underline">Reset Perangkat ({ac.devices.length})</button>}
-              <button type="button" onClick={() => handleCodeAction(ac.id, "delete")} className="text-rose-600 hover:text-rose-800 underline">Hapus Kode</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function PaymentsTab(props: any) {
+  const dialog = useAppDialog();
   const { data, isDev, manualName, setManualName, manualEmail, setManualEmail, manualPlanId, setManualPlanId, manualDurationDays, setManualDurationDays, savingManualGrant, setSavingManualGrant, handleGrantManualAccess, handleSubAction, handleDeleteSub, fetchOverview, notify } = props;
   return (
     <div className="mt-6 space-y-6">
@@ -628,8 +442,8 @@ function PaymentsTab(props: any) {
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-amber-100 p-2 text-amber-800"><CreditCard className="h-5 w-5" /></div>
           <div className="flex-1">
-            <div className="flex items-center gap-2"><span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">Feature Flag: PAYMENT_ENABLED = false</span><span className="text-xs text-amber-800 font-medium">(Pembayaran Otomatis Segera Dibuka)</span></div>
-            <p className="mt-1 text-xs text-amber-800 leading-relaxed">Semua tombol pembayaran di halaman publik saat ini berstatus dinonaktifkan dengan label <strong>"Pembayaran segera dibuka"</strong>. Anda dapat memberikan akses materi secara manual kepada murid atau pengguna umum tertentu menggunakan form di bawah ini.</p>
+            <div className="flex items-center gap-2"><span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">Pembayaran online belum dibuka</span></div>
+            <p className="mt-1 text-xs text-amber-800 leading-relaxed">Untuk sementara, pengurus dapat membantu peserta mendapatkan akses materi melalui formulir pemberian akses manual di bawah ini.</p>
           </div>
         </div>
       </div>
@@ -669,7 +483,7 @@ function PaymentsTab(props: any) {
           </div>
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-xs text-slate-300">
             <span>Siap dihubungkan ke Supabase & Midtrans cukup dengan menyalin <code>.env.example</code> menjadi <code>.env.local</code> dan menjalankan <code>supabase/schema.sql</code>.</span>
-            <button type="button" onClick={async () => { if (!confirm("Reset seluruh data lokal kembali ke data awal?")) return; await fetch("/api/admin/overview", { method: "POST" }); notify("Database lokal di-reset ke data awal."); fetchOverview(); }} className="rounded-xl bg-rose-600 px-4 py-2 font-extrabold text-white hover:bg-rose-500">Reset Data Demo</button>
+            <button type="button" onClick={async () => { if (!(await dialog.confirm("Reset seluruh data lokal kembali ke data awal?", "Reset data demo?"))) return; await fetch("/api/admin/overview", { method: "POST" }); notify("Database lokal di-reset ke data awal."); fetchOverview(); }} className="rounded-xl bg-rose-600 px-4 py-2 font-extrabold text-white hover:bg-rose-500">Reset Data Demo</button>
           </div>
         </div>
       )}

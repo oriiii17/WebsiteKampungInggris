@@ -2,15 +2,17 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowRight, BookOpen, Clock, Gamepad2, KeyRound, Layers, Sparkles, Trophy, Zap } from "lucide-react";
+import { gameIllustration } from "@/lib/illustrations";
 
 const GAME_TYPES = [
   { id: "telling-time", title: "Telling the Time", subtitle: "Waktu & Jam", desc: "Membaca jam dalam Bahasa Inggris: o'clock, half past, quarter to/past.", icon: Clock },
   { id: "word-match", title: "Vocabulary Match", subtitle: "Kosakata Harian", desc: "Mencocokkan kata benda, profesi, dan benda di sekitar rumah tangga.", icon: Sparkles },
   { id: "word-builder", title: "Word Builder", subtitle: "Menyusun Kalimat", desc: "Menyusun kepingan kata acak menjadi struktur kalimat yang utuh dan benar.", icon: Layers },
   { id: "story-quest", title: "Story Quest", subtitle: "Membaca & Memahami", desc: "Membaca cerita pendek interaktif tentang warga Kampung Sapen.", icon: BookOpen },
-  { id: "quick-quiz", title: "Quick Quiz", subtitle: "Kuis Kilat Kelas", desc: "Tantangan kecepatan & akurasi tata bahasa dan frasa sehari-hari.", icon: Zap },
+  { id: "quick-quiz", title: "Soal Pilihan Ganda", subtitle: "Pilih jawaban yang tepat", desc: "Jawab pertanyaan Bahasa Inggris dengan memilih satu dari empat opsi.", icon: Zap },
 ];
 
 export default function GameIndexPage() {
@@ -38,6 +40,7 @@ export default function GameIndexPage() {
               <div className="mb-8 flex items-center gap-2 text-sm font-bold text-white/75"><Gamepad2 className="h-5 w-5 text-sunshine" /> Lembar aktivitas · game kelas</div>
               <h1 className="max-w-lg font-display text-4xl font-semibold leading-[1.03] text-white sm:text-6xl">Satu PIN. Satu kelas. Ayo main.</h1>
               <p className="mt-5 max-w-lg text-base leading-7 text-white/80">Masukkan PIN yang ditampilkan pengajar untuk bergabung ke kuis bahasa Inggris secara langsung.</p>
+              <figure className="illustration-frame relative mt-7 aspect-[16/7] max-w-md overflow-hidden rounded-xl border border-white/20 bg-white/10"><Image src={gameIllustration("pin")} alt="Ilustrasi PIN untuk bergabung ke permainan kelas" fill sizes="(max-width: 767px) 90vw, 35vw" className="object-contain p-2" /></figure>
             </div>
             <Link href="/leaderboard" className="mt-10 inline-flex min-h-11 w-fit items-center gap-2 border-b border-sunshine pb-1 text-sm font-bold text-white hover:text-sunshine"><Trophy className="h-4 w-4 text-sunshine" />Lihat papan peringkat <ArrowRight className="h-4 w-4" /></Link>
           </div>
@@ -86,13 +89,24 @@ export default function GameIndexPage() {
           </div>
           <div className="workbook-index">
             {GAME_TYPES.map((game, index) => { const Icon = game.icon; return (
-              <article key={game.id} className="grid gap-4 border-b border-rule py-5 sm:grid-cols-[4rem_1fr_auto] sm:items-center sm:gap-6">
-                <span className="font-display text-3xl text-earth">{String(index + 1).padStart(2, "0")}</span>
-                <div><div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-bold text-leaf"><Icon className="h-4 w-4" />{game.subtitle}<span className="text-muted">· Game kelas</span></div><h3 className="text-2xl">{game.title}</h3><p className="mt-1 text-sm leading-6 text-body">{game.desc}</p></div>
-                <span className="inline-flex min-h-10 items-center gap-2 text-xs font-bold text-muted"><Gamepad2 className="h-4 w-4 text-earth" />Dimainkan saat sesi kelas</span>
+              <article key={game.id} className="grid min-w-0 gap-4 border-b border-rule py-5 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center sm:gap-6">
+                <figure className="illustration-frame relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-rule bg-white"><Image src={gameIllustration(game.id)} alt="" fill sizes="(max-width: 639px) 100vw, 112px" className="object-contain p-1" /></figure>
+                <div className="min-w-0"><div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-bold text-leaf"><span className="font-display text-lg text-[#943520]">{String(index + 1).padStart(2, "0")}</span><Icon className="h-4 w-4" />{game.subtitle}<span className="text-muted">· Game kelas</span></div><h3 className="break-words text-2xl">{game.title}</h3><p className="mt-1 text-sm leading-6 text-body">{game.desc}</p><span className="mt-3 inline-flex min-h-8 items-center gap-2 text-xs font-bold text-muted"><Gamepad2 className="h-4 w-4 text-earth" />Dimainkan saat sesi kelas</span></div>
               </article>
             ); })}
           </div>
+        </div>
+      </section>
+
+      <section className="workbook-wrap pb-14 sm:pb-20">
+        <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-[#1A3C34] p-6 text-white shadow-card sm:flex-row sm:items-center sm:p-10">
+          <div className="max-w-2xl">
+            <h2 className="text-3xl text-white sm:text-4xl">Siap bermain bersama kelas?</h2>
+            <p className="mt-3 text-sm leading-6 text-white/80">Masukkan PIN sesi dari pengajar untuk bergabung ke permainan live.</p>
+          </div>
+          <Link href="/game/join" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-extrabold text-[#1A3C34] transition hover:bg-slate-100">
+            Gabung dengan PIN <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
     </div>

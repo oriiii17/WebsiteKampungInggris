@@ -21,6 +21,7 @@ export default function TestimoniSection({
   const [nama, setNama] = useState(currentUserName || "");
   const [komentar, setKomentar] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [authed, setAuthed] = useState(false);
@@ -32,6 +33,7 @@ export default function TestimoniSection({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
     if (!nama.trim() || !komentar.trim()) return;
     setLoading(true);
     try {
@@ -40,12 +42,12 @@ export default function TestimoniSection({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nama, komentar }),
       });
-      if (res.ok) {
-        setSubmitted(true);
-        setKomentar("");
-      }
-    } catch {
-      // ignore
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.error || "Ulasan belum dapat dikirim. Silakan coba lagi.");
+      setSubmitted(true);
+      setKomentar("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Ulasan belum dapat dikirim. Periksa koneksi lalu coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -150,6 +152,7 @@ export default function TestimoniSection({
                 <h4 className="text-base font-extrabold text-ink">Bagikan Pengalaman Belajarmu</h4>
                 <p className="text-xs text-muted mt-0.5">Ceritakan pengalamanmu belajar di platform ini untuk memotivasi pengguna lain.</p>
               </div>
+              {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
 
               <div>
                 <label className="block text-xs font-bold text-body uppercase tracking-wider">Nama yang Ditampilkan</label>

@@ -1,0 +1,14 @@
+const targets = await (await fetch('http://127.0.0.1:9223/json/list')).json();
+const target = targets.find(x => x.type === 'page');
+const ws = new WebSocket(target.webSocketDebuggerUrl);
+await new Promise(resolve => ws.addEventListener('open', resolve, { once: true }));
+let id = 0;
+const pending = new Map();
+ws.addEventListener('message', event => { const message = JSON.parse(event.data); if (message.id && pending.has(message.id)) { pending.get(message.id)(message); pending.delete(message.id); } });
+const send = (method, params = {}) => new Promise(resolve => { const requestId = ++id; pending.set(requestId, resolve); ws.send(JSON.stringify({ id: requestId, method, params })); });
+await send('Page.enable'); await send('Runtime.enable');
+await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__footerv=[]; setInterval(()=>{const f=document.querySelector('footer');window.__footerv.push({t:Math.round(performance.now()),exists:!!f,display:f&&getComputedStyle(f).display,rect:f&&Math.round(f.getBoundingClientRect().height),classes:[...document.querySelectorAll('.admin-route-shell,.game-host-route,.game-player-route')].map(x=>x.className)});},100);` });
+await send('Page.navigate', { url: 'http://localhost:3000/' });
+await new Promise(resolve => setTimeout(resolve, 9000));
+const result = await send('Runtime.evaluate', { expression: 'JSON.stringify({url:location.href,samples:window.__footerv.filter((_,i)=>i%5===0)})', returnByValue: true });
+console.log(result.result?.result?.value); ws.close();

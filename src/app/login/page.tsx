@@ -1,3 +1,5 @@
-import MasukPage from "../masuk/page";
+import { redirect } from "next/navigation";
 
-export default MasukPage;
+export default function LegacyLoginPage() {
+  redirect("/masuk");
+}

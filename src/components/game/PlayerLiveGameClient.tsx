@@ -11,10 +11,10 @@ interface PlayerInfo { id: string; name: string; score: number; }
 interface SessionState { pin: string; templateTitle: string; status: "lobby" | "question" | "reveal" | "podium" | "closed"; currentQuestionIndex: number; totalQuestions: number; questionStartedAt: number; timeLimitSec: number; currentQuestion: Q | null; playersList: PlayerInfo[]; }
 
 const SHAPES = [
-  { symbol: "?", bg: "bg-red-500 hover:bg-red-600", border: "border-red-700" },
-  { symbol: "?", bg: "bg-blue-500 hover:bg-blue-600", border: "border-blue-700" },
-  { symbol: "?", bg: "bg-amber-500 hover:bg-amber-600", border: "border-amber-700" },
-  { symbol: "�", bg: "bg-emerald-600 hover:bg-emerald-700", border: "border-emerald-800" },
+  { symbol: "○", bg: "bg-red-500 hover:bg-red-600" },
+  { symbol: "△", bg: "bg-blue-500 hover:bg-blue-600" },
+  { symbol: "□", bg: "bg-amber-500 hover:bg-amber-600" },
+  { symbol: "◇", bg: "bg-emerald-600 hover:bg-emerald-700" },
 ];
 
 function shuffle<T>(arr: T[]): T[] { const a = [...arr]; for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
@@ -28,6 +28,7 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
   const [lastPoints, setLastPoints] = useState<number | null>(null);
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
   const [flash, setFlash] = useState<"correct" | "wrong" | null>(null);
+  const [mediaLoadFailed, setMediaLoadFailed] = useState(false);
   // answer states
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([]);
@@ -39,6 +40,8 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
   const currentQIndexRef = useRef(-1);
   const revealedForRef = useRef<number>(-1);
   const audioCtxRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => setMediaLoadFailed(false), [state?.currentQuestionIndex, state?.status]);
 
   function playTone(ok: boolean) {
     try {
@@ -128,7 +131,7 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
     return "";
   }, [q]);
 
-  if (!state || !playerId) return (<div className="flex min-h-screen items-center justify-center p-6 text-center bg-gradient-to-b from-[#052e1a] via-[#0F172A] to-[#111827]"><div><Loader2 className="h-8 w-8 animate-spin text-emerald-400 mx-auto mb-3" /><p className="text-slate-300 font-semibold text-sm">Menghubungkan ke ruang kelas #{pin}...</p></div></div>);
+  if (!state || !playerId) return (<div className="workbook-page flex min-h-screen items-center justify-center p-6 text-center"><div><Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-leaf" /><p className="text-sm font-semibold text-body">Menghubungkan ke ruang kelas #{pin}...</p></div></div>);
 
   const isChoice = qType === "kuis_live" || (qType === "tebak_gambar" && Array.isArray(q?.options) && q.options.filter(Boolean).length > 0);
   const isMulti = isChoice && q?.choiceMode === "multiple";
@@ -136,31 +139,31 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
   const rights = Array.from(new Set((q?.pairs||[]).map((p:any)=>p.right)));
 
   return (
-    <div className={`flex flex-col min-h-screen max-w-md mx-auto w-full select-none bg-gradient-to-b from-[#052e1a] via-[#0F172A] to-[#0b1020] transition-all ${flash === "correct" ? "bg-emerald-900/40 ring-4 ring-emerald-400/60" : ""} ${flash === "wrong" ? "animate-[shake_.35s_ease]" : ""}`}>
+    <div className={`workbook-live flex min-h-screen w-full max-w-[1200px] select-none flex-col bg-paper transition-all ${flash === "correct" ? "bg-emerald-900/40 ring-4 ring-emerald-400/60" : ""} ${flash === "wrong" ? "animate-[shake_.35s_ease]" : ""}`}>
       <header className="bg-slate-950/80 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-xs">{playerName.charAt(0).toUpperCase() || "??"}</div>
+          <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-xs">{playerName.charAt(0).toUpperCase() || "?"}</div>
           <div>
-            <p className="text-xs font-bold text-white leading-tight truncate max-w-[140px]">{playerName}</p>
+            <p className="text-xs font-bold text-white leading-tight truncate max-w-[180px]">{playerName}</p>
             <p className="text-[10px] text-slate-400">PIN: {state.pin}</p>
           </div>
         </div>
         {myPlayerInfo && (<div className="flex items-center gap-2"><span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs font-mono font-bold text-amber-400 border border-slate-700">{myPlayerInfo.score} pt</span>{myRank > 0 && <span className="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold text-slate-300">#{myRank}</span>}</div>)}
       </header>
 
-      <main className="flex-1 flex flex-col p-4">
+      <main className="flex-1 flex flex-col p-4 sm:p-6 lg:p-8">
         {state.status === "lobby" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-5 animate-[fadeIn_.4s_ease]">
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-5 animate-[fadeIn_.4s_ease] min-h-[60vh]">
             <div className="h-24 w-24 rounded-3xl bg-emerald-600/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-300 animate-pulse shadow-[0_0_40px_rgba(16,185,129,.25)]"><Gamepad2 className="h-12 w-12" /></div>
             <div><h1 className="text-3xl font-black text-white">Kamu Sudah Masuk!</h1><p className="text-sm text-slate-300 mt-2 leading-relaxed">Tunggu sebentar ya, <strong className="text-white">{playerName}</strong>. Host akan segera memulai.</p></div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 w-full text-xs text-slate-300">Game: <span className="font-bold text-emerald-400">{state.templateTitle}</span><br/>Peserta: <span className="font-bold text-white">{state.playersList.length} orang</span></div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 w-full max-w-xl text-xs text-slate-300">Game: <span className="font-bold text-emerald-400">{state.templateTitle}</span><br/>Peserta: <span className="font-bold text-white">{state.playersList.length} orang</span></div>
           </div>
         )}
 
         {state.status === "question" && q && (
           <div className="flex-1 flex flex-col py-2 space-y-3">
             <div className="flex items-center justify-between text-xs text-slate-300 px-1"><span>Soal {state.currentQuestionIndex + 1} / {state.totalQuestions}</span><span className="font-semibold text-emerald-400">{Math.max(1, state.timeLimitSec || 20)}s</span></div>
-            {q.mediaUrl && <img src={q.mediaUrl} alt="media" className="w-full max-h-40 object-contain rounded-xl border border-slate-700 bg-slate-900"/>}
+            {q.mediaUrl && (mediaLoadFailed ? <p role="status" className="text-sm text-amber-300">Gambar soal tidak dapat dimuat.</p> : <img src={q.mediaUrl} alt="Gambar soal" onError={() => setMediaLoadFailed(true)} className="w-full max-h-40 object-contain rounded-xl border border-slate-700 bg-slate-900"/>)}
             <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-sm text-white font-semibold leading-relaxed">{q.question || q.prompt}{q.sentence ? <div className="mt-2 text-emerald-300">{q.sentence}</div> : null}{q.hint ? <div className="mt-1 text-xs text-slate-400">Petunjuk: {q.hint}</div> : null}</div>
 
             {!hasSubmitted ? (
@@ -172,7 +175,7 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
                       const btn = SHAPES[idx];
                       const active = isMulti ? selectedOptions.includes(idx) : selectedOption===idx;
                       return (
-                        <button key={idx} type="button" onClick={() => { if(isMulti){ setSelectedOptions(s=> s.includes(idx)? s.filter(x=>x!==idx): [...s,idx]); } else { setSelectedOption(idx); } }} className={`${btn.bg} ${active?"ring-4 ring-white/70":""} rounded-2xl shadow-lg border-b-4 ${btn.border} flex flex-col items-center justify-center text-white transition active:scale-95 min-h-[120px] p-2`}>
+                        <button key={idx} type="button" onClick={() => { if(isMulti){ setSelectedOptions(s=> s.includes(idx)? s.filter(x=>x!==idx): [...s,idx]); } else { setSelectedOption(idx); } }} className={`${btn.bg} ${active?"ring-4 ring-white/70":""} flex min-h-[120px] flex-col items-center justify-center rounded-2xl p-2 text-white shadow-lg transition active:scale-95`}>
                           <span className="text-4xl font-black mb-1 drop-shadow-md">{btn.symbol}</span>
                           <span className="text-[11px] font-bold text-center leading-snug line-clamp-3">{opt || `Opsi ${idx+1}`}</span>
                         </button>
@@ -230,7 +233,7 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
             {lastCorrect == null ? (
               <div className="rounded-3xl bg-slate-900 border border-slate-700 p-8 space-y-3"><Clock className="h-12 w-12 text-slate-400 mx-auto" /><h3 className="text-xl font-bold text-white">Waktu Habis</h3><p className="text-xs text-slate-400">Kamu tidak sempat menjawab.</p></div>
             ) : lastCorrect ? (
-              <div className="rounded-3xl bg-emerald-950/70 border-2 border-emerald-400 p-8 space-y-4 shadow-[0_0_40px_rgba(34,197,94,.25)]"><div className="h-20 w-20 rounded-full bg-emerald-500 flex items-center justify-center text-white mx-auto shadow-lg"><CheckCircle2 className="h-12 w-12" /></div><h2 className="text-3xl font-black text-white">BENAR! ??</h2>{lastPoints != null && <div className="inline-block rounded-2xl bg-emerald-600 px-6 py-2.5 text-lg font-black text-white animate-[floatUp_.6s_ease]">+{lastPoints} Poin</div>}</div>
+              <div className="rounded-3xl bg-emerald-950/70 border-2 border-emerald-400 p-8 space-y-4 shadow-[0_0_40px_rgba(34,197,94,.25)]"><div className="h-20 w-20 rounded-full bg-emerald-500 flex items-center justify-center text-white mx-auto shadow-lg"><CheckCircle2 className="h-12 w-12" /></div><h2 className="text-3xl font-black text-white">BENAR!</h2>{lastPoints != null && <div className="inline-block rounded-2xl bg-emerald-600 px-6 py-2.5 text-lg font-black text-white animate-[floatUp_.6s_ease]">+{lastPoints} Poin</div>}</div>
             ) : (
               <div className="rounded-3xl bg-red-950/70 border-2 border-red-400 p-8 space-y-4 animate-[shake_.35s_ease]"><div className="h-20 w-20 rounded-full bg-red-500 flex items-center justify-center text-white mx-auto shadow-lg"><XCircle className="h-12 w-12" /></div><h2 className="text-3xl font-black text-white">BELUM TEPAT</h2><p className="text-xs text-red-200">Tetap semangat!</p></div>
             )}
@@ -243,7 +246,7 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
         {state.status === "podium" && (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-6 animate-[fadeIn_.4s_ease]">
             <div className="h-24 w-24 rounded-full bg-amber-500/20 border-2 border-amber-300 flex items-center justify-center text-amber-300 shadow-xl animate-[trophy_.9s_ease_infinite_alternate]"><Trophy className="h-12 w-12" /></div>
-            <div className="space-y-2"><h2 className="text-3xl font-black text-white">Kuis Selesai! ??</h2><p className="text-sm text-slate-300">Terima kasih sudah bermain.</p></div>
+            <div className="space-y-2"><h2 className="text-3xl font-black text-white">Kuis Selesai!</h2><p className="text-sm text-slate-300">Terima kasih sudah bermain.</p></div>
             <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 w-full space-y-3 shadow-lg"><div className="text-xs text-slate-400 uppercase tracking-wider font-bold">Pencapaian Akhirmu</div><div className="text-4xl font-black text-amber-300">Peringkat #{myRank || "-"}</div><div className="text-sm font-bold text-slate-200">Total Skor: <span className="text-emerald-400">{myPlayerInfo?.score || 0}</span> Poin</div></div>
             <Link href="/game" className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-500 transition shadow min-h-[44px]"><span>Kembali ke Menu Game</span><ArrowRight className="h-4 w-4" /></Link>
           </div>

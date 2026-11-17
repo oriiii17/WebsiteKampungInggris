@@ -1,90 +1,66 @@
 import { NextRequest, NextResponse } from "next/server";
 import { encodeSessionToken, SESSION_COOKIE_NAME } from "@/lib/auth";
-import { loginWargaRw } from "@/lib/db";
-import { checkRateLimit } from "@/lib/rw-auth";
-import { SessionPayload } from "@/lib/types";
+import { createPublicSupabaseClient } from "@/lib/supabase";
+import { checkApiRateLimit, clearApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
+import { isHttpsRequest } from "@/lib/request-security";
+import type { SessionPayload } from "@/lib/types";
+
+type VerifiedCode = { id: string; label: string; rt_rw: string; holder_type: "keluarga" | "individu" };
+
+function normalizeCode(value: unknown): string {
+  const compact = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return compact.length === 6 ? `${compact.slice(0, 3)}-${compact.slice(3)}` : "";
+}
 
 export async function POST(req: NextRequest) {
-  // Rate limiting per IP
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown";
-
-  const rateCheck = checkRateLimit(ip);
-  if (!rateCheck.allowed) {
-    return NextResponse.json(
-      {
-        error: `Terlalu banyak percobaan. Coba lagi dalam ${Math.ceil(rateCheck.retryAfterSec / 60)} menit.`,
-      },
-      { status: 429, headers: { "Retry-After": String(rateCheck.retryAfterSec) } }
-    );
-  }
+  const ip = getRequestIp(req);
+  const key = `warga-access:${ip}`;
+  const limit = checkApiRateLimit(key, 5, 10 * 60 * 1000);
+  if (!limit.allowed) return NextResponse.json({ error: "Terlalu banyak percobaan kode. Coba lagi beberapa menit." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
 
   try {
     const body = await req.json();
-    const inputCode = String(body.code || "").trim();
-    const namaPanggilan = String(body.nama || "").trim();
-    const deviceId = String(body.deviceId || `dev-${Date.now()}`).trim();
-    const forceNew = Boolean(body.forceNew); // true jika user pilih "Pakai nama lain"
+    const code = normalizeCode(body.code);
+    if (!code) return NextResponse.json({ error: "Masukkan enam karakter kode warga dengan format XXX-XXX." }, { status: 400 });
 
-    if (!inputCode || !namaPanggilan) {
-      return NextResponse.json(
-        { error: "Mohon isi Nama Panggilan dan Kode RW terlebih dahulu." },
-        { status: 400 }
-      );
+    const supabase = createPublicSupabaseClient();
+    if (!supabase) return NextResponse.json({ error: "Layanan login warga belum dikonfigurasi." }, { status: 503 });
+
+    const { data, error } = await supabase.rpc("verify_access_code", { p_code: code });
+    if (error) {
+      console.error("[auth/warga-rw] Supabase RPC verify_access_code", { code: error.code, message: error.message, details: error.details, hint: error.hint });
+      return NextResponse.json({ error: "Server belum dapat memverifikasi kode. Coba lagi sebentar." }, { status: 502 });
     }
 
-    const result = await loginWargaRw({
-      inputCode,
-      namaPanggilan: forceNew ? `${namaPanggilan}2` : namaPanggilan,
-      deviceId,
-      ipHint: ip,
-    });
+    const verified = (Array.isArray(data) ? data[0] : data) as VerifiedCode | null;
+    if (!verified?.id) return NextResponse.json({ error: "Kode tidak valid atau sudah tidak aktif." }, { status: 403 });
 
-    // Nama bentrok dengan warga lain
-    if (result.nameConflict && !forceNew) {
-      return NextResponse.json(
-        {
-          nameConflict: true,
-          message: `Nama "${namaPanggilan}" sudah dipakai warga lain di ${result.rw?.rw}. Ini akun kamu, atau pakai nama lain?`,
-        },
-        { status: 409 }
-      );
-    }
-
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 403 });
-    }
-
-    const warga = result.warga!;
-    const rw = result.rw!;
-
+    const rw = String(verified.rt_rw || "").match(/RW\s*0?([0-9]+)/i)?.[1];
+    const rwLabel = rw ? `RW ${rw.padStart(2, "0")}` : verified.rt_rw;
+    const name = verified.label || "Warga Sapen";
     const session: SessionPayload = {
-      id: warga.id,
-      name: warga.namaPanggilan,
+      id: String(verified.id),
+      name,
       role: "peserta",
       origin: "warga_kode",
-      codeUsed: rw.codeDisplay,
-      rw: rw.rw,
-      rtRw: rw.rw,
-      deviceId,
-      watermarkText: `${warga.namaPanggilan} · ${rw.rw}`,
-      rwForceLogoutAt: rw.forceLogoutAt,
+      codeUsed: code,
+      rtRw: verified.rt_rw,
+      ...(rwLabel === "RW 06" || rwLabel === "RW 07" || rwLabel === "RW 08" ? { rw: rwLabel } : {}),
+      watermarkText: `${name} · ${verified.rt_rw || "Warga Sapen"}`,
     };
 
-    const res = NextResponse.json({ ok: true, session });
-    res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), {
+    clearApiRateLimit(key);
+    const response = NextResponse.json({ ok: true, session });
+    response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 90, // 90 hari
+      maxAge: 60 * 60 * 24 * 30,
+      secure: isHttpsRequest(req),
     });
-    return res;
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Terjadi kesalahan server." },
-      { status: 500 }
-    );
+    return response;
+  } catch (error) {
+    console.error("[auth/warga-rw] Request failed", error);
+    return NextResponse.json({ error: "Permintaan login tidak dapat diproses. Periksa kode lalu coba lagi." }, { status: 400 });
   }
 }

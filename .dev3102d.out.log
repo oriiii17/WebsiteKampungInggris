@@ -1,0 +1,33 @@
+   ▲ Next.js 15.5.29
+   - Local:        http://localhost:3102
+   - Network:      http://192.168.1.5:3102
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 9.5s
+ ○ Compiling /api/auth/session ...
+ ✓ Compiled /api/auth/session in 11.8s (372 modules)
+ GET /api/auth/session 200 in 3786ms
+ GET /api/auth/session 200 in 861ms
+ ○ Compiling /api/auth/admin ...
+ ✓ Compiled /api/auth/admin in 876ms (364 modules)
+ POST /api/auth/admin 200 in 3055ms
+ ○ Compiling /api/admin/classes ...
+ ✓ Compiled /api/admin/classes in 523ms (374 modules)
+[api/admin/classes POST] tersimpan & terverifikasi {
+  id: 'class-test-kilo-migrated2',
+  title: 'KELAS TEST KILO',
+  modules: 1
+}
+ POST /api/admin/classes 200 in 7977ms
+ ○ Compiling /kelas ...
+ ✓ Compiled /kelas in 9.3s (758 modules)
+ ✓ Compiled in 1180ms (258 modules)
+ GET /kelas 200 in 14214ms
+[api/admin/classes DELETE] terhapus & terverifikasi { id: 'class-test-kilo-migrated2' }
+ DELETE /api/admin/classes?id=class-test-kilo-migrated2 200 in 4783ms
+ GET /api/admin/classes 200 in 672ms
+ GET /kelas 200 in 5423ms
+ ○ Compiling /api/auth/session ...
+ ✓ Compiled /api/auth/session in 1562ms (177 modules)
+ GET /api/auth/session 200 in 2888ms

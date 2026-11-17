@@ -31,7 +31,7 @@ export default async function GameDetailPage({ params }: Props) {
   const game = gameId as GameId;
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] pb-24 md:pb-12">
+    <div className="workbook-page min-h-screen pb-24 md:pb-12">
       {game === "telling-time" && <TellingTimeGame session={session} />}
       {game === "word-match" && <WordMatchGame session={session} />}
       {game === "word-builder" && <WordBuilderGame session={session} />}

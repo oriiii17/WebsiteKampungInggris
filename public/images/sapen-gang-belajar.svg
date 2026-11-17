@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 620" fill="none">
+  <title>Gang kampung dengan rumah, pepohonan, dan kegiatan belajar</title>
+  <path fill="#F4E7CF" d="M0 0h820v620H0z"/><circle cx="672" cy="116" r="62" fill="#E5BF4F" opacity=".7"/>
+  <path fill="#D8E6D4" d="M0 347c108-58 208-59 324 6 94 53 181 36 271-6 82-39 152-32 225 12v261H0V347Z"/>
+  <path fill="#E6D1B4" d="m0 483 314-133 228 99 278-135v306H0V483Z"/>
+  <path fill="#F8F2E8" d="m319 620 153-234 79 234H319Z"/><path stroke="#D2C5AD" stroke-width="8" d="m370 620 97-183 48 183"/>
+  <g><path fill="#FFFDF7" d="M45 296h214v180H45z"/><path fill="#BA472F" d="m28 299 124-111 126 111H28Z"/><path fill="#943520" d="m28 299 124-111v25L50 311H28Z"/><path fill="#E5BF4F" d="M77 334h52v67H77zM173 334h51v67h-51z"/><path fill="#244B3A" d="M137 375h39v101h-39z"/><path stroke="#D2C5AD" stroke-width="6" d="M151 380v96"/></g>
+  <g><path fill="#FFFDF7" d="M501 294h245v190H501z"/><path fill="#BA472F" d="m480 298 141-121 145 121H480Z"/><path fill="#943520" d="m480 298 141-121v26L500 312h-20Z"/><path fill="#E5BF4F" d="M531 339h55v68h-55zM665 339h53v68h-53z"/><path fill="#244B3A" d="M610 373h41v111h-41z"/></g>
+  <g fill="#244B3A"><path d="M353 272h18v163h-18z"/><circle cx="361" cy="245" r="57"/><circle cx="323" cy="279" r="39"/><circle cx="402" cy="282" r="40"/><path d="M763 285h14v139h-14z"/><circle cx="770" cy="255" r="45"/><circle cx="744" cy="282" r="32"/><circle cx="796" cy="286" r="29"/></g>
+  <g stroke="#244B3A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><circle cx="357" cy="526" r="30"/><circle cx="438" cy="526" r="30"/><path d="m357 526 28-48 30 48h-58l38-43 16 43m-26-43h30"/></g><path fill="#BA472F" d="M382 470h51l-15 19h-44l8-19Z"/><circle cx="411" cy="454" r="10" fill="#20251F"/>
+  <g><circle cx="265" cy="431" r="18" fill="#C98252"/><path fill="#244B3A" d="M243 452h44v67h-44z"/><path stroke="#20251F" stroke-width="7" stroke-linecap="round" d="m251 519-8 35m36-35 8 35m-42-55-19 23m58-23 18 20"/><circle cx="304" cy="448" r="17" fill="#8A5239"/><path fill="#BA472F" d="M282 467h44v58h-44z"/><path stroke="#20251F" stroke-width="7" stroke-linecap="round" d="m292 525-5 31m24-31 7 31m-36-45-17 19m55-19 16 17"/></g>
+  <g><rect x="63" y="92" width="142" height="57" rx="20" fill="#FFFDF7" stroke="#D2C5AD" stroke-width="3"/><path fill="#244B3A" d="M99 111h66v7H99zm0 16h44v7H99z"/><circle cx="79" cy="119" r="5" fill="#BA472F"/><rect x="587" y="91" width="151" height="57" rx="20" fill="#FFFDF7" stroke="#D2C5AD" stroke-width="3"/><text x="610" y="127" fill="#244B3A" font-family="sans-serif" font-size="22" font-weight="700">Hello!</text></g>
+</svg>

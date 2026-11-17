@@ -1,0 +1,187 @@
+[Supabase] Gagal upsert ke tabel "classes" {
+  code: 'PGRST205',
+  details: null,
+  hint: null,
+  message: "Could not find the table 'public.classes' in the schema cache"
+}
+[api/admin/classes POST] Error: Gagal upsert ke tabel "classes": Could not find the table 'public.classes' in the schema cache | PGRST205
+    at throwSb (src\lib\db.ts:42:9)
+    at upsertChecked (src\lib\db.ts:54:14)
+    at async pushFullSchemaToSupabase (src\lib\db.ts:218:5)
+    at async writeLocalDb (src\lib\db.ts:593:5)
+    at async upsertClass (src\lib\db.ts:1348:3)
+    at async POST (src\app\api\admin\classes\route.ts:105:5)
+  40 | function throwSb(ctx: string, err: any): never {
+  41 |   console.error("[Supabase]", ctx, err);
+> 42 |   throw new Error(sbErrMsg(ctx, err));
+     |         ^
+  43 | }
+  44 |
+  45 | function isMissingTableError(err: any): boolean {
+[Supabase] Gagal upsert ke tabel "classes" {
+  code: 'PGRST205',
+  details: null,
+  hint: null,
+  message: "Could not find the table 'public.classes' in the schema cache"
+}
+[api/admin/classes DELETE] Error: Gagal upsert ke tabel "classes": Could not find the table 'public.classes' in the schema cache | PGRST205
+    at throwSb (src\lib\db.ts:42:9)
+    at upsertChecked (src\lib\db.ts:54:14)
+    at async pushFullSchemaToSupabase (src\lib\db.ts:218:5)
+    at async writeLocalDb (src\lib\db.ts:593:5)
+    at async deleteClass (src\lib\db.ts:1358:3)
+    at async DELETE (src\app\api\admin\classes\route.ts:154:16)
+  40 | function throwSb(ctx: string, err: any): never {
+  41 |   console.error("[Supabase]", ctx, err);
+> 42 |   throw new Error(sbErrMsg(ctx, err));
+     |         ^
+  43 | }
+  44 |
+  45 | function isMissingTableError(err: any): boolean {
+[api/admin/classes DELETE] masih ada setelah hapus class-test-kilo-migrated
+ ⨯ Error: ENOENT: no such file or directory, open 'C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\webpack-runtime.js'
+    at <unknown> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\app\api\auth\session\route.js:270:27)
+    at Object.<anonymous> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\app\api\auth\session\route.js:276:3) {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\Orikonba Ronsumbre\\Documents\\WebsiteKampungInggris\\.next\\server\\webpack-runtime.js',
+  page: '/api/auth/session'
+}
+ ⨯ Error: Cannot find module './chunks/vendor-chunks/next.js'
+Require stack:
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\webpack-runtime.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\require.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\load-components.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\utils.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\options.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\index.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js:63:47)
+    at Object.<anonymous> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js:66:3) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+Error: ENOENT: no such file or directory, open 'C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\webpack-runtime.js'
+    at <unknown> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\app\api\auth\session\route.js:270:27)
+    at Object.<anonymous> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\app\api\auth\session\route.js:276:3) {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\Orikonba Ronsumbre\\Documents\\WebsiteKampungInggris\\.next\\server\\webpack-runtime.js',
+  page: '/api/auth/session'
+}
+ ⨯ Error: Cannot find module './chunks/vendor-chunks/next.js'
+Require stack:
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\webpack-runtime.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\require.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\load-components.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\utils.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\options.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\index.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js:63:47)
+    at Object.<anonymous> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js:66:3) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\Orikonba Ronsumbre\\Documents\\WebsiteKampungInggris\\.next\\routes-manifest.json'
+}
+ ⨯ Error: Cannot find module './chunks/vendor-chunks/next.js'
+Require stack:
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\webpack-runtime.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\require.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\load-components.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\utils.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\options.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\index.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\app\api\auth\session\route.js:273:47)
+    at Object.<anonymous> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\app\api\auth\session\route.js:276:3) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/api/auth/session'
+}
+ ⨯ Error: Cannot find module './chunks/vendor-chunks/next.js'
+Require stack:
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\webpack-runtime.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\require.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\load-components.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\utils.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\options.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\index.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js:63:47)
+    at Object.<anonymous> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js:66:3) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+Error: Cannot find module './chunks/vendor-chunks/next.js'
+Require stack:
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\webpack-runtime.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\require.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\load-components.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\utils.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\options.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\index.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\app\api\auth\session\route.js:273:47)
+    at Object.<anonymous> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\app\api\auth\session\route.js:276:3) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/api/auth/session'
+}
+ ⨯ Error: Cannot find module './chunks/vendor-chunks/next.js'
+Require stack:
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\webpack-runtime.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\require.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\load-components.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\utils.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\options.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\swc\index.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\parse-module.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\build\analysis\get-page-static-info.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js:63:47)
+    at Object.<anonymous> (C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\server\pages\_document.js:66:3) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+[Error: ENOENT: no such file or directory, open 'C:\Users\Orikonba Ronsumbre\Documents\WebsiteKampungInggris\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\Orikonba Ronsumbre\\Documents\\WebsiteKampungInggris\\.next\\routes-manifest.json'
+}

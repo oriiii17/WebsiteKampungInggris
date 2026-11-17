@@ -5,7 +5,7 @@
  */
 
 import crypto from "crypto";
-import { RwCode, WargaRecord, LoginLogEntry } from "./types";
+import { RwCode } from "./types";
 
 // ── Daftar kata kasar sederhana (diperluas admin jika perlu) ──
 const KATA_KASAR = ["bangsat", "anjing", "babi", "kontol", "memek", "tolol", "idiot", "goblok"];
@@ -17,6 +17,13 @@ const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 menit
 
 export function checkRateLimit(ip: string): { allowed: boolean; retryAfterSec: number } {
   const now = Date.now();
+  if (rateLimitMap.size > 5000) {
+    for (const [key, bucket] of rateLimitMap) if (bucket.resetAt <= now) rateLimitMap.delete(key);
+  }
+  if (rateLimitMap.size >= 5000 && !rateLimitMap.has(ip)) {
+    const oldestKey = rateLimitMap.keys().next().value as string | undefined;
+    if (oldestKey) rateLimitMap.delete(oldestKey);
+  }
   const entry = rateLimitMap.get(ip);
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
@@ -52,6 +59,7 @@ export function hashRwCode(code: string): string {
 export function verifyRwCode(input: string, storedHash: string): boolean {
   const normalInput = normalizeRwCode(input);
   const inputHash = hashRwCode(normalInput);
+  if (!/^[a-f0-9]{64}$/i.test(storedHash)) return false;
   return crypto.timingSafeEqual(Buffer.from(inputHash, "hex"), Buffer.from(storedHash, "hex"));
 }
 
@@ -89,7 +97,7 @@ export function generateRwCode(): string {
   let code = "";
   for (let i = 0; i < 6; i++) {
     if (i === 3) code += "-";
-    code += chars[Math.floor(Math.random() * chars.length)];
+    code += chars[crypto.randomInt(chars.length)];
   }
   return code;
 }
@@ -97,10 +105,12 @@ export function generateRwCode(): string {
 /** Buat RwCode record baru dengan hash */
 export function createRwCodeRecord(
   rw: "RW 06" | "RW 07" | "RW 08",
-  plainCode: string
+  plainCode: string,
+  id = `rw-${rw.replace("RW ", "")}-${Date.now()}`
 ): RwCode {
   const display = normalizeRwCode(plainCode);
   return {
+    id,
     rw,
     codeHash: hashRwCode(display),
     codeDisplay: display,
@@ -109,24 +119,3 @@ export function createRwCodeRecord(
   };
 }
 
-/** Buat ID unik warga */
-export function generateWargaId(): string {
-  return `warga-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/** Buat log entry */
-export function createLoginLogEntry(
-  warga: WargaRecord,
-  deviceId: string,
-  ipHint?: string
-): LoginLogEntry {
-  return {
-    id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    wargaId: warga.id,
-    namaPanggilan: warga.namaPanggilan,
-    rw: warga.rw,
-    deviceId,
-    loginAt: new Date().toISOString(),
-    ipHint,
-  };
-}

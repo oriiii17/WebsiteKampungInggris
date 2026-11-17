@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMockOverviewData } from "@/lib/mock-data";
+import { getServerSession, isAdminSession } from "@/lib/auth";
+import { readLocalDb } from "@/lib/db";
 import * as XLSX from "xlsx";
 
 export async function GET(req: NextRequest) {
-  const data = getMockOverviewData();
+  const session = await getServerSession();
+  if (!isAdminSession(session)) return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
+  const data = await readLocalDb();
 
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "all";
@@ -13,6 +16,20 @@ export async function GET(req: NextRequest) {
   let filename = "sapen-english-export";
 
   switch (type) {
+    case "classes": {
+      exportData = { "Daftar Kelas": (data.classes || []).map((kelas) => ({
+        ID: kelas.id,
+        Judul: kelas.title,
+        Status: kelas.status || (kelas.isPublished ? "berjalan" : "draft"),
+        Publikasi: kelas.isPublished ? "Tayang" : "Draft",
+        Harga: kelas.priceIdr,
+        Tingkat: kelas.tingkat || "Pemula",
+        Materi: (kelas.modules || []).map((mod) => mod.judulBebas).join(" | "),
+        "Dibuat": kelas.createdAt,
+      })) };
+      filename = "daftar-kelas-sapen";
+      break;
+    }
     case "warga": {
       const warga = data.warga || [];
       const loginLog = data.loginLog || [];
@@ -21,7 +38,6 @@ export async function GET(req: NextRequest) {
           ID: w.id,
           "Nama Panggilan": w.namaPanggilan,
           RW: w.rw,
-          "Device ID": w.deviceId,
           "Dibuat": w.createdAt,
           "Login Terakhir": w.lastLoginAt,
           "Diblokir": w.isBlocked ? "Ya" : "Tidak",
@@ -32,7 +48,6 @@ export async function GET(req: NextRequest) {
           ID: l.id,
           "Nama Panggilan": l.namaPanggilan,
           RW: l.rw,
-          "Device ID": l.deviceId,
           "Login At": l.loginAt,
           "IP Hint": l.ipHint || "-",
         })),
@@ -125,24 +140,11 @@ export async function GET(req: NextRequest) {
           Label: c.label,
           "RT/RW": c.rtRw,
           "Tipe Pemilik": c.holderType,
-          "Max Perangkat": c.maxDevices,
           "Berakhir": c.expiresAt,
           Aktif: c.isActive ? "Ya" : "Tidak",
           "Dibuat Oleh": c.createdBy,
           "Dibuat": c.createdAt,
-          "Jumlah Perangkat Terdaftar": c.devices?.length || 0,
         })),
-        "Perangkat Terdaftar": codes.flatMap((c) =>
-          (c.devices || []).map((d) => ({
-            "Kode ID": c.id,
-            Kode: c.code,
-            "Device ID": d.deviceId,
-            "Nama Peserta": d.participantName,
-            "Label Perangkat": d.deviceLabel || "Browser",
-            "Terlihat Terakhir": d.lastSeenAt,
-            "Dibuat": d.createdAt,
-          }))
-        ),
       };
       filename = "data-kode-akses-dan-perangkat";
       break;
@@ -167,7 +169,6 @@ export async function GET(req: NextRequest) {
           ID: w.id,
           "Nama Panggilan": w.namaPanggilan,
           RW: w.rw,
-          "Device ID": w.deviceId,
           "Dibuat": w.createdAt,
           "Login Terakhir": w.lastLoginAt,
           "Diblokir": w.isBlocked ? "Ya" : "Tidak",
@@ -178,7 +179,6 @@ export async function GET(req: NextRequest) {
           ID: l.id,
           "Nama Panggilan": l.namaPanggilan,
           RW: l.rw,
-          "Device ID": l.deviceId,
           "Login At": l.loginAt,
           "IP Hint": l.ipHint || "-",
         })),
@@ -232,24 +232,11 @@ export async function GET(req: NextRequest) {
           Label: c.label,
           "RT/RW": c.rtRw,
           "Tipe Pemilik": c.holderType,
-          "Max Perangkat": c.maxDevices,
           "Berakhir": c.expiresAt,
           Aktif: c.isActive ? "Ya" : "Tidak",
           "Dibuat Oleh": c.createdBy,
           "Dibuat": c.createdAt,
-          "Jumlah Perangkat Terdaftar": c.devices?.length || 0,
         })),
-        "Perangkat Terdaftar": codes.flatMap((c) =>
-          (c.devices || []).map((d) => ({
-            "Kode ID": c.id,
-            Kode: c.code,
-            "Device ID": d.deviceId,
-            "Nama Peserta": d.participantName,
-            "Label Perangkat": d.deviceLabel || "Browser",
-            "Terlihat Terakhir": d.lastSeenAt,
-            "Dibuat": d.createdAt,
-          }))
-        ),
       };
       filename = "sapen-english-lengkap";
       break;
@@ -289,6 +276,8 @@ export async function GET(req: NextRequest) {
       },
     });
   }
+
+  if (format !== "excel") return NextResponse.json({ error: "Format ekspor tidak didukung." }, { status: 400 });
 
   const workbook = XLSX.utils.book_new();
   for (const [sheetName, rows] of Object.entries(exportData)) {

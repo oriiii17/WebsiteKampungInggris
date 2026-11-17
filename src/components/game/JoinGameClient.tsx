@@ -88,13 +88,13 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
   const canSubmit = !loading && pin.length === 6 && nameTrimmed.length >= 2;
 
   return (
-    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-8 shadow-sm">
+    <div className="rounded-2xl border border-rule bg-paper-light p-6 shadow-card sm:p-8">
       <div className="text-center mb-6">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#14532D] text-white mb-3">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-leaf text-white">
           <Gamepad2 className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold text-[#111827]">Gabung Kuis Kelas</h1>
-        <p className="text-xs text-[#6B7280] mt-1">
+        <h1 className="text-2xl">Gabung Kuis Kelas</h1>
+        <p className="mt-1 text-xs text-muted">
           Masukkan PIN dari host dan nama panggilanmu untuk mulai bertanding.
         </p>
       </div>
@@ -111,7 +111,7 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
             Kode PIN Sesi
           </label>
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted">
               <KeyRound className="h-5 w-5" />
             </div>
             <input
@@ -122,7 +122,7 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
               onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
               placeholder="Contoh: 849201"
               required
-              className="w-full rounded-xl border border-gray-300 py-3 pl-11 pr-4 text-center font-mono text-xl font-bold tracking-widest text-[#111827] placeholder:text-sm placeholder:tracking-normal placeholder:font-normal placeholder:text-gray-400 focus:border-[#14532D] focus:outline-none focus:ring-2 focus:ring-[#14532D]/20 min-h-[48px]"
+              className="min-h-[48px] w-full rounded-md border border-rule-strong bg-white py-3 pl-11 pr-4 text-center font-mono text-xl font-bold tracking-widest text-ink placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-muted focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/20"
             />
           </div>
         </div>
@@ -142,7 +142,7 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
               onChange={(e) => setName(e.target.value)}
               placeholder="Contoh: Budi, Sari, Kak Andi..."
               required
-              className="w-full rounded-xl border border-gray-300 py-3 pl-11 pr-4 text-base font-semibold text-[#111827] placeholder:font-normal placeholder:text-gray-400 focus:border-[#14532D] focus:outline-none focus:ring-2 focus:ring-[#14532D]/20 min-h-[48px]"
+              className="min-h-[48px] w-full rounded-md border border-rule-strong bg-white py-3 pl-11 pr-4 text-base font-semibold text-ink placeholder:font-normal placeholder:text-muted focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/20"
             />
           </div>
           <p className="mt-1 text-[11px] text-gray-500">
@@ -153,7 +153,7 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
         <button
           type="submit"
           disabled={!canSubmit}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#14532D] py-3.5 px-4 text-base font-bold text-white hover:bg-[#0f3d21] disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed transition active:scale-[0.99] min-h-[48px] mt-6"
+          className="mt-6 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-md bg-earth px-4 py-3.5 text-base font-bold text-white transition hover:bg-earth-dark active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
         >
           {loading ? (
             <>
@@ -169,7 +169,7 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
       <div className="mt-6 pt-5 border-t border-gray-100 text-center">
         <Link
           href="/game"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900"
+          className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-muted hover:text-ink"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Kembali ke Informasi Game</span>

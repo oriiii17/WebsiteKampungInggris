@@ -1,20 +1,10 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
-import { getGames, upsertGame, deleteGame, duplicateGame } from "@/lib/db";
+import { getGameCatalog, getGameById, upsertGame } from "@/lib/db";
 import { emptyQuestion } from "@/lib/builtin-games";
 import type { GameKind, GameRecord } from "@/lib/types";
 
 const KINDS: GameKind[] = ["kuis_live","tebak_kata","pasangkan_kata","susun_kalimat","tebak_gambar","kata_hilang","duel_kata_cepat"];
-const TITLE: Record<GameKind,string> = {
-  kuis_live:"Kuis Live",
-  tebak_kata:"Tebak Kata",
-  pasangkan_kata:"Pasangkan Kata",
-  susun_kalimat:"Susun Kalimat",
-  tebak_gambar:"Tebak Gambar",
-  kata_hilang:"Kata Hilang",
-  duel_kata_cepat:"Duel Kata Cepat",
-};
-
 function clampPrompt(s: string) { return (s || "").slice(0,120); }
 function sanitizeQuestion(q: any, kind: GameKind, idx: number): any {
   const id = String(q?.id || `q-${Date.now()}-${idx}`);
@@ -30,10 +20,16 @@ function sanitizeQuestion(q: any, kind: GameKind, idx: number): any {
   return emptyQuestion(kind, id);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession();
   if (!isAdminSession(session)) return NextResponse.json({ error: "Akses khusus Admin." }, { status: 403 });
-  const games = await getGames();
+  const gameId = req.nextUrl.searchParams.get("gameId");
+  if (gameId) {
+    const game = await getGameById(gameId);
+    if (!game) return NextResponse.json({ error: "Game tidak ditemukan." }, { status: 404 });
+    return NextResponse.json({ ok: true, game });
+  }
+  const games = await getGameCatalog();
   return NextResponse.json({ ok: true, games });
 }
 
@@ -42,40 +38,23 @@ export async function POST(req: NextRequest) {
   if (!isAdminSession(session)) return NextResponse.json({ error: "Akses khusus Admin." }, { status: 403 });
   try {
     const body = await req.json().catch(()=>({}));
-    const action = String(body.action || "create");
-    if (action === "duplicate") {
-      const g = await duplicateGame(String(body.id||""));
-      if (!g) return NextResponse.json({ error: "Game tidak ditemukan." }, { status: 404 });
-      return NextResponse.json({ ok: true, game: g });
-    }
-    if (action === "upsert") {
-      const game = body.game as any;
-      if (!game || !game.id) return NextResponse.json({ error: "Data game tidak lengkap." }, { status: 400 });
-      const kind = (KINDS.includes(game.kind) ? game.kind : "kuis_live") as GameKind;
-      const now = new Date().toISOString();
-      const questions = Array.isArray(game.questions) && game.questions.length > 0
-        ? game.questions.map((q:any,i:number)=>sanitizeQuestion(q,kind,i))
-        : [emptyQuestion(kind, `q-${Date.now()}`)];
-      const rec: GameRecord = { id: String(game.id), title: String(game.title || TITLE[kind]), kind, questions, createdAt: String(game.createdAt || now), updatedAt: now, migratedFromTemplateId: game.migratedFromTemplateId };
-      const saved = await upsertGame(rec);
-      return NextResponse.json({ ok: true, game: saved });
-    }
-    // create new
-    const kind = (KINDS.includes(body.kind) ? body.kind : "kuis_live") as GameKind;
+    const game = body.game as any;
+    if (!game || !game.id) return NextResponse.json({ error: "Data game tidak lengkap." }, { status: 400 });
+    const existing = await getGameById(String(game.id));
+    if (!existing) return NextResponse.json({ error: "Master game tidak ditemukan." }, { status: 404 });
+    const kind = existing.kind;
     const now = new Date().toISOString();
-    const rec: GameRecord = { id: `game-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, title: String(body.title || `Game ${TITLE[kind]} Baru`), kind, questions: [emptyQuestion(kind, `q-${Date.now()}`)], createdAt: now, updatedAt: now };
+    const questions = Array.isArray(game.questions)
+      ? game.questions.map((q:any,i:number)=>sanitizeQuestion(q,kind,i))
+      : existing.questions;
+    const questionIds = questions.map((question: any) => question.id);
+    if (new Set(questionIds).size !== questionIds.length) {
+      return NextResponse.json({ error: "ID soal duplikat. Muat ulang game sebelum menyimpan." }, { status: 400 });
+    }
+    const rec: GameRecord = { ...existing, questions, updatedAt: now };
     const saved = await upsertGame(rec);
     return NextResponse.json({ ok: true, game: saved });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Gagal memproses game." }, { status: 500 });
   }
-}
-
-export async function DELETE(req: NextRequest) {
-  const session = await getServerSession();
-  if (!isAdminSession(session)) return NextResponse.json({ error: "Akses khusus Admin." }, { status: 403 });
-  const id = req.nextUrl.searchParams.get("id") || "";
-  if (!id) return NextResponse.json({ error: "ID game diperlukan." }, { status: 400 });
-  const ok = await deleteGame(id);
-  return NextResponse.json({ ok });
 }

@@ -1,0 +1,51 @@
+   ▲ Next.js 15.5.29
+   - Local:        http://localhost:3102
+   - Network:      http://192.168.1.5:3102
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 8.5s
+ ○ Compiling /api/auth/session ...
+ ✓ Compiled /api/auth/session in 7.2s (372 modules)
+ GET /api/auth/session 200 in 125ms
+ ○ Compiling /api/auth/admin ...
+ ✓ Compiled /api/auth/admin in 740ms (364 modules)
+ POST /api/auth/admin 200 in 3655ms
+ ○ Compiling /api/admin/classes ...
+ ✓ Compiled /api/admin/classes in 1903ms (374 modules)
+ POST /api/admin/classes 500 in 11429ms
+ GET /api/admin/classes 200 in 2731ms
+ ○ Compiling /kelas ...
+ ✓ Compiled /kelas in 10s (758 modules)
+ ✓ Compiled in 967ms (258 modules)
+ GET /kelas 200 in 18362ms
+ DELETE /api/admin/classes?id=class-test-kilo-jangan-hapus 500 in 6518ms
+ GET /api/admin/classes 200 in 1233ms
+ POST /api/auth/admin 200 in 1211ms
+[api/admin/classes POST] tersimpan & terverifikasi {
+  id: 'class-test-kilo-migrated',
+  title: 'KELAS TEST KILO',
+  modules: 1
+}
+ POST /api/admin/classes 200 in 4553ms
+ GET /api/admin/classes 200 in 441ms
+ GET /kelas 200 in 4391ms
+ DELETE /api/admin/classes?id=class-test-kilo-migrated 500 in 6069ms
+ GET /api/admin/classes 200 in 1046ms
+ ✓ Compiled in 301ms
+ ○ Compiling /api/auth/admin ...
+ ✓ Compiled /api/auth/admin in 1071ms (169 modules)
+ POST /api/auth/admin 200 in 2392ms
+ ○ Compiling /api/admin/classes ...
+ ✓ Compiled /api/admin/classes in 1613ms (179 modules)
+[api/admin/classes DELETE] terhapus & terverifikasi { id: 'class-test-kilo-migrated' }
+ DELETE /api/admin/classes?id=class-test-kilo-migrated 200 in 8654ms
+ GET /api/admin/classes 200 in 762ms
+ ○ Compiling /api/auth/session ...
+ ✓ Compiled /api/auth/session in 837ms (179 modules)
+ ○ Compiling /_error ...
+ GET /api/auth/session 500 in 8047ms
+ ✓ Compiled /_error in 7.5s (778 modules)
+ GET /api/auth/session 500 in 391ms
+ GET /api/auth/session 500 in 99ms
+[?25h

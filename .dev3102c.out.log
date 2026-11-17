@@ -1,0 +1,25 @@
+   ▲ Next.js 15.5.29
+   - Local:        http://localhost:3102
+   - Network:      http://192.168.1.5:3102
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 5.7s
+ ○ Compiling /api/auth/session ...
+ ✓ Compiled /api/auth/session in 5.7s (372 modules)
+ GET /api/auth/session 200 in 7776ms
+ GET /api/auth/session 200 in 584ms
+ ○ Compiling /api/auth/admin ...
+ ✓ Compiled /api/auth/admin in 639ms (364 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 4.2s (721 modules)
+ POST /api/auth/admin 500 in 13072ms
+ POST /api/auth/admin 500 in 547ms
+ ○ Compiling /api/admin/classes ...
+ ✓ Compiled /api/admin/classes in 1915ms (731 modules)
+ POST /api/admin/classes 500 in 4573ms
+ POST /api/admin/classes 500 in 922ms
+ GET /api/admin/classes 500 in 1158ms
+ GET /api/admin/classes 500 in 351ms
+ POST /api/auth/admin 500 in 2839ms
+ POST /api/auth/admin 500 in 1430ms

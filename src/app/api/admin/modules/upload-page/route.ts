@@ -21,8 +21,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (file.size > 8 * 1024 * 1024) {
+      return NextResponse.json({ error: "Ukuran gambar maksimal 8 MB." }, { status: 413 });
+    }
+    const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+    if (!allowedTypes.has(file.type)) {
+      return NextResponse.json({ error: "Format gambar yang didukung: PNG, JPG, atau WebP." }, { status: 415 });
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const signatureValid = file.type === "image/png"
+      ? buffer.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+      : file.type === "image/jpeg"
+        ? buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))
+        : buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP";
+    if (!signatureValid) {
+      return NextResponse.json({ error: "Isi file tidak sesuai dengan format gambar." }, { status: 415 });
+    }
     const storagePath = await savePrivatePageImage(
       moduleId,
       pageNumber,
@@ -33,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, pageNumber, storagePath });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Gagal menyimpan gambar halaman." },
+      { error: "Gagal menyimpan gambar halaman." },
       { status: 500 }
     );
   }

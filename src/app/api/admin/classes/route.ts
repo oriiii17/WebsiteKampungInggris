@@ -50,7 +50,7 @@ function normalizeModules(modulesInput: any, kelasId: string): ClassModule[] {
       fileAsli: m.fileAsli ? String(m.fileAsli) : undefined,
       fileAsliName: m.fileAsliName ? String(m.fileAsliName) : undefined,
       fileType: m.fileType,
-      status: m.status === "draft" ? "draft" : "terbit",
+      status: m.status === "terbit" ? "terbit" : "draft",
       quiz: quiz && quiz.soal.length > 0 ? quiz : (m.quiz === null ? null : quiz),
     } as ClassModule;
   }).sort((a, b) => a.urutan - b.urutan).map((m, i) => ({ ...m, urutan: i + 1 }));
@@ -70,8 +70,8 @@ function buildClass(body: any, existing?: ClassItem): ClassItem {
     subtitle: String(body.subtitle ?? existing?.subtitle ?? ""),
     description: String(body.description ?? existing?.description ?? ""),
     coverTheme: ["emerald", "amber", "sky", "rose", "violet"].includes(body.coverTheme ?? existing?.coverTheme) ? (body.coverTheme ?? existing?.coverTheme) : "emerald",
-    priceIdr: Math.max(0, Number(body.priceIdr ?? existing?.priceIdr ?? 0)),
-    durationDays: Math.max(1, Number(body.durationDays ?? existing?.durationDays ?? 30)),
+    priceIdr: Math.max(0, Number.isFinite(Number(body.priceIdr ?? existing?.priceIdr ?? 0)) ? Math.round(Number(body.priceIdr ?? existing?.priceIdr ?? 0)) : 0),
+    durationDays: 0,
     moduleIds: Array.isArray(body.moduleIds) ? body.moduleIds : (existing?.moduleIds || []),
     modules,
     gameTemplateIds: Array.isArray(body.gameTemplateIds) ? body.gameTemplateIds : (existing?.gameTemplateIds || []),
@@ -85,6 +85,8 @@ function buildClass(body: any, existing?: ClassItem): ClassItem {
 }
 
 export async function GET() {
+  const session = await getServerSession();
+  if (!isAdminSession(session)) return NextResponse.json({ ok: false, error: "Akses ditolak." }, { status: 403 });
   try {
     const classes = await getClasses(true);
     return NextResponse.json({ ok: true, classes });

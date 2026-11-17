@@ -6,7 +6,7 @@ import AdminDashboardClient from "@/components/AdminDashboardClient";
 export default async function AdminPage() {
   const session = await getServerSession();
   if (!isAdminSession(session)) {
-    redirect("/admin/login");
+    redirect("/admin/masuk");
   }
 
   return (

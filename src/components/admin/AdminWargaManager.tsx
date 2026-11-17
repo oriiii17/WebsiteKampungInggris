@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Ban,
   CheckCircle2,
@@ -17,8 +17,11 @@ import {
   Users,
 } from "lucide-react";
 import { WargaRecord, LoginLogEntry } from "@/lib/types";
+import { useAppDialog } from "@/components/AppDialogProvider";
+import SixBoxCodeInput, { toCodeString } from "@/components/SixBoxCodeInput";
 
 interface RwCodeItem {
+  id: string;
   rw: "RW 06" | "RW 07" | "RW 08";
   codeDisplay: string;
   isActive: boolean;
@@ -28,7 +31,6 @@ interface RwCodeItem {
 
 interface AdminWargaManagerProps {
   warga: WargaRecord[];
-  rwCodes: RwCodeItem[];
   loginLog: LoginLogEntry[];
   stats: {
     totalWarga?: number;
@@ -45,24 +47,48 @@ interface AdminWargaManagerProps {
 
 export default function AdminWargaManager({
   warga,
-  rwCodes,
   loginLog,
   stats,
   onRefresh,
   notify,
 }: AdminWargaManagerProps) {
+  const dialog = useAppDialog();
   const [search, setSearch] = useState("");
   const [filterRw, setFilterRw] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<"newest" | "name" | "score" | "games">("newest");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 20;
+  const [localWarga, setLocalWarga] = useState(warga);
+  const [editingWarga, setEditingWarga] = useState<WargaRecord | null>(null);
+  const [editedName, setEditedName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  useEffect(() => { setLocalWarga(warga); }, [warga]);
 
   const [selectedRw, setSelectedRw] = useState<"RW 06" | "RW 07" | "RW 08">("RW 06");
-  const [customCode, setCustomCode] = useState("");
-  const [forceLogout, setForceLogout] = useState(false);
+  const [selectedCodeId, setSelectedCodeId] = useState("");
+  const [customCodeDigits, setCustomCodeDigits] = useState<string[]>(Array(6).fill(""));
+  const customCodeRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const customCode = toCodeString(customCodeDigits);
   const [savingCode, setSavingCode] = useState(false);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [codes, setCodes] = useState<RwCodeItem[]>([]);
+  const [exportFormat, setExportFormat] = useState<"excel" | "csv">("excel");
 
-  const filteredWarga = warga
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/rw-codes", { cache: "no-store" }).then(async (res) => {
+      const payload = await res.json();
+      if (!active) return;
+      if (res.ok && Array.isArray(payload.codes)) setCodes(payload.codes);
+      else notify(payload.error || "Kode akses belum dapat dimuat.");
+    }).catch((error) => {
+      if (active) notify(error instanceof Error ? `Gagal memuat kode akses: ${error.message}` : "Gagal memuat kode akses dari database.");
+    });
+    return () => { active = false; };
+  }, []);
+
+  const filteredWarga = localWarga
     .filter((w) => {
       const matchSearch = w.namaPanggilan.toLowerCase().includes(search.toLowerCase());
       const matchRw = filterRw === "ALL" || w.rw === filterRw;
@@ -78,16 +104,28 @@ export default function AdminWargaManager({
   const totalPages = Math.max(1, Math.ceil(filteredWarga.length / pageSize));
   const paginatedWarga = filteredWarga.slice((page - 1) * pageSize, page * pageSize);
 
-  async function handleRename(w: WargaRecord) {
-    const baru = prompt(`Ubah nama panggilan "${w.namaPanggilan}" menjadi:`, w.namaPanggilan);
-    if (!baru || baru.trim() === w.namaPanggilan) return;
-    if (baru.trim().length < 3) { alert("Nama panggilan minimal 3 karakter!"); return; }
-    const res = await fetch("/api/admin/warga", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: w.id, action: "rename", namaBaru: baru.trim() }),
-    });
-    if (res.ok) { notify(`Nama diubah menjadi "${baru.trim()}"`); onRefresh(); }
+  async function handleRename() {
+    if (!editingWarga) return;
+    const namaBaru = editedName.trim();
+    if (namaBaru.length < 3) { notify("Nama panggilan minimal 3 karakter."); return; }
+    const target = editingWarga;
+    const previousName = target.namaPanggilan;
+    setLocalWarga((rows) => rows.map((row) => row.id === target.id ? { ...row, namaPanggilan: namaBaru } : row));
+    setEditingWarga(null);
+    setSavingName(true);
+    try {
+      const res = await fetch("/api/admin/warga", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: target.id, action: "rename", namaBaru }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || "Gagal mengubah nama.");
+      notify(`Nama diubah menjadi "${namaBaru}".`);
+    } catch (error) {
+      setLocalWarga((rows) => rows.map((row) => row.id === target.id ? { ...row, namaPanggilan: previousName } : row));
+      notify(error instanceof Error ? error.message : "Gagal mengubah nama. Perubahan dibatalkan.");
+    } finally { setSavingName(false); }
   }
 
   async function handleToggleBlock(w: WargaRecord) {
@@ -95,7 +133,7 @@ export default function AdminWargaManager({
     const confirmMsg = w.isBlocked
       ? `Buka blokir akun "${w.namaPanggilan}"?`
       : `Blokir akun "${w.namaPanggilan}"? Warga ini tidak akan bisa login lagi.`;
-    if (!confirm(confirmMsg)) return;
+    if (!(await dialog.confirm(confirmMsg, "Perbarui akun?"))) return;
     const res = await fetch("/api/admin/warga", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -105,7 +143,7 @@ export default function AdminWargaManager({
   }
 
   async function handleResetStats(w: WargaRecord) {
-    if (!confirm(`Reset skor dan riwayat game untuk "${w.namaPanggilan}"?`)) return;
+    if (!(await dialog.confirm(`Reset skor dan riwayat game untuk "${w.namaPanggilan}"?`, "Reset riwayat game?"))) return;
     const res = await fetch("/api/admin/warga", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -115,44 +153,64 @@ export default function AdminWargaManager({
   }
 
   async function handleDelete(w: WargaRecord) {
-    if (!confirm(`PERINGATAN: Hapus akun warga "${w.namaPanggilan}" (${w.rw}) secara permanen?`)) return;
+    if (!(await dialog.confirm(`Hapus akun warga "${w.namaPanggilan}" (${w.rw}) secara permanen?`, "Hapus akun warga?"))) return;
     const res = await fetch(`/api/admin/warga?id=${encodeURIComponent(w.id)}`, { method: "DELETE" });
     if (res.ok) { notify(`Akun "${w.namaPanggilan}" telah dihapus.`); onRefresh(); }
   }
 
   async function handleUpdateRwCode(generateNew = false) {
-    const targetCode = generateNew ? "" : customCode.trim();
-    if (!generateNew && !targetCode) { alert("Masukkan kode baru terlebih dahulu atau pilih Buat Acak."); return; }
-    const confirmMsg = `Ganti kode akses ${selectedRw}${forceLogout ? " DAN PAKSA KELUAR SEMUA WARGA" : ""}?`;
-    if (!confirm(confirmMsg)) return;
+    const codesForRw = codes.filter((code) => code.rw === selectedRw);
+    const selectedCode = codesForRw.find((code) => code.id === selectedCodeId) || codesForRw[0];
+    if (generateNew) {
+      setGeneratingCode(true);
+      try {
+        const res = await fetch("/api/admin/rw-codes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: selectedCode?.id, rw: selectedRw, generateNew: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Gagal membuat kode akses.");
+        setCodes((current) => [...current.filter((item) => item.id !== data.code.id), data.code]);
+        setSelectedCodeId(data.code.id);
+        setCustomCodeDigits(data.code.codeDisplay.replace("-", "").split(""));
+        notify(`Kode ${selectedRw} tersimpan: ${data.code.codeDisplay}`);
+        onRefresh();
+      } catch (error) {
+        notify(error instanceof Error ? error.message : "Gagal membuat kode akses.");
+      } finally { setGeneratingCode(false); }
+      return;
+    }
+    const targetCode = customCode.trim();
+    if (!targetCode) { notify("Masukkan kode baru terlebih dahulu atau pilih Acak Otomatis."); return; }
+    if (selectedCode && !(await dialog.confirm(`Ganti kode ${selectedCode.codeDisplay} untuk ${selectedRw}?`, "Ganti kode akses?"))) return;
     setSavingCode(true);
     try {
       const res = await fetch("/api/admin/rw-codes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rw: selectedRw, newCode: targetCode, generateNew, forceLogout }),
+        body: JSON.stringify({ id: selectedCode?.id, rw: selectedRw, newCode: targetCode, generateNew: false }),
       });
       const data = await res.json();
-      if (res.ok) { notify(`Kode ${selectedRw} berhasil diperbarui: ${data.codeDisplay}`); setCustomCode(""); setForceLogout(false); onRefresh(); }
-      else { alert(data.error || "Gagal memperbarui kode."); }
-    } finally { setSavingCode(false); }
+      if (!res.ok) throw new Error(data.error || "Gagal menyimpan kode.");
+      setCodes((current) => [...current.filter((item) => item.id !== data.code.id), data.code]);
+      setSelectedCodeId(data.code.id);
+      notify(`Kode ${selectedRw} tersimpan: ${data.code.codeDisplay}`);
+      setCustomCodeDigits(Array(6).fill(""));
+      onRefresh();
+    } catch (error) { notify(error instanceof Error ? error.message : "Gagal menyimpan kode."); }
+    finally { setSavingCode(false); }
   }
 
-  function exportCsv() {
-    if (warga.length === 0) { alert("Belum ada data warga untuk diekspor."); return; }
-    const headers = ["ID", "Nama Panggilan", "RW", "Tanggal Daftar", "Login Terakhir", "Games Dimainkan", "Skor Tertinggi", "Status"];
-    const rows = warga.map((w) => [
-      `"${w.id}"`, `"${w.namaPanggilan}"`, `"${w.rw}"`,
-      `"${new Date(w.createdAt).toLocaleString("id-ID")}"`, `"${new Date(w.lastLoginAt).toLocaleString("id-ID")}"`,
-      w.totalGamesPlayed || 0, w.highScore || 0, w.isBlocked ? '"Diblokir"' : '"Aktif"',
-    ]);
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url; link.download = `daftar-warga-sapen-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click(); URL.revokeObjectURL(url);
-    notify("File CSV warga berhasil diunduh.");
+  async function exportParticipants() {
+    try {
+      const response = await fetch(`/api/admin/export?type=warga&format=${exportFormat}`);
+      if (!response.ok) throw new Error("Ekspor peserta gagal.");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a"); link.href = url;
+      link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `data-warga.${exportFormat === "excel" ? "xlsx" : "csv"}`;
+      link.click(); URL.revokeObjectURL(url);
+    } catch (error) { notify(error instanceof Error ? error.message : "Ekspor peserta gagal."); }
   }
 
   return (
@@ -172,41 +230,38 @@ export default function AdminWargaManager({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
             <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><KeyRound className="h-5 w-5 text-[#14532D]" /> Kelola Kode Akses Warga per RW</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Satu kode digunakan bersama oleh seluruh warga satu RW. Admin dapat mengganti kode kapan saja jika bocor.</p>
+            <p className="text-xs text-gray-500 mt-0.5">Kode yang tampil diambil langsung dari database. Kode tanpa tanggal kedaluwarsa berlaku permanen.</p>
           </div>
           <span className="text-xs font-bold bg-green-50 text-[#14532D] px-3 py-1 rounded-full border border-green-200 shrink-0">Format Baku: XXX-XXX</span>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 mb-6">
           {(["RW 06", "RW 07", "RW 08"] as const).map((rwName) => {
-            const codeObj = rwCodes.find((c) => c.rw === rwName);
+            const codesForRw = codes.filter((c) => c.rw === rwName);
             const isSelected = selectedRw === rwName;
             return (
-              <button
-                key={rwName}
-                onClick={() => setSelectedRw(rwName)}
-                className={`text-left p-4 transition ${isSelected ? "border-2 border-[#14532D] bg-green-50/50" : "border border-[#E5E7EB] bg-gray-50/40 hover:bg-gray-50"}`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-gray-600">{rwName}</span>
-                  <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded border border-[#E5E7EB] text-gray-600">{codeObj?.isActive ? "Aktif" : "Nonaktif"}</span>
+              <section key={rwName} className={`rounded-xl border p-4 ${isSelected ? "border-[#14532D] bg-green-50/40" : "border-[#E5E7EB] bg-gray-50/40"}`}>
+                <button type="button" onClick={() => { setSelectedRw(rwName); setSelectedCodeId(""); }} className="flex w-full items-center justify-between text-left">
+                  <span className="text-sm font-extrabold uppercase tracking-wider text-gray-700">{rwName}</span>
+                  <span className="text-xs font-bold text-[#14532D]">{codesForRw.length} kode</span>
+                </button>
+                <div className="mt-3 space-y-1.5">
+                  {codesForRw.map((code, index) => <button key={code.id} type="button" onClick={() => { setSelectedRw(rwName); setSelectedCodeId(code.id); }} className={`flex min-h-10 w-full items-center justify-between rounded-md px-2.5 text-left ${selectedCodeId === code.id ? "bg-white ring-1 ring-[#14532D]" : "hover:bg-white"}`}><span className="font-mono text-xs font-extrabold tracking-wider text-[#14532D]">{String(index + 1).padStart(2, "0")} · {code.codeDisplay}</span><span className="text-[10px] font-bold text-slate-500">{code.isActive ? "Aktif" : "Nonaktif"}</span></button>)}
+                  {codesForRw.length === 0 && <p className="text-xs text-slate-500">Belum ada kode yang tersimpan.</p>}
                 </div>
-                <p className="mt-2 text-xl font-extrabold font-mono tracking-widest text-[#14532D]">{codeObj?.codeDisplay || "BELUM ADA"}</p>
-                <p className="mt-1 text-[11px] text-gray-400">Diperbarui: {codeObj ? new Date(codeObj.updatedAt).toLocaleDateString("id-ID") : "-"}</p>
-              </button>
+              </section>
             );
           })}
         </div>
 
         <div className="rounded-lg border border-[#E5E7EB] bg-gray-50 p-4 sm:p-5">
-          <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">Ubah Kode untuk: <strong className="text-[#14532D]">{selectedRw}</strong></p>
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-            <div className="sm:col-span-5"><input type="text" value={customCode} onChange={(e) => setCustomCode(e.target.value.toUpperCase())} placeholder="Ketik kode baru (cth: QTU-OP3)" className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3.5 py-2.5 font-mono text-sm uppercase tracking-wider focus:border-[#14532D] focus:outline-none" /></div>
-            <div className="sm:col-span-4 flex items-center gap-2">
-              <button type="button" onClick={() => handleUpdateRwCode(false)} disabled={savingCode || !customCode.trim()} className="rounded-lg bg-[#14532D] hover:bg-[#0F3F22] px-4 py-2.5 text-xs font-bold text-white transition disabled:opacity-50">Simpan Kode</button>
-              <button type="button" onClick={() => handleUpdateRwCode(true)} disabled={savingCode} className="rounded-lg border border-[#14532D] bg-white hover:bg-green-50 px-4 py-2.5 text-xs font-bold text-[#14532D] transition">Acak Otomatis</button>
+          <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">{codes.some((code) => code.id === selectedCodeId) ? "Ubah" : "Buat"} kode {selectedRw}</p>
+          <div className="grid grid-cols-1 gap-3 items-center sm:grid-cols-12">
+            <div className="sm:col-span-4"><SixBoxCodeInput value={customCodeDigits} onChange={setCustomCodeDigits} inputRefs={customCodeRefs} /></div>
+            <div className="sm:col-span-4 flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => handleUpdateRwCode(false)} disabled={savingCode || !customCode.trim()} className="min-h-11 rounded-lg bg-[#14532D] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#0F3F22] disabled:opacity-50">Simpan Kode</button>
+              <button type="button" onClick={() => handleUpdateRwCode(true)} disabled={savingCode || generatingCode} className="min-h-11 rounded-lg border border-[#14532D] bg-white px-4 py-2.5 text-xs font-bold text-[#14532D] transition hover:bg-green-50">{generatingCode ? "Membuat..." : "Acak Otomatis"}</button>
             </div>
-            <div className="sm:col-span-3"><label className="flex items-center gap-2 text-xs font-bold text-red-700 cursor-pointer"><input type="checkbox" checked={forceLogout} onChange={(e) => setForceLogout(e.target.checked)} className="rounded border-gray-300 text-red-600 focus:ring-red-500" /> Paksa keluar semua warga RW ini</label></div>
           </div>
         </div>
       </section>
@@ -218,7 +273,7 @@ export default function AdminWargaManager({
             <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><Users className="h-5 w-5 text-[#14532D]" /> Daftar Warga Terdaftar ({filteredWarga.length})</h3>
             <p className="text-xs text-gray-500 mt-0.5">Kelola nama panggilan warga, reset skor, atau blokir akun yang melanggar aturan.</p>
           </div>
-          <button type="button" onClick={exportCsv} className="inline-flex items-center gap-2 rounded-lg bg-[#F59E0B] hover:bg-[#D97706] px-4 py-2.5 text-xs font-extrabold text-gray-950 transition shrink-0"><Download className="h-4 w-4" /> Ekspor Data ke CSV</button>
+          <div className="flex items-center gap-2"><select aria-label="Format ekspor peserta" value={exportFormat} onChange={(event) => setExportFormat(event.target.value as "excel" | "csv")} className="min-h-11 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs font-bold"><option value="excel">Excel (.xlsx)</option><option value="csv">CSV (.csv)</option></select><button type="button" onClick={exportParticipants} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#F59E0B] px-4 py-2.5 text-xs font-extrabold text-gray-950 transition hover:bg-[#D97706] shrink-0"><Download className="h-4 w-4" /> Ekspor Peserta</button></div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 mb-5">
@@ -228,16 +283,18 @@ export default function AdminWargaManager({
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-[#E5E7EB]">
-          <table className="w-full text-left text-xs text-gray-700"><thead className="border-b border-[#E5E7EB] bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-3">Nama Panggilan</th><th className="px-4 py-3">Wilayah</th><th className="px-4 py-3">Tgl Daftar</th><th className="px-4 py-3">Login Terakhir</th><th className="px-4 py-3 text-center">Game Dimainkan</th><th className="px-4 py-3 text-center">Skor Tertinggi</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Aksi</th></tr></thead><tbody className="divide-y divide-[#E5E7EB]">{paginatedWarga.length === 0 ? (<tr><td colSpan={8} className="py-8 text-center text-xs text-gray-400">Tidak ada warga yang sesuai dengan kriteria pencarian.</td></tr>) : (paginatedWarga.map((w) => (<tr key={w.id} className="hover:bg-gray-50/70 transition"><td className="px-4 py-3 font-extrabold text-gray-900">{w.namaPanggilan}</td><td className="px-4 py-3"><span className="rounded bg-green-50 px-2 py-0.5 text-[11px] font-bold text-[#14532D] border border-green-200">{w.rw}</span></td><td className="px-4 py-3 text-gray-500 text-[11px]">{new Date(w.createdAt).toLocaleDateString("id-ID")}</td><td className="px-4 py-3 text-gray-500 text-[11px]">{new Date(w.lastLoginAt).toLocaleDateString("id-ID")}</td><td className="px-4 py-3 text-center font-bold text-gray-700">{w.totalGamesPlayed || 0}</td><td className="px-4 py-3 text-center font-bold text-[#F59E0B]">{w.highScore || 0}</td><td className="px-4 py-3">{w.isBlocked ? (<span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">Diblokir</span>) : (<span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Aktif</span>)}</td><td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-1"><button type="button" onClick={() => handleRename(w)} title="Ubah Nama Panggilan" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900"><Edit2 className="h-3.5 w-3.5" /></button><button type="button" onClick={() => handleResetStats(w)} title="Reset Skor" className="rounded p-1.5 text-amber-600 hover:bg-amber-50"><RotateCcw className="h-3.5 w-3.5" /></button><button type="button" onClick={() => handleToggleBlock(w)} title={w.isBlocked ? "Buka Blokir" : "Blokir Akun"} className={`rounded p-1.5 ${w.isBlocked ? "text-emerald-600 hover:bg-emerald-50" : "text-red-500 hover:bg-red-50"}`}><Ban className="h-3.5 w-3.5" /></button><button type="button" onClick={() => handleDelete(w)} title="Hapus Akun" className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div></td></tr>)))}</tbody></table>
+          <table className="w-full text-left text-xs text-gray-700"><thead className="border-b border-[#E5E7EB] bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-3">Nama Panggilan</th><th className="px-4 py-3">Wilayah</th><th className="px-4 py-3">Tgl Daftar</th><th className="px-4 py-3">Login Terakhir</th><th className="px-4 py-3 text-center">Game Dimainkan</th><th className="px-4 py-3 text-center">Skor Tertinggi</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Aksi</th></tr></thead><tbody className="divide-y divide-[#E5E7EB]">{paginatedWarga.length === 0 ? (<tr><td colSpan={8} className="py-8 text-center text-xs text-gray-400">Tidak ada warga yang sesuai dengan kriteria pencarian.</td></tr>) : (paginatedWarga.map((w) => (<tr key={w.id} className="hover:bg-gray-50/70 transition"><td className="px-4 py-3 font-extrabold text-gray-900">{w.namaPanggilan}</td><td className="px-4 py-3"><span className="rounded bg-green-50 px-2 py-0.5 text-[11px] font-bold text-[#14532D] border border-green-200">{w.rw}</span></td><td className="px-4 py-3 text-gray-500 text-[11px]">{new Date(w.createdAt).toLocaleDateString("id-ID")}</td><td className="px-4 py-3 text-gray-500 text-[11px]">{new Date(w.lastLoginAt).toLocaleDateString("id-ID")}</td><td className="px-4 py-3 text-center font-bold text-gray-700">{w.totalGamesPlayed || 0}</td><td className="px-4 py-3 text-center font-bold text-[#F59E0B]">{w.highScore || 0}</td><td className="px-4 py-3">{w.isBlocked ? (<span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">Diblokir</span>) : (<span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Aktif</span>)}</td><td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-1"><button type="button" onClick={() => { setEditingWarga(w); setEditedName(w.namaPanggilan); }} title="Ubah Nama Panggilan" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900"><Edit2 className="h-3.5 w-3.5" /></button><button type="button" onClick={() => handleResetStats(w)} title="Reset Skor" className="rounded p-1.5 text-amber-600 hover:bg-amber-50"><RotateCcw className="h-3.5 w-3.5" /></button><button type="button" onClick={() => handleToggleBlock(w)} title={w.isBlocked ? "Buka Blokir" : "Blokir Akun"} className={`rounded p-1.5 ${w.isBlocked ? "text-emerald-600 hover:bg-emerald-50" : "text-red-500 hover:bg-red-50"}`}><Ban className="h-3.5 w-3.5" /></button><button type="button" onClick={() => handleDelete(w)} title="Hapus Akun" className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div></td></tr>)))}</tbody></table>
         </div>
 
         {totalPages > 1 && (<div className="mt-4 flex items-center justify-between text-xs text-gray-500"><span>Halaman {page} dari {totalPages}</span><div className="flex gap-1"><button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded border border-[#E5E7EB] px-3 py-1 font-bold disabled:opacity-40">Sebelumnya</button><button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="rounded border border-[#E5E7EB] px-3 py-1 font-bold disabled:opacity-40">Berikutnya</button></div></div>)}
       </section>
 
+      {editingWarga && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingWarga(null); }}><section role="dialog" aria-modal="true" aria-labelledby="edit-warga-title" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"><h3 id="edit-warga-title" className="text-lg font-extrabold text-gray-900">Ubah nama warga</h3><p className="mt-1 text-sm text-gray-600">Perbarui nama panggilan {editingWarga.namaPanggilan}.</p><label htmlFor="warga-name" className="mt-5 block text-xs font-bold text-gray-700">Nama panggilan baru</label><input id="warga-name" autoFocus value={editedName} onChange={(event) => setEditedName(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-lg border border-[#E5E7EB] px-3 text-sm focus:border-[#14532D] focus:outline-none" /><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setEditingWarga(null)} className="min-h-10 rounded-lg border border-[#E5E7EB] px-4 text-sm font-bold">Batal</button><button type="button" disabled={savingName} onClick={handleRename} className="min-h-10 rounded-lg bg-[#14532D] px-4 text-sm font-bold text-white disabled:opacity-60">{savingName ? "Menyimpan..." : "Konfirmasi"}</button></div></section></div>}
+
       {/* Riwayat Login */}
       <section className="rounded-xl border border-[#E5E7EB] bg-white p-6">
         <h3 className="text-lg font-extrabold text-gray-900 mb-3 flex items-center gap-2"><UserCheck className="h-5 w-5 text-[#14532D]" /> Riwayat Login Terbaru ({loginLog.length})</h3>
-        <div className="overflow-x-auto rounded-lg border border-[#E5E7EB]"><table className="w-full text-left text-xs text-gray-700"><thead className="border-b border-[#E5E7EB] bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-2.5">Waktu</th><th className="px-4 py-2.5">Nama Panggilan</th><th className="px-4 py-2.5">RW</th><th className="px-4 py-2.5">Device Token</th><th className="px-4 py-2.5">IP Hint</th></tr></thead><tbody className="divide-y divide-[#E5E7EB]">{loginLog.length === 0 ? (<tr><td colSpan={5} className="py-6 text-center text-xs text-gray-400">Belum ada aktivitas login yang tercatat.</td></tr>) : (loginLog.slice(0, 15).map((log) => (<tr key={log.id} className="hover:bg-gray-50/50"><td className="px-4 py-2 text-gray-500 text-[11px]">{new Date(log.loginAt).toLocaleString("id-ID")}</td><td className="px-4 py-2 font-bold text-gray-900">{log.namaPanggilan}</td><td className="px-4 py-2"><span className="font-semibold text-[#14532D]">{log.rw}</span></td><td className="px-4 py-2 font-mono text-[11px] text-gray-400 truncate max-w-[150px]">{log.deviceId}</td><td className="px-4 py-2 text-gray-400 text-[11px]">{log.ipHint || "-"}</td></tr>)))}</tbody></table></div>
+        <div className="overflow-x-auto rounded-lg border border-[#E5E7EB]"><table className="w-full text-left text-xs text-gray-700"><thead className="border-b border-[#E5E7EB] bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-2.5">Waktu</th><th className="px-4 py-2.5">Nama Panggilan</th><th className="px-4 py-2.5">RW</th></tr></thead><tbody className="divide-y divide-[#E5E7EB]">{loginLog.length === 0 ? (<tr><td colSpan={3} className="py-6 text-center text-xs text-gray-400">Belum ada aktivitas login yang tercatat.</td></tr>) : (loginLog.slice(0, 15).map((log) => (<tr key={log.id} className="hover:bg-gray-50/50"><td className="px-4 py-2 text-gray-500 text-[11px]">{new Date(log.loginAt).toLocaleString("id-ID")}</td><td className="px-4 py-2 font-bold text-gray-900">{log.namaPanggilan}</td><td className="px-4 py-2"><span className="font-semibold text-[#14532D]">{log.rw}</span></td></tr>)))}</tbody></table></div>
       </section>
     </div>
   );

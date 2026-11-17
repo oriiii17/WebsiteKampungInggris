@@ -3,9 +3,15 @@ import { cookies } from "next/headers";
 import { SessionPayload } from "./types";
 
 const SESSION_COOKIE_NAME = "sapen_session";
+let ephemeralSessionSecret: string | null = null;
 
 function getSecret(): string {
-  return process.env.APP_SESSION_SECRET || "kampung-inggris-sapen-secret-2026-dev";
+  const configured = process.env.APP_SESSION_SECRET?.trim();
+  if (configured) return configured;
+  // Avoid a shipped signing secret; sessions naturally expire on process restart
+  // until a deployment provides APP_SESSION_SECRET.
+  ephemeralSessionSecret ??= crypto.randomBytes(32).toString("base64url");
+  return ephemeralSessionSecret;
 }
 
 function signHmac(data: string): string {
@@ -37,7 +43,13 @@ export function decodeSessionToken(token: string | undefined): SessionPayload | 
 export async function getServerSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const raw = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  return decodeSessionToken(raw);
+  const session = decodeSessionToken(raw);
+  if (!session) return null;
+  const hasSupabaseUserId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(session.id);
+  if ((session.origin === "admin" || session.origin === "luar_belum_aktif" || session.origin === "luar_langganan") && !hasSupabaseUserId) {
+    return null;
+  }
+  return session;
 }
 
 export function hasActiveMaterialAccess(session: SessionPayload | null): boolean {
@@ -87,25 +99,6 @@ export function verifySignedPageRequest(
   const expected = signHmac(payload);
   if (sig.length !== expected.length) return false;
   return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
-}
-
-export function hashPassword(password: string): string {
-  return crypto.createHmac("sha256", getSecret()).update(`pwd:${password}`).digest("hex");
-}
-
-export function getAdminCredentials() {
-  return {
-    pengurus: {
-      email: (process.env.ADMIN_PENGURUS_EMAIL || "pengurus@kampungsapen.id").toLowerCase(),
-      password: process.env.ADMIN_PENGURUS_PASSWORD || "sapen2026",
-      name: "Pengurus Kampung Sapen",
-    },
-    developer: {
-      email: (process.env.ADMIN_DEVELOPER_EMAIL || "dev@kampungsapen.id").toLowerCase(),
-      password: process.env.ADMIN_DEVELOPER_PASSWORD || "devsapen2026",
-      name: "Developer Sistem Sapen",
-    },
-  };
 }
 
 export { SESSION_COOKIE_NAME };

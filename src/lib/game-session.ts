@@ -83,12 +83,19 @@ const pinGuessFailMap: Map<string, { count: number; resetAt: number }> = g.__sap
 
 export function checkPinRateLimit(ip: string): boolean {
   const now = Date.now();
+  if (pinGuessFailMap.size > 5000) {
+    for (const [key, bucket] of pinGuessFailMap) if (bucket.resetAt <= now) pinGuessFailMap.delete(key);
+  }
   const entry = pinGuessFailMap.get(ip);
-  if (!entry || now > entry.resetAt) { pinGuessFailMap.set(ip, { count: 1, resetAt: now + 5 * 60 * 1000 }); return true; }
-  if (entry.count >= 10) return false; entry.count++; return true;
+  if (!entry || now > entry.resetAt) return true;
+  return entry.count < 10;
 }
 export function recordPinFailure(ip: string) {
   const now = Date.now();
+  if (pinGuessFailMap.size >= 5000 && !pinGuessFailMap.has(ip)) {
+    const oldestKey = pinGuessFailMap.keys().next().value as string | undefined;
+    if (oldestKey) pinGuessFailMap.delete(oldestKey);
+  }
   const entry = pinGuessFailMap.get(ip) || { count: 0, resetAt: now + 5 * 60 * 1000 };
   entry.count++; pinGuessFailMap.set(ip, entry);
 }

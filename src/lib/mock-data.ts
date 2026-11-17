@@ -178,116 +178,12 @@ export const mockModules: ModuleItem[] = [
   },
 ];
 
-export const mockAccessCodes: AccessCode[] = [
-  {
-    id: "ac-rt01-rw06",
-    code: "QTU-OP3",
-    label: "Keluarga Bpk. Hendra (RT 01)",
-    rtRw: "RT 01 / RW 06",
-    holderType: "keluarga",
-    maxDevices: 4,
-    expiresAt: "2026-12-31T23:59:59.000Z",
-    isActive: true,
-    createdBy: "pengurus@kampungsapen.id",
-    createdAt: "2026-01-10T08:00:00.000Z",
-    devices: [
-      { deviceId: "dev-android-hendra", participantName: "Hendra", deviceLabel: "Samsung Galaxy A54", lastSeenAt: "2026-11-08T19:30:00.000Z", createdAt: "2026-01-10T08:05:00.000Z" },
-      { deviceId: "dev-iphone-siti", participantName: "Siti", deviceLabel: "iPhone 13", lastSeenAt: "2026-11-09T07:15:00.000Z", createdAt: "2026-01-11T10:00:00.000Z" },
-      { deviceId: "dev-laptop-andi", participantName: "Andi", deviceLabel: "Windows Chrome", lastSeenAt: "2026-11-07T20:00:00.000Z", createdAt: "2026-01-12T14:00:00.000Z" },
-    ],
-  },
-  {
-    id: "ac-rt02-rw06",
-    code: "BKR-9M2",
-    label: "Keluarga Ibu Sari (RT 02)",
-    rtRw: "RT 02 / RW 06",
-    holderType: "keluarga",
-    maxDevices: 3,
-    expiresAt: "2026-12-31T23:59:59.000Z",
-    isActive: true,
-    createdBy: "pengurus@kampungsapen.id",
-    createdAt: "2026-01-12T08:00:00.000Z",
-    devices: [
-      { deviceId: "dev-sari-phone", participantName: "Sari", deviceLabel: "Xiaomi Redmi Note 12", lastSeenAt: "2026-11-09T06:45:00.000Z", createdAt: "2026-01-12T08:10:00.000Z" },
-      { deviceId: "dev-budi-tab", participantName: "Budi", deviceLabel: "Samsung Tab A8", lastSeenAt: "2026-11-08T18:20:00.000Z", createdAt: "2026-01-13T09:00:00.000Z" },
-    ],
-  },
-  {
-    id: "ac-rw07-ketua",
-    code: "XJ4-KL9",
-    label: "Ketua RW 07 - Bpk. Joko",
-    rtRw: "RW 07",
-    holderType: "individu",
-    maxDevices: 2,
-    expiresAt: "2026-12-31T23:59:59.000Z",
-    isActive: true,
-    createdBy: "dev@kampungsapen.id",
-    createdAt: "2026-02-01T08:00:00.000Z",
-    devices: [
-      { deviceId: "dev-joko-main", participantName: "Joko", deviceLabel: "iPhone 14 Pro", lastSeenAt: "2026-11-09T05:30:00.000Z", createdAt: "2026-02-01T08:05:00.000Z" },
-    ],
-  },
-  {
-    id: "ac-rw08-rt03",
-    code: "PLM-7W1",
-    label: "RT 03 RW 08 - Ibu Dewi",
-    rtRw: "RT 03 / RW 08",
-    holderType: "keluarga",
-    maxDevices: 5,
-    expiresAt: "2026-06-30T23:59:59.000Z",
-    isActive: false,
-    createdBy: "pengurus@kampungsapen.id",
-    createdAt: "2026-01-20T08:00:00.000Z",
-    devices: [],
-  },
-  {
-    id: "ac-demo-expired",
-    code: "OLD-CDE",
-    label: "Kode Lama (Expired Demo)",
-    rtRw: "RW 06",
-    holderType: "individu",
-    maxDevices: 1,
-    expiresAt: "2025-12-31T23:59:59.000Z",
-    isActive: false,
-    createdBy: "dev@kampungsapen.id",
-    createdAt: "2025-06-01T08:00:00.000Z",
-    devices: [],
-  },
-];
+export const mockAccessCodes: AccessCode[] = [];
 
-export const mockWarga: WargaRecord[] = [
-  { id: "warga-hendra", namaPanggilan: "Hendra", rw: "RW 06", deviceId: "dev-android-hendra", createdAt: "2026-01-10T08:05:00.000Z", lastLoginAt: "2026-11-08T19:30:00.000Z", isBlocked: false, totalGamesPlayed: 47, highScore: 2850 },
-  { id: "warga-siti", namaPanggilan: "Siti", rw: "RW 06", deviceId: "dev-iphone-siti", createdAt: "2026-01-11T10:00:00.000Z", lastLoginAt: "2026-11-09T07:15:00.000Z", isBlocked: false, totalGamesPlayed: 32, highScore: 2100 },
-  { id: "warga-andi", namaPanggilan: "Andi", rw: "RW 06", deviceId: "dev-laptop-andi", createdAt: "2026-01-12T14:00:00.000Z", lastLoginAt: "2026-11-07T20:00:00.000Z", isBlocked: false, totalGamesPlayed: 18, highScore: 1560 },
-  { id: "warga-sari", namaPanggilan: "Sari", rw: "RW 06", deviceId: "dev-sari-phone", createdAt: "2026-01-12T08:10:00.000Z", lastLoginAt: "2026-11-09T06:45:00.000Z", isBlocked: false, totalGamesPlayed: 55, highScore: 3200 },
-  { id: "warga-budi", namaPanggilan: "Budi", rw: "RW 06", deviceId: "dev-budi-tab", createdAt: "2026-01-13T09:00:00.000Z", lastLoginAt: "2026-11-08T18:20:00.000Z", isBlocked: false, totalGamesPlayed: 23, highScore: 1890 },
-  { id: "warga-joko", namaPanggilan: "Joko", rw: "RW 07", deviceId: "dev-joko-main", createdAt: "2026-02-01T08:05:00.000Z", lastLoginAt: "2026-11-09T05:30:00.000Z", isBlocked: false, totalGamesPlayed: 67, highScore: 3580 },
-  { id: "warga-dewi", namaPanggilan: "Dewi", rw: "RW 08", deviceId: "dev-dewi-phone", createdAt: "2026-01-20T08:10:00.000Z", lastLoginAt: "2026-05-15T10:00:00.000Z", isBlocked: true, totalGamesPlayed: 5, highScore: 400 },
-  { id: "warga-rina", namaPanggilan: "Rina", rw: "RW 07", deviceId: "dev-rina-phone", createdAt: "2026-03-01T08:00:00.000Z", lastLoginAt: "2026-11-09T08:00:00.000Z", isBlocked: false, totalGamesPlayed: 41, highScore: 2750 },
-  { id: "warga-agus", namaPanggilan: "Agus", rw: "RW 08", deviceId: "dev-agus-phone", createdAt: "2026-03-15T08:00:00.000Z", lastLoginAt: "2026-11-08T17:00:00.000Z", isBlocked: false, totalGamesPlayed: 29, highScore: 2010 },
-  { id: "warga-maya", namaPanggilan: "Maya", rw: "RW 06", deviceId: "dev-maya-phone", createdAt: "2026-04-01T08:00:00.000Z", lastLoginAt: "2026-11-09T07:45:00.000Z", isBlocked: false, totalGamesPlayed: 38, highScore: 2450 },
-];
+export const mockWarga: WargaRecord[] = [];
+export const mockLoginLog: LoginLogEntry[] = [];
 
-export const mockLoginLog: LoginLogEntry[] = [
-  { id: "log-1", wargaId: "warga-hendra", namaPanggilan: "Hendra", rw: "RW 06", deviceId: "dev-android-hendra", loginAt: "2026-11-08T19:30:00.000Z", ipHint: "192.168.1.45" },
-  { id: "log-2", wargaId: "warga-siti", namaPanggilan: "Siti", rw: "RW 06", deviceId: "dev-iphone-siti", loginAt: "2026-11-09T07:15:00.000Z", ipHint: "192.168.1.46" },
-  { id: "log-3", wargaId: "warga-joko", namaPanggilan: "Joko", rw: "RW 07", deviceId: "dev-joko-main", loginAt: "2026-11-09T05:30:00.000Z", ipHint: "192.168.1.52" },
-  { id: "log-4", wargaId: "warga-rina", namaPanggilan: "Rina", rw: "RW 07", deviceId: "dev-rina-phone", loginAt: "2026-11-09T08:00:00.000Z", ipHint: "192.168.1.53" },
-  { id: "log-5", wargaId: "warga-maya", namaPanggilan: "Maya", rw: "RW 06", deviceId: "dev-maya-phone", loginAt: "2026-11-09T07:45:00.000Z", ipHint: "192.168.1.47" },
-  { id: "log-6", wargaId: "warga-andi", namaPanggilan: "Andi", rw: "RW 06", deviceId: "dev-laptop-andi", loginAt: "2026-11-07T20:00:00.000Z", ipHint: "192.168.1.48" },
-  { id: "log-7", wargaId: "warga-budi", namaPanggilan: "Budi", rw: "RW 06", deviceId: "dev-budi-tab", loginAt: "2026-11-08T18:20:00.000Z", ipHint: "192.168.1.49" },
-  { id: "log-8", wargaId: "warga-agus", namaPanggilan: "Agus", rw: "RW 08", deviceId: "dev-agus-phone", loginAt: "2026-11-08T17:00:00.000Z", ipHint: "192.168.1.54" },
-  { id: "log-9", wargaId: "warga-sari", namaPanggilan: "Sari", rw: "RW 06", deviceId: "dev-sari-phone", loginAt: "2026-11-09T06:45:00.000Z", ipHint: "192.168.1.50" },
-  { id: "log-10", wargaId: "warga-sari", namaPanggilan: "Sari", rw: "RW 06", deviceId: "dev-sari-phone", loginAt: "2026-11-08T06:30:00.000Z", ipHint: "192.168.1.50" },
-];
-
-export const mockExternalUsers = [
-  { id: "ext-rina-anggraini", name: "Rina Anggraini", email: "rina.anggraini@gmail.com", passwordHash: "hash1", createdAt: "2026-02-15T10:00:00.000Z" },
-  { id: "ext-budi-santoso", name: "Budi Santoso", email: "budi.santoso@yahoo.com", passwordHash: "hash2", createdAt: "2026-03-10T14:00:00.000Z" },
-  { id: "ext-maya-sari", name: "Maya Sari", email: "maya.sari@outlook.com", passwordHash: "hash3", createdAt: "2026-04-05T09:00:00.000Z" },
-  { id: "ext-andi-pratama", name: "Andi Pratama", email: "andi.pratama@gmail.com", passwordHash: "hash4", createdAt: "2026-05-20T11:00:00.000Z" },
-  { id: "ext-siti-nurhaliza", name: "Siti Nurhaliza", email: "siti.nurhaliza@student.univ.ac.id", passwordHash: "hash5", createdAt: "2026-06-12T16:00:00.000Z" },
-];
+export const mockExternalUsers = [];
 
 export const mockPlans: SubscriptionPlan[] = [
   { id: "bulanan", name: "Paket Bulanan", durationDays: 30, priceIdr: 49000, badge: "Populer", description: "Akses penuh 30 hari ke semua modul premium", features: ["Semua modul premium", "Kuis live unlimited", "Sertifikat digital"], isActive: true },
@@ -414,15 +310,14 @@ export const mockTestimoni: TestimoniRecord[] = [
 ];
 
 export const mockRwCodes = [
-  { rw: "RW 06" as const, codeDisplay: "QTU-OP3", isActive: true, updatedAt: "2026-11-01T08:00:00.000Z", forceLogoutAt: undefined },
-  { rw: "RW 07" as const, codeDisplay: "XJ4-KL9", isActive: true, updatedAt: "2026-11-01T08:00:00.000Z", forceLogoutAt: undefined },
-  { rw: "RW 08" as const, codeDisplay: "PLM-7W1", isActive: false, updatedAt: "2026-11-01T08:00:00.000Z", forceLogoutAt: undefined },
+  { id: "rw-06-1", rw: "RW 06" as const, codeDisplay: "QTU-OP3", isActive: true, updatedAt: "2026-11-01T08:00:00.000Z", forceLogoutAt: undefined },
+  { id: "rw-07-1", rw: "RW 07" as const, codeDisplay: "XJ4-KL9", isActive: true, updatedAt: "2026-11-01T08:00:00.000Z", forceLogoutAt: undefined },
+  { id: "rw-08-1", rw: "RW 08" as const, codeDisplay: "PLM-7W1", isActive: false, updatedAt: "2026-11-01T08:00:00.000Z", forceLogoutAt: undefined },
 ];
 
 export const mockStats = {
   totalModules: mockModules.length,
   totalCodes: mockAccessCodes.filter(c => c.isActive).length,
-  activeDevices: mockAccessCodes.reduce((sum, c) => sum + c.devices.length, 0),
   activeSubscribers: mockSubscriptions.filter(s => s.status === "active").length,
   totalRevenueIdr: mockSubscriptions.filter(s => s.status === "active").reduce((sum, s) => sum + s.amountIdr, 0),
   totalQuizQuestions: mockQuizzes.length,
@@ -445,31 +340,6 @@ export const mockDiagnostics = {
   midtransEnvironment: "Sandbox / Simulator",
   privateStorageMode: "Server Private Folder (.data/private-pages) + Signed HMAC URL",
 };
-
-export const mockOverviewData = {
-  session: { id: "dev-session", name: "Developer Sistem Sapen", email: "dev@kampungsapen.id", role: "developer" as const, origin: "admin" as const, watermarkText: "Developer Sistem Sapen", rwForceLogoutAt: undefined },
-  diagnostics: mockDiagnostics,
-  stats: mockStats,
-  modules: mockModules,
-  accessCodes: mockAccessCodes,
-  subscriptions: mockSubscriptions,
-  quizzes: mockQuizzes,
-  flashcards: mockFlashcards,
-  matchingPairs: mockMatchingPairs,
-  wordChallenges: mockWordChallenges,
-  warga: mockWarga,
-  loginLog: mockLoginLog,
-  rwCodes: mockRwCodes,
-  testimoni: mockTestimoni,
-  classes: mockClasses,
-  enrollments: mockEnrollments,
-  externalUsers: mockExternalUsers,
-  plans: mockPlans,
-};
-
-export function getMockOverviewData() {
-  return mockOverviewData;
-}
 
 export const mockDbSchema: DatabaseSchema = {
   modules: mockModules,

@@ -2,7 +2,8 @@ import fs from "fs/promises";
 import path from "path";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createInitialSeedData, getCurrentWeekLabel } from "./seed-data";
-import { getSupabaseAdmin, isSupabaseConfigured } from "./supabase";
+import { isSupabaseConfigured } from "./supabase";
+import { getSupabaseServerClient as getSupabaseAdmin } from "./supabase-server";
 import {
   AccessCode,
   DatabaseSchema,
@@ -15,6 +16,7 @@ import {
   SubscriptionRecord,
   WordChallenge,
   GameRecord,
+  GameQuestion,
 } from "./types";
 import { getBuiltinGames } from "./builtin-games";
 
@@ -31,185 +33,329 @@ async function ensureDirs() {
 // SINKRONISASI PENUH TABEL RELASIONAL SUPABASE POSTGRES <-> APLIKASI
 // ============================================================================
 
-async function pushFullSchemaToSupabase(sb: SupabaseClient, data: DatabaseSchema) {
-  if (data.plans.length > 0) {
-    await sb.from("subscription_plans").upsert(
-      data.plans.map((p) => ({
-        id: p.id,
-        name: p.name,
-        duration_days: p.durationDays,
-        price_idr: p.priceIdr,
-        badge: p.badge || null,
-        description: p.description,
-        features: p.features,
-        is_active: p.isActive,
-      }))
-    );
+function sbErrMsg(ctx: string, err: any): string {
+  if (!err) return `${ctx}: error tidak diketahui.`;
+  const parts = [err.message, err.details, err.hint, err.code].filter(Boolean);
+  return `${ctx}: ${parts.join(" | ") || String(err)}`;
+}
+
+function throwSb(ctx: string, err: any): never {
+  console.error("[Supabase]", ctx, err);
+  throw new Error(sbErrMsg(ctx, err));
+}
+
+function isMissingTableError(err: any): boolean {
+  const msg = `${err?.message || ""} ${err?.details || ""} ${err?.hint || ""} ${err?.code || ""}`.toLowerCase();
+  return err?.code === "42P01" || err?.code === "PGRST205" || msg.includes("does not exist") || msg.includes("schema cache") || msg.includes("could not find the table");
+}
+
+async function upsertChecked(sb: SupabaseClient, table: string, rows: any[], opts?: any) {
+  if (!rows || rows.length === 0) return;
+  const q = sb.from(table).upsert(rows, opts);
+  const { error } = await q;
+  if (error) throwSb(`Gagal upsert ke tabel "${table}"`, error);
+}
+
+function plansMatch(left: DatabaseSchema["plans"], right: DatabaseSchema["plans"]): boolean {
+  const toRows = (plans: DatabaseSchema["plans"]) => plans
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      duration_days: p.durationDays,
+      price_idr: p.priceIdr,
+      badge: p.badge || null,
+      description: p.description,
+      features: p.features,
+      is_active: p.isActive,
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return JSON.stringify(toRows(left || [])) === JSON.stringify(toRows(right || []));
+}
+
+async function pushFullSchemaToSupabase(
+  sb: SupabaseClient,
+  data: DatabaseSchema,
+  allowMissingRwCodes = false,
+  skipUnchangedPlans = false,
+) {
+  if (!skipUnchangedPlans && data.plans.length > 0) {
+    await upsertChecked(sb, "subscription_plans", data.plans.map((p) => ({
+      id: p.id,
+      name: p.name,
+      duration_days: p.durationDays,
+      price_idr: p.priceIdr,
+      badge: p.badge || null,
+      description: p.description,
+      features: p.features,
+      is_active: p.isActive,
+    })));
   }
 
   if (data.modules.length > 0) {
-    await sb.from("modules").upsert(
-      data.modules.map((m) => ({
-        id: m.id,
-        slug: m.slug,
-        title: m.title,
-        subtitle: m.subtitle,
-        category: m.category,
-        level: m.level,
-        duration_label: m.durationLabel,
-        schedule_label: m.scheduleLabel,
-        target_audience: m.targetAudience,
-        quota_note: m.quotaNote,
-        summary: m.summary,
-        description: m.description,
-        cover_theme: m.coverTheme,
-        total_pages: m.totalPages,
-        has_custom_uploaded_pages: Boolean(m.hasCustomUploadedPages),
-        syllabus: m.syllabus,
-        learning_outcomes: m.learningOutcomes,
-        benefits: m.benefits,
-        preview_highlights: m.previewHighlights,
-        seed_pages: m.seedPages || null,
-        is_published: m.isPublished,
-        created_at: m.createdAt,
-      }))
-    );
+    await upsertChecked(sb, "modules", data.modules.map((m) => ({
+      id: m.id,
+      slug: m.slug,
+      title: m.title,
+      subtitle: m.subtitle,
+      category: m.category,
+      level: m.level,
+      duration_label: m.durationLabel,
+      schedule_label: m.scheduleLabel,
+      target_audience: m.targetAudience,
+      quota_note: m.quotaNote,
+      summary: m.summary,
+      description: m.description,
+      cover_theme: m.coverTheme,
+      total_pages: m.totalPages,
+      has_custom_uploaded_pages: Boolean(m.hasCustomUploadedPages),
+      syllabus: m.syllabus,
+      learning_outcomes: m.learningOutcomes,
+      benefits: m.benefits,
+      preview_highlights: m.previewHighlights,
+      seed_pages: m.seedPages || null,
+      is_published: m.isPublished,
+      created_at: m.createdAt,
+    })));
   }
 
   if (data.accessCodes.length > 0) {
-    await sb.from("access_codes").upsert(
-      data.accessCodes.map((c) => ({
-        id: c.id,
-        code: c.code,
-        label: c.label,
-        rt_rw: c.rtRw,
-        holder_type: c.holderType,
-        max_devices: c.maxDevices,
-        expires_at: c.expiresAt,
-        is_active: c.isActive,
-        created_by: c.createdBy,
-        created_at: c.createdAt,
-      }))
-    );
+    await upsertChecked(sb, "access_codes", data.accessCodes.map((c) => ({
+      id: c.id,
+      code: c.code,
+      label: c.label,
+      rt_rw: c.rtRw,
+      holder_type: c.holderType,
+      expires_at: c.expiresAt,
+      is_active: c.isActive,
+      created_by: c.createdBy,
+      created_at: c.createdAt,
+    })));
 
-    const allDevices = data.accessCodes.flatMap((c) =>
-      c.devices.map((d) => ({
-        code_id: c.id,
-        device_id: d.deviceId,
-        participant_name: d.participantName,
-        device_label: d.deviceLabel,
-        last_seen_at: d.lastSeenAt,
-        created_at: d.createdAt,
-      }))
-    );
-    if (allDevices.length > 0) {
-      await sb
-        .from("access_code_devices")
-        .upsert(allDevices, { onConflict: "code_id,device_id" });
-    }
   }
 
   if (data.externalUsers.length > 0) {
-    await sb.from("external_users").upsert(
-      data.externalUsers.map((u) => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        password_hash: u.passwordHash,
-        created_at: u.createdAt,
-      }))
-    );
+    await upsertChecked(sb, "external_users", data.externalUsers.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      password_hash: u.passwordHash,
+      created_at: u.createdAt,
+      ...(u.avatarDataUrl ? { avatar_data_url: u.avatarDataUrl } : {}),
+    })));
   }
 
   if (data.subscriptions.length > 0) {
-    await sb.from("subscriptions").upsert(
-      data.subscriptions.map((s) => ({
-        id: s.id,
-        user_email: s.userEmail,
-        user_name: s.userName,
-        plan_id: s.planId,
-        plan_name: s.planName,
-        amount_idr: s.amountIdr,
-        status: s.status,
-        payment_method: s.paymentMethod,
-        midtrans_order_id: s.orderId,
-        midtrans_snap_token: s.snapToken || null,
-        starts_at: s.startsAt || null,
-        expires_at: s.expiresAt || null,
-        created_at: s.createdAt,
-      }))
-    );
+    await upsertChecked(sb, "subscriptions", data.subscriptions.map((s) => ({
+      id: s.id,
+      user_email: s.userEmail,
+      user_name: s.userName,
+      plan_id: s.planId,
+      plan_name: s.planName,
+      amount_idr: s.amountIdr,
+      status: s.status,
+      payment_method: s.paymentMethod,
+      midtrans_order_id: s.orderId,
+      midtrans_snap_token: s.snapToken || null,
+      starts_at: s.startsAt || null,
+      expires_at: s.expiresAt || null,
+      created_at: s.createdAt,
+    })));
   }
 
   if (data.quizzes.length > 0) {
-    await sb.from("quiz_questions").upsert(
-      data.quizzes.map((q) => ({
-        id: q.id,
-        module_id: q.moduleId,
-        question: q.question,
-        options: q.options,
-        correct_index: q.correctIndex,
-        explanation: q.explanation,
-        order_num: q.orderNum,
-      }))
-    );
+    await upsertChecked(sb, "quiz_questions", data.quizzes.map((q) => ({
+      id: q.id,
+      module_id: q.moduleId,
+      question: q.question,
+      options: q.options,
+      correct_index: q.correctIndex,
+      explanation: q.explanation,
+      order_num: q.orderNum,
+    })));
   }
 
   if (data.flashcards.length > 0) {
-    await sb.from("flashcards").upsert(
-      data.flashcards.map((f) => ({
-        id: f.id,
-        module_id: f.moduleId,
-        english: f.english,
-        phonetic: f.phonetic,
-        indonesian: f.indonesian,
-        example_en: f.exampleEn,
-        example_id: f.exampleId,
-      }))
-    );
+    await upsertChecked(sb, "flashcards", data.flashcards.map((f) => ({
+      id: f.id,
+      module_id: f.moduleId,
+      english: f.english,
+      phonetic: f.phonetic,
+      indonesian: f.indonesian,
+      example_en: f.exampleEn,
+      example_id: f.exampleId,
+    })));
   }
 
   if (data.matchingPairs.length > 0) {
-    await sb.from("matching_pairs").upsert(
-      data.matchingPairs.map((mp) => ({
-        id: mp.id,
-        module_id: mp.moduleId,
-        english: mp.english,
-        indonesian: mp.indonesian,
-      }))
-    );
+    await upsertChecked(sb, "matching_pairs", data.matchingPairs.map((mp) => ({
+      id: mp.id,
+      module_id: mp.moduleId,
+      english: mp.english,
+      indonesian: mp.indonesian,
+    })));
   }
 
   if (data.wordChallenges.length > 0) {
-    await sb.from("word_challenges").upsert(
-      data.wordChallenges.map((wc) => ({
-        id: wc.id,
-        module_id: wc.moduleId,
-        challenge_type: wc.challengeType,
-        clue_id: wc.clueId,
-        sentence_blank: wc.sentenceBlank || null,
-        answer: wc.answer,
-        hint: wc.hint,
-      }))
-    );
+    await upsertChecked(sb, "word_challenges", data.wordChallenges.map((wc) => ({
+      id: wc.id,
+      module_id: wc.moduleId,
+      challenge_type: wc.challengeType,
+      clue_id: wc.clueId,
+      sentence_blank: wc.sentenceBlank || null,
+      answer: wc.answer,
+      hint: wc.hint,
+    })));
   }
 
   if (data.leaderboard.length > 0) {
-    await sb.from("leaderboard_entries").upsert(
-      data.leaderboard.map((lb) => ({
-        id: lb.id,
-        participant_key: lb.participantKey,
-        participant_name: lb.participantName,
-        origin_badge: lb.originBadge,
-        module_id: lb.moduleId,
-        module_title: lb.moduleTitle,
-        game_type: lb.gameType,
-        score: lb.score,
-        week_label: lb.weekLabel,
-        created_at: lb.createdAt,
-      }))
-    );
+    await upsertChecked(sb, "leaderboard_entries", data.leaderboard.map((lb) => ({
+      id: lb.id,
+      participant_key: lb.participantKey,
+      participant_name: lb.participantName,
+      origin_badge: lb.originBadge,
+      module_id: lb.moduleId,
+      module_title: lb.moduleTitle,
+      game_type: lb.gameType,
+      score: lb.score,
+      week_label: lb.weekLabel,
+      created_at: lb.createdAt,
+    })));
   }
+
+  // Kelas, pendaftaran, dan game (wajib tersinkron ke Supabase bila tabel ada)
+  const classes = data.classes || [];
+  if (classes.length > 0) {
+    await upsertChecked(sb, "classes", classes.map((c: any) => ({
+      id: c.id,
+      slug: c.slug || null,
+      title: c.title,
+      subtitle: c.subtitle ?? null,
+      description: c.description ?? "",
+      cover_theme: c.coverTheme ?? "emerald",
+      price_idr: Number(c.priceIdr ?? 0),
+      duration_days: Number(c.durationDays ?? 30),
+      module_ids: c.moduleIds ?? [],
+      modules: c.modules ?? [],
+      materi: c.modules ?? [],
+      game_template_ids: c.gameTemplateIds ?? [],
+      is_published: c.isPublished !== false,
+      tingkat: c.tingkat ?? null,
+      jadwal: c.jadwal ?? null,
+      kode_akses: c.kodeAkses ?? null,
+      status: c.status ?? "draft",
+      created_at: c.createdAt || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })));
+  }
+
+  const enrollments = data.enrollments || [];
+  if (enrollments.length > 0) {
+    await upsertChecked(sb, "enrollments", enrollments.map((e: any) => ({
+      id: e.id,
+      class_id: e.classId,
+      user_email: (e.userEmail || "").toLowerCase().trim(),
+      user_name: e.userName || "",
+      starts_at: e.startsAt || null,
+      expires_at: e.expiresAt || null,
+      status: e.status || "active",
+      paid_amount_idr: Number(e.paidAmountIdr ?? 0),
+      payment_method: e.paymentMethod ?? null,
+      created_at: e.createdAt || new Date().toISOString(),
+    })));
+  }
+
+  const games = data.games || [];
+  for (const game of games) {
+    const { data: oldRows, error: oldRowsError } = await sb.from("game_soal")
+      .select("id,game_id,urutan")
+      .eq("game_id", game.id);
+    if (oldRowsError) throwSb(`Gagal membaca soal game "${game.id}"`, oldRowsError);
+
+    const oldIds = new Set((oldRows || []).map((row: any) => row.id as string));
+    const seenIds = new Set<string>();
+    const keptIds = new Set<string>();
+    const questions = game.questions || [];
+    const orders = questions.map((_, index) => index + 1);
+    if (new Set(orders).size !== orders.length) throw new Error(`Urutan soal duplikat pada game "${game.title}".`);
+    for (let index = 0; index < questions.length; index += 1) {
+      const question: any = questions[index];
+      const questionId = typeof question.id === "string" ? question.id : "";
+      if (questionId && seenIds.has(questionId)) {
+        throw new Error(`ID soal "${questionId}" duplikat pada game "${game.title}".`);
+      }
+      if (questionId) seenIds.add(questionId);
+      const order = index + 1;
+      const row = {
+        game_id: game.id,
+        pertanyaan: question.prompt || "",
+        clue: question.hint || "",
+        jawaban: question.answer || "",
+        urutan: order,
+        data: question,
+      };
+
+      if (questionId && oldIds.has(questionId)) {
+        const { error } = await sb.from("game_soal").update(row).eq("id", questionId).eq("game_id", game.id);
+        if (error) throwSb(`Gagal memperbarui soal "${questionId}"`, error);
+        keptIds.add(questionId);
+        continue;
+      }
+
+      // New questions use the database UUID default and a plain INSERT; existing IDs are updated above.
+      const { data: inserted, error: insertError } = await sb.from("game_soal").insert(row).select("id").single();
+      if (insertError) throwSb(`Gagal menambahkan soal ke game "${game.title}"`, insertError);
+      question.id = inserted.id;
+      const { error: dataError } = await sb.from("game_soal").update({ data: { ...question } }).eq("id", inserted.id).eq("game_id", game.id);
+      if (dataError) throwSb(`Gagal menyimpan isi soal "${inserted.id}"`, dataError);
+      keptIds.add(inserted.id);
+      seenIds.add(inserted.id);
+    }
+
+    for (const oldId of oldIds) {
+      if (keptIds.has(oldId)) continue;
+      const { error } = await sb.from("game_soal").delete().eq("id", oldId).eq("game_id", game.id);
+      if (error) throwSb(`Gagal menghapus soal "${oldId}"`, error);
+    }
+  }
+
+  // Sinkronkan penghapusan (remote harus mengikuti data lokal untuk tabel yang dikelola)
+  await syncDeletionsById(sb, "classes", (data.classes || []).map((c: any) => c.id));
+  await syncDeletionsById(sb, "enrollments", (data.enrollments || []).map((e: any) => e.id));
+  // Master game bersifat tetap: sinkronisasi aplikasi tidak menghapus baris games.
+
+  if (data.rwCodes?.length) {
+    const { error } = await sb.from("rw_codes").upsert(data.rwCodes.map((rw) => ({
+      id: rw.id,
+      rw: rw.rw,
+      code_hash: rw.codeHash,
+      code_display: rw.codeDisplay,
+      is_active: rw.isActive,
+      updated_at: rw.updatedAt,
+      force_logout_at: rw.forceLogoutAt || null,
+    })), { onConflict: "id" });
+    if (error && !(allowMissingRwCodes && isMissingTableError(error))) throwSb('Gagal upsert ke tabel "rw_codes"', error);
+    if (error) console.warn("[Supabase] Tabel rw_codes belum tersedia; perubahan kelas/game tetap tersinkron, perubahan kode RW menunggu migrasi.");
+  }
+}
+
+async function syncDeletionsById(sb: SupabaseClient, table: string, localIds: string[]) {
+  const { data: rows, error } = await sb.from(table).select("id");
+  if (error) {
+    if (isMissingTableError(error)) return;
+    throwSb(`Gagal membaca id tabel "${table}" untuk sinkron hapus`, error);
+  }
+  const keep = new Set(localIds.filter(Boolean));
+  const toDel = (rows || []).map((r: any) => r.id).filter((id: string) => id && !keep.has(id));
+  if (toDel.length === 0) return;
+  const { error: dErr } = await sb.from(table).delete().in("id", toDel);
+  if (dErr) throwSb(`Gagal menghapus data dari tabel "${table}"`, dErr);
+}
+
+function mergeByIdPreferLocal<T extends { id: string }>(local: T[] = [], remote: T[] = []): T[] {
+  const map = new Map<string, T>();
+  for (const r of remote) if (r && r.id) map.set(r.id, r);
+  for (const l of local) if (l && l.id) map.set(l.id, l); // lokal terbaru menang
+  return Array.from(map.values());
 }
 
 async function fetchFullSchemaFromSupabase(
@@ -217,25 +363,28 @@ async function fetchFullSchemaFromSupabase(
 ): Promise<DatabaseSchema | null> {
   const { data: modRows, error: modErr } = await sb
     .from("modules")
-    .select("*")
+    .select("id,slug,title,subtitle,category,level,duration_label,schedule_label,target_audience,quota_note,summary,description,cover_theme,total_pages,has_custom_uploaded_pages,syllabus,learning_outcomes,benefits,preview_highlights,seed_pages,is_published,created_at")
     .order("created_at", { ascending: true });
 
-  // Jika tabel belum dibuat di SQL Editor, fallback dengan aman ke mode lokal
   if (modErr) {
-    return null;
+    if (isMissingTableError(modErr)) {
+      // skema dasar belum siap -> fallback mode lokal (boleh) agar app tetap jalan
+      return null;
+    }
+    throwSb('Gagal membaca tabel "modules" dari Supabase', modErr);
   }
 
   // Jika project Supabase baru saja dibuat & kosong, otomatis seed data awal Kampung Sapen!
   if (!modRows || modRows.length === 0) {
     const initial = createInitialSeedData();
-    await pushFullSchemaToSupabase(sb, initial);
+    await pushFullSchemaToSupabase(sb, initial, true);
     return initial;
   }
 
   const [
     plansRes,
     codesRes,
-    devsRes,
+    wargaRes,
     usersRes,
     subsRes,
     quizRes,
@@ -243,30 +392,43 @@ async function fetchFullSchemaFromSupabase(
     mpRes,
     wcRes,
     lbRes,
+    classesRes,
+    enrollmentsRes,
+    gamesRes,
+    gameQuestionsRes,
+    rwCodesRes,
   ] = await Promise.all([
-    sb.from("subscription_plans").select("*"),
-    sb.from("access_codes").select("*").order("created_at", { ascending: false }),
-    sb.from("access_code_devices").select("*"),
-    sb.from("external_users").select("*"),
-    sb.from("subscriptions").select("*").order("created_at", { ascending: false }),
-    sb.from("quiz_questions").select("*").order("order_num", { ascending: true }),
-    sb.from("flashcards").select("*"),
-    sb.from("matching_pairs").select("*"),
-    sb.from("word_challenges").select("*"),
-    sb.from("leaderboard_entries").select("*"),
+    sb.from("subscription_plans").select("id,name,duration_days,price_idr,badge,description,features,is_active"),
+    sb.from("access_codes").select("id,code,label,rt_rw,holder_type,expires_at,is_active,created_by,created_at").order("created_at", { ascending: false }),
+    sb.from("warga").select("id,nama,email,kode_warga,foto_profil,created_at").order("created_at", { ascending: false }),
+    sb.from("external_users").select("id,name,email,password_hash,created_at,avatar_data_url"),
+    sb.from("subscriptions").select("id,user_email,user_name,plan_id,plan_name,amount_idr,status,payment_method,midtrans_order_id,midtrans_snap_token,starts_at,expires_at,created_at").order("created_at", { ascending: false }),
+    sb.from("quiz_questions").select("id,module_id,question,options,correct_index,explanation,order_num").order("order_num", { ascending: true }),
+    sb.from("flashcards").select("id,module_id,english,phonetic,indonesian,example_en,example_id"),
+    sb.from("matching_pairs").select("id,module_id,english,indonesian"),
+    sb.from("word_challenges").select("id,module_id,challenge_type,clue_id,sentence_blank,answer,hint"),
+    sb.from("leaderboard_entries").select("id,participant_key,participant_name,origin_badge,module_id,module_title,game_type,score,week_label,created_at"),
+    sb.from("classes").select("id,slug,title,subtitle,description,cover_theme,price_idr,duration_days,module_ids,modules,materi,game_template_ids,is_published,tingkat,jadwal,kode_akses,status,created_at"),
+    sb.from("enrollments").select("id,class_id,user_email,user_name,starts_at,expires_at,status,paid_amount_idr,payment_method,created_at"),
+    sb.from("games").select("id,nama_game,jenis_game,deskripsi,created_at,updated_at"),
+    sb.from("game_soal").select("id,game_id,pertanyaan,clue,jawaban,urutan,data,created_at"),
+    sb.from("rw_codes").select("id,rw,code_hash,code_display,is_active,updated_at,force_logout_at"),
   ]);
 
-  const devsByCode = new Map<string, AccessCode["devices"]>();
-  for (const d of devsRes.data || []) {
-    const list = devsByCode.get(d.code_id) || [];
-    list.push({
-      deviceId: d.device_id,
-      participantName: d.participant_name,
-      deviceLabel: d.device_label || "Browser",
-      lastSeenAt: d.last_seen_at,
-      createdAt: d.created_at,
-    });
-    devsByCode.set(d.code_id, list);
+  // kelas/enrollments/games: jika tabel belum ada (belum migrasi), laporkan jelas
+  const critical = [
+    { name: "classes", res: classesRes },
+    { name: "enrollments", res: enrollmentsRes },
+    { name: "games", res: gamesRes },
+    { name: "game_soal", res: gameQuestionsRes },
+  ];
+  for (const c of critical) {
+    if (c.res.error && !isMissingTableError(c.res.error)) {
+      throwSb(`Gagal membaca tabel "${c.name}" dari Supabase`, c.res.error);
+    }
+  }
+  if (wargaRes.error && !isMissingTableError(wargaRes.error)) {
+    throwSb('Gagal membaca tabel "warga" dari Supabase', wargaRes.error);
   }
 
   const seed = createInitialSeedData();
@@ -311,12 +473,10 @@ async function fetchFullSchemaFromSupabase(
       label: c.label,
       rtRw: c.rt_rw,
       holderType: c.holder_type,
-      maxDevices: c.max_devices,
       expiresAt: c.expires_at,
       isActive: c.is_active,
       createdBy: c.created_by,
       createdAt: c.created_at,
-      devices: devsByCode.get(c.id) || [],
     })),
     externalUsers: (usersRes.data || []).map((u) => ({
       id: u.id,
@@ -324,6 +484,7 @@ async function fetchFullSchemaFromSupabase(
       email: u.email,
       passwordHash: u.password_hash,
       createdAt: u.created_at,
+      avatarDataUrl: u.avatar_data_url || undefined,
     })),
     subscriptions: (subsRes.data || []).map((s) => ({
       id: s.id,
@@ -385,13 +546,74 @@ async function fetchFullSchemaFromSupabase(
       weekLabel: lb.week_label,
       createdAt: lb.created_at,
     })),
-    warga: [],
+    warga: (wargaRes.data || []).flatMap((w: any) => {
+      const code = (codesRes.data || []).find((item: any) => String(item.code).toUpperCase() === String(w.kode_warga || "").toUpperCase());
+      const rw = String(code?.rt_rw || "").match(/RW\s*0?([0-9]+)/i)?.[1];
+      if (!rw || !["06", "07", "08"].includes(rw.padStart(2, "0"))) return [];
+      return [{
+        id: String(w.id),
+        namaPanggilan: String(w.nama || "Warga Sapen"),
+        rw: `RW ${rw.padStart(2, "0")}` as WargaRecord["rw"],
+        createdAt: w.created_at || new Date().toISOString(),
+        lastLoginAt: w.created_at || new Date().toISOString(),
+        isBlocked: false,
+        totalGamesPlayed: 0,
+        highScore: 0,
+        avatarDataUrl: w.foto_profil || undefined,
+      }];
+    }),
     loginLog: [],
-    rwCodes: seed.rwCodes,
+    rwCodes: rwCodesRes.error
+      ? seed.rwCodes
+      : ((rwCodesRes.data || []).length ? rwCodesRes.data.map((rw: any) => ({
+          id: rw.id || `rw-${String(rw.rw).replace("RW ", "")}-1`,
+          rw: rw.rw,
+          codeHash: rw.code_hash,
+          codeDisplay: rw.code_display,
+          isActive: Boolean(rw.is_active),
+          updatedAt: rw.updated_at,
+          forceLogoutAt: rw.force_logout_at || undefined,
+        })) : (await readNormalizedLocalDb())?.rwCodes || seed.rwCodes),
     testimoni: [],
-    classes: [],
-    enrollments: [],
-    games: [],
+    classes: (classesRes.error && isMissingTableError(classesRes.error)) ? [] : (classesRes.data || []).map((c: any) => ({
+      id: c.id,
+      slug: c.slug || "",
+      title: c.title || "",
+      subtitle: c.subtitle || "",
+      description: c.description || "",
+      coverTheme: c.cover_theme || "emerald",
+      priceIdr: Number(c.price_idr ?? 0),
+      durationDays: Number(c.duration_days ?? 30),
+      moduleIds: Array.isArray(c.module_ids) ? c.module_ids : [],
+      modules: Array.isArray(c.modules) ? c.modules : (Array.isArray(c.materi) ? c.materi : []),
+      gameTemplateIds: Array.isArray(c.game_template_ids) ? c.game_template_ids : [],
+      isPublished: c.is_published !== false,
+      tingkat: c.tingkat || "Pemula",
+      jadwal: c.jadwal || "",
+      kodeAkses: c.kode_akses || "",
+      status: c.status || "draft",
+      createdAt: c.created_at || new Date().toISOString(),
+    })),
+    enrollments: (enrollmentsRes.error && isMissingTableError(enrollmentsRes.error)) ? [] : (enrollmentsRes.data || []).map((e: any) => ({
+      id: e.id,
+      classId: e.class_id,
+      userEmail: e.user_email || "",
+      userName: e.user_name || "",
+      startsAt: e.starts_at || "",
+      expiresAt: e.expires_at || "",
+      status: e.status || "active",
+      paidAmountIdr: Number(e.paid_amount_idr ?? 0),
+      paymentMethod: e.payment_method || undefined,
+      createdAt: e.created_at || new Date().toISOString(),
+    })),
+    games: (gamesRes.error && isMissingTableError(gamesRes.error)) ? [] : (gamesRes.data || []).map((g: any) => ({
+      id: g.id,
+      title: g.nama_game || "",
+      kind: g.jenis_game,
+      questions: (gameQuestionsRes.data || []).filter((q: any) => q.game_id === g.id).map((q: any) => q.data),
+      createdAt: g.created_at || new Date().toISOString(),
+      updatedAt: g.updated_at || g.created_at || new Date().toISOString(),
+    })),
   };
 }
 
@@ -419,6 +641,7 @@ async function readNormalizedLocalDb(): Promise<DatabaseSchema | null> {
     if (!parsed.warga) parsed.warga = [];
     if (!parsed.loginLog) parsed.loginLog = [];
     if (!parsed.rwCodes || parsed.rwCodes.length === 0) parsed.rwCodes = initial.rwCodes;
+    parsed.rwCodes = parsed.rwCodes.map((code: any) => ({ ...code, id: code.id || `rw-${String(code.rw).replace("RW ", "")}-1` }));
     if (!parsed.testimoni) parsed.testimoni = [];
     if (!parsed.classes) parsed.classes = [];
     if (!parsed.enrollments) parsed.enrollments = [];
@@ -431,36 +654,29 @@ async function readNormalizedLocalDb(): Promise<DatabaseSchema | null> {
 }
 
 export async function readLocalDb(): Promise<DatabaseSchema> {
+  await ensureDirs();
+  const local = await readNormalizedLocalDb();
   const sb = await getSupabaseAdmin();
   if (sb) {
     const remote = await fetchFullSchemaFromSupabase(sb);
     if (remote) {
-      // Koleksi lokal-only (games/kelas/warga/dll) belum ada di schema Supabase: gabungkan dari .data/db.json agar persist & tidak hilang
-      const local = await readNormalizedLocalDb();
-      if (local) {
-        remote.games = local.games || [];
-        remote.classes = local.classes || [];
-        remote.enrollments = local.enrollments || [];
-        remote.warga = local.warga || [];
-        remote.loginLog = local.loginLog || [];
-        remote.rwCodes = local.rwCodes && local.rwCodes.length > 0 ? local.rwCodes : remote.rwCodes;
-        remote.testimoni = local.testimoni || [];
-      } else {
-        const seeded = createInitialSeedData();
-        remote.games = getBuiltinGames();
-        remote.classes = [];
-        remote.enrollments = [];
-        remote.warga = [];
-        remote.loginLog = [];
-        remote.rwCodes = seeded.rwCodes;
-        remote.testimoni = [];
-        await writeLocalDb(remote);
-      }
-      return remote;
+      // Gabungkan remote + lokal, tapi data lokal (baru dibuat di server ini) DIPRIORITASKAN
+      const merged: DatabaseSchema = {
+        ...remote,
+        games: mergeByIdPreferLocal(local?.games || [], remote.games || []),
+        classes: mergeByIdPreferLocal(local?.classes || [], remote.classes || []),
+        enrollments: mergeByIdPreferLocal(local?.enrollments || [], remote.enrollments || []),
+        warga: (remote.warga || []) as any,
+        loginLog: [],
+        rwCodes: mergeByIdPreferLocal(local?.rwCodes || [], remote.rwCodes || []),
+        testimoni: mergeByIdPreferLocal(local?.testimoni || [], (remote.testimoni || []) as any) as any,
+      };
+      ensureBuiltinGames(merged);
+      await fs.writeFile(DB_FILE, JSON.stringify(merged, null, 2), "utf8");
+      return merged;
     }
   }
 
-  const local = await readNormalizedLocalDb();
   if (local) return local;
   const initial = createInitialSeedData();
   initial.games = getBuiltinGames();
@@ -470,12 +686,19 @@ export async function readLocalDb(): Promise<DatabaseSchema> {
 }
 
 export async function writeLocalDb(data: DatabaseSchema): Promise<void> {
+  await ensureDirs();
+  // 1) Sinkronisasi remote terlebih dahulu; jangan mengakui simpan sebelum database konfirmasi.
   const sb = await getSupabaseAdmin();
   if (sb) {
-    await pushFullSchemaToSupabase(sb, data);
+    const previous = await readNormalizedLocalDb();
+    const rwCodesUnchanged = JSON.stringify(previous?.rwCodes || []) === JSON.stringify(data.rwCodes || []);
+    const plansUnchanged = previous ? plansMatch(previous.plans || [], data.plans || []) : false;
+    await pushFullSchemaToSupabase(sb, data, rwCodesUnchanged, plansUnchanged);
   }
-  await ensureDirs();
-  await fs.writeFile(DB_FILE, JSON.stringify(data, null, 2), "utf8");
+  // 2) Atomik di disk, setelah remote berhasil sehingga random code tidak hilang diam-diam.
+  const tempFile = `${DB_FILE}.tmp`;
+  await fs.writeFile(tempFile, JSON.stringify(data, null, 2), "utf8");
+  await fs.rename(tempFile, DB_FILE);
 }
 
 export async function resetLocalDbToSeed(): Promise<DatabaseSchema> {
@@ -657,7 +880,7 @@ export async function createAccessCode(entry: AccessCode): Promise<AccessCode> {
 
 export async function updateAccessCodeStatus(
   codeId: string,
-  action: "toggle" | "reset_devices" | "delete"
+  action: "toggle" | "delete"
 ): Promise<void> {
   const db = await readLocalDb();
   const idx = db.accessCodes.findIndex((c) => c.id === codeId);
@@ -669,64 +892,8 @@ export async function updateAccessCodeStatus(
     if (sb) await sb.from("access_codes").delete().eq("id", codeId);
   } else if (action === "toggle") {
     db.accessCodes[idx].isActive = !db.accessCodes[idx].isActive;
-  } else if (action === "reset_devices") {
-    db.accessCodes[idx].devices = [];
-    if (sb) await sb.from("access_code_devices").delete().eq("code_id", codeId);
   }
   await writeLocalDb(db);
-}
-
-export async function validateAndBindWargaCode(params: {
-  codeInput: string;
-  participantName: string;
-  deviceId: string;
-  deviceLabel: string;
-}): Promise<{ ok: true; accessCode: AccessCode } | { ok: false; error: string }> {
-  const db = await readLocalDb();
-  const normalized = params.codeInput.trim().toUpperCase();
-  const found = db.accessCodes.find((c) => c.code.toUpperCase() === normalized);
-
-  if (!found) {
-    return {
-      ok: false,
-      error: "Kode akses tidak ditemukan. Pastikan penulisan sesuai dari Pengurus Kampung Sapen.",
-    };
-  }
-  if (!found.isActive) {
-    return {
-      ok: false,
-      error: "Kode akses ini sedang dinonaktifkan oleh pengurus.",
-    };
-  }
-  if (new Date(found.expiresAt).getTime() <= Date.now()) {
-    return {
-      ok: false,
-      error: "Masa berlaku kode akses ini sudah habis. Silakan hubungi pengurus untuk perpanjangan.",
-    };
-  }
-
-  const existingDev = found.devices.find((d) => d.deviceId === params.deviceId);
-  if (existingDev) {
-    existingDev.participantName = params.participantName;
-    existingDev.lastSeenAt = new Date().toISOString();
-  } else {
-    if (found.devices.length >= found.maxDevices) {
-      return {
-        ok: false,
-        error: `Batas perangkat untuk kode ini sudah penuh (${found.maxDevices}/${found.maxDevices} perangkat terpakai). Hubungi Pengurus jika berganti HP.`,
-      };
-    }
-    found.devices.push({
-      deviceId: params.deviceId,
-      participantName: params.participantName,
-      deviceLabel: params.deviceLabel,
-      lastSeenAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    });
-  }
-
-  await writeLocalDb(db);
-  return { ok: true, accessCode: found };
 }
 
 export async function getPlans(): Promise<SubscriptionPlan[]> {
@@ -836,93 +1003,7 @@ export function getSystemDiagnostics() {
 // WARGA RW — Login berbasis kode per RW
 // ============================================================================
 
-import {
-  findMatchingRw,
-  validateNamaPanggilan,
-  generateWargaId,
-  createLoginLogEntry,
-} from "./rw-auth";
-import { WargaRecord, RwCode, LoginLogEntry, TestimoniRecord } from "./types";
-
-/** Cari kode RW yang cocok dan proses login warga */
-export async function loginWargaRw(opts: {
-  inputCode: string;
-  namaPanggilan: string;
-  deviceId: string;
-  ipHint?: string;
-}): Promise<{
-  ok: boolean;
-  error?: string;
-  warga?: WargaRecord;
-  rw?: RwCode;
-  nameConflict?: boolean; // nama sudah dipakai warga lain di RW ini
-}> {
-  const db = await readLocalDb();
-
-  // Pastikan kolom baru ada (backward compat)
-  if (!db.rwCodes) db.rwCodes = [];
-  if (!db.warga) db.warga = [];
-  if (!db.loginLog) db.loginLog = [];
-  if (!db.testimoni) db.testimoni = [];
-
-  // Validasi nama
-  const namaValidation = validateNamaPanggilan(opts.namaPanggilan);
-  if (!namaValidation.valid) {
-    return { ok: false, error: namaValidation.error };
-  }
-  const namaClean = opts.namaPanggilan.trim();
-
-  // Cocokkan kode dengan RW
-  const matchedRw = findMatchingRw(opts.inputCode, db.rwCodes);
-  if (!matchedRw) {
-    return {
-      ok: false,
-      error: "Kode RW tidak dikenali. Tanyakan kode yang benar ke ketua RW kamu ya.",
-    };
-  }
-
-  // Cek apakah nama sudah dipakai warga lain di RW ini (case-insensitive)
-  const namaLower = namaClean.toLowerCase();
-  const existingWithName = db.warga.find(
-    (w) =>
-      w.rw === matchedRw.rw &&
-      w.namaPanggilan.toLowerCase() === namaLower &&
-      !w.isBlocked
-  );
-
-  if (existingWithName) {
-    // Cek apakah deviceId cocok (pemilik asli)
-    if (existingWithName.deviceId === opts.deviceId) {
-      // Pemilik asli login kembali — update lastLoginAt
-      existingWithName.lastLoginAt = new Date().toISOString();
-      existingWithName.totalGamesPlayed = existingWithName.totalGamesPlayed || 0;
-      const logEntry = createLoginLogEntry(existingWithName, opts.deviceId, opts.ipHint);
-      db.loginLog.push(logEntry);
-      await writeLocalDb(db);
-      return { ok: true, warga: existingWithName, rw: matchedRw };
-    }
-    // Nama dipakai warga lain — beritahu client
-    return { ok: true, warga: existingWithName, rw: matchedRw, nameConflict: true };
-  }
-
-  // Buat warga baru
-  const newWarga: WargaRecord = {
-    id: generateWargaId(),
-    namaPanggilan: namaClean,
-    rw: matchedRw.rw,
-    deviceId: opts.deviceId,
-    createdAt: new Date().toISOString(),
-    lastLoginAt: new Date().toISOString(),
-    isBlocked: false,
-    totalGamesPlayed: 0,
-    highScore: 0,
-  };
-  db.warga.push(newWarga);
-  const logEntry = createLoginLogEntry(newWarga, opts.deviceId, opts.ipHint);
-  db.loginLog.push(logEntry);
-  await writeLocalDb(db);
-  return { ok: true, warga: newWarga, rw: matchedRw };
-}
+import { WargaRecord, RwCode, TestimoniRecord } from "./types";
 
 /** Ambil semua warga terdaftar */
 export async function getAllWarga(): Promise<WargaRecord[]> {
@@ -934,29 +1015,6 @@ export async function getAllWarga(): Promise<WargaRecord[]> {
 export async function getRwCodes(): Promise<RwCode[]> {
   const db = await readLocalDb();
   return db.rwCodes || [];
-}
-
-/** Perbarui kode RW */
-export async function updateRwCode(
-  rw: "RW 06" | "RW 07" | "RW 08",
-  newCodePlain: string,
-  forceLogout = false
-): Promise<RwCode> {
-  const db = await readLocalDb();
-  if (!db.rwCodes) db.rwCodes = [];
-  const { createRwCodeRecord: makeCode } = await import("./rw-auth");
-  const newCode = makeCode(rw, newCodePlain);
-  if (forceLogout) {
-    newCode.forceLogoutAt = new Date().toISOString();
-  }
-  const idx = db.rwCodes.findIndex((r) => r.rw === rw);
-  if (idx >= 0) {
-    db.rwCodes[idx] = newCode;
-  } else {
-    db.rwCodes.push(newCode);
-  }
-  await writeLocalDb(db);
-  return newCode;
 }
 
 /** Blokir / unblokir warga */
@@ -1252,7 +1310,7 @@ export async function getUserEnrollments(userEmail: string): Promise<ClassEnroll
   const db = await readLocalDb();
   const list = db.enrollments || [];
   const now = new Date().getTime();
-  return list.filter((e) => e.userEmail.toLowerCase() === userEmail.toLowerCase() && new Date(e.expiresAt).getTime() > now && e.status === "active");
+  return list.filter((e) => e.userEmail.toLowerCase() === userEmail.toLowerCase() && (!e.expiresAt || new Date(e.expiresAt).getTime() > now) && e.status === "active");
 }
 
 export async function enrollUserInClass(opts: {
@@ -1265,11 +1323,7 @@ export async function enrollUserInClass(opts: {
   const db = await readLocalDb();
   if (!db.enrollments) db.enrollments = [];
 
-  const classItem = (db.classes || []).find((c) => c.id === opts.classId);
-  const durationDays = classItem?.durationDays || 30;
-
   const now = new Date();
-  const expires = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
   const enrollment: ClassEnrollment = {
     id: `enr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -1277,7 +1331,6 @@ export async function enrollUserInClass(opts: {
     userEmail: opts.userEmail.toLowerCase().trim(),
     userName: opts.userName.trim(),
     startsAt: now.toISOString(),
-    expiresAt: expires.toISOString(),
     status: "active",
     paidAmountIdr: opts.paidAmountIdr,
     paymentMethod: opts.paymentMethod || "QRIS",
@@ -1299,7 +1352,7 @@ export async function hasUserActiveEnrollmentForModule(
   const db = await readLocalDb();
   const classIds = activeEnrs.map((e) => e.classId);
   const enrolledClasses = (db.classes || []).filter((c) => classIds.includes(c.id));
-  return enrolledClasses.some((c) => c.moduleIds.includes(moduleId));
+  return enrolledClasses.some((c) => c.moduleIds.includes(moduleId) || (c.modules || []).some((m) => m.id === moduleId && m.status === "terbit"));
 }
 
 export async function saveClassModuleFile(opts: {
@@ -1317,7 +1370,7 @@ export async function saveClassModuleFile(opts: {
   await fs.writeFile(path.join(dir, fileName), opts.buffer);
   const storagePath = `class-files/${opts.classId}/${fileName}`;
   const lower = safe.toLowerCase();
-  const fileType = lower.endsWith(".pdf") ? "pdf" : lower.endsWith(".pptx") ? "pptx" : lower.endsWith(".ppt") ? "ppt" : "other";
+  const fileType: "pdf" | "ppt" | "pptx" | "other" = lower.endsWith(".pdf") ? "pdf" : lower.endsWith(".pptx") ? "pptx" : lower.endsWith(".ppt") ? "ppt" : "other";
   let pdfPath: string | undefined;
   if (fileType === "pdf") {
     pdfPath = storagePath;
@@ -1338,6 +1391,14 @@ export async function saveClassModuleFile(opts: {
       // LibreOffice not available; original saved for download, PDF preview may be unavailable until PDF provided.
     }
   }
+  const kelas = await getClassByIdOrSlug(opts.classId);
+  if (!kelas) throw new Error("Kelas tidak ditemukan saat menyimpan data materi.");
+  const moduleExists = (kelas.modules || []).some((module) => module.id === opts.moduleId);
+  if (!moduleExists) throw new Error("Modul tidak ditemukan saat menyimpan data materi.");
+  const updatedModules = (kelas.modules || []).map((module) => module.id === opts.moduleId
+    ? { ...module, fileAsli: storagePath, fileAsliName: safe, fileType, filePDF: pdfPath }
+    : module);
+  await upsertClass({ ...kelas, modules: updatedModules });
   return { storagePath, fileType, fileName: safe, pdfPath };
 }
 
@@ -1370,7 +1431,56 @@ export async function getGames(): Promise<GameRecord[]> {
   return db.games || [];
 }
 
+export async function getGameCatalog(): Promise<GameRecord[]> {
+  const sb = await getSupabaseAdmin();
+  if (!sb) return (await readLocalDb()).games || [];
+  const [{ data, error }, { data: questionRows, error: questionError }] = await Promise.all([
+    sb.from("games").select("id,nama_game,jenis_game,deskripsi,created_at,updated_at").order("nama_game", { ascending: true }),
+    sb.from("game_soal").select("game_id,data,urutan").order("urutan", { ascending: true }),
+  ]);
+  if (error) throwSb('Gagal membaca master game dari Supabase', error);
+  if (questionError) throwSb('Gagal membaca soal game dari Supabase', questionError);
+  const questionsByGame = new Map<string, GameQuestion[]>();
+  for (const row of questionRows || []) {
+    const questions = questionsByGame.get(row.game_id) || [];
+    questions.push(row.data as GameQuestion);
+    questionsByGame.set(row.game_id, questions);
+  }
+  return (data || []).map((game: any) => ({
+    id: game.id,
+    title: game.nama_game,
+    kind: game.jenis_game,
+    description: game.deskripsi || "",
+    questions: questionsByGame.get(game.id) || [],
+    createdAt: game.created_at,
+    updatedAt: game.updated_at || game.created_at,
+  }));
+}
+
 export async function getGameById(id: string): Promise<GameRecord | null> {
+  const sb = await getSupabaseAdmin();
+  if (sb) {
+    const { data: game, error: gameError } = await sb.from("games")
+      .select("id,nama_game,jenis_game,deskripsi,created_at,updated_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (gameError) throwSb('Gagal membaca master game dari Supabase', gameError);
+    if (!game) return null;
+    const { data: rows, error: questionError } = await sb.from("game_soal")
+      .select("id,game_id,pertanyaan,clue,jawaban,urutan,data,created_at")
+      .eq("game_id", id)
+      .order("urutan", { ascending: true });
+    if (questionError) throwSb('Gagal membaca soal game dari Supabase', questionError);
+    return {
+      id: game.id,
+      title: game.nama_game,
+      kind: game.jenis_game,
+      description: game.deskripsi || "",
+      questions: (rows || []).map((row: any) => row.data),
+      createdAt: game.created_at,
+      updatedAt: game.updated_at || game.created_at,
+    };
+  }
   const games = await getGames();
   return games.find((g) => g.id === id) || null;
 }

@@ -1,9 +1,16 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!url || !anonKey) return false;
+
+  try {
+    const parsed = new URL(url);
+    return (parsed.protocol === "https:" || parsed.protocol === "http:") && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
 }
 
 export function isMidtransConfigured(): boolean {
@@ -26,19 +33,32 @@ export function createPublicSupabaseClient(): SupabaseClient | null {
   );
 }
 
+export function createBrowserSupabaseClient(): SupabaseClient | null {
+  if (typeof window === "undefined" || !isSupabaseConfigured()) return null;
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    }
+  );
+}
+
 let serviceClient: SupabaseClient | null = null;
-let cachedAuthToken: { accessToken: string; expiresAtMs: number } | null = null;
 
 /**
  * Mengembalikan Supabase client berhak penuh untuk operasi server Next.js:
- * 1. Memakai SUPABASE_SERVICE_ROLE_KEY bila tersedia di .env.local
- * 2. Atau memakai sesi Supabase Auth server resmi (role developer) dengan RLS penuh
+ * Memakai SUPABASE_SERVICE_ROLE_KEY bila tersedia. Tanpa kunci server,
+ * operasi berjalan dengan client publik dan tetap dibatasi oleh RLS.
  */
 export async function getSupabaseAdmin(): Promise<SupabaseClient | null> {
   if (!isSupabaseConfigured()) return null;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const pubKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (serviceKey) {
@@ -50,34 +70,5 @@ export async function getSupabaseAdmin(): Promise<SupabaseClient | null> {
     return serviceClient;
   }
 
-  const now = Date.now();
-  if (!cachedAuthToken || cachedAuthToken.expiresAtMs - now < 120_000) {
-    const authClient = createClient(url, pubKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    const devEmail = process.env.ADMIN_DEVELOPER_EMAIL || "dev@kampungsapen.id";
-    const devPassword = process.env.ADMIN_DEVELOPER_PASSWORD || "devsapen2026";
-
-    const { data, error } = await authClient.auth.signInWithPassword({
-      email: devEmail,
-      password: devPassword,
-    });
-    if (error || !data.session) {
-      return authClient;
-    }
-
-    cachedAuthToken = {
-      accessToken: data.session.access_token,
-      expiresAtMs: (data.session.expires_at || Math.floor(now / 1000) + 3600) * 1000,
-    };
-  }
-
-  return createClient(url, pubKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    global: {
-      headers: {
-        Authorization: `Bearer ${cachedAuthToken.accessToken}`,
-      },
-    },
-  });
+  return createPublicSupabaseClient();
 }

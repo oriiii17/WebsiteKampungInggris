@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import SixBoxCodeInput, { toCodeString } from "@/components/SixBoxCodeInput";
+import React, { useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BookOpen, ChevronRight, KeyRound, List, Lock } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, ChevronRight, List, Lock } from "lucide-react";
 import { ClassItem, ClassModule } from "@/lib/types";
 import FlipbookViewer from "@/components/FlipbookViewer";
 
@@ -18,53 +17,14 @@ export default function ModuleViewClient({
   initialEnrolled: boolean;
   isAdmin: boolean;
 }) {
-  const [unlocked, setUnlocked] = useState(initialEnrolled);
-  const [code, setCode] = useState("");
-  const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
-  const codeRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const codeComplete = digits.every((c) => c !== "");
-  const [msg, setMsg] = useState<string | null>(null);
-
   const sorted = useMemo(() => [...(cls.modules || [])].sort((a, b) => a.urutan - b.urutan), [cls.modules]);
   const idx = sorted.findIndex((m) => m.id === mod.id);
   const prev = idx > 0 ? sorted[idx - 1] : null;
   const next = idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null;
 
-  useEffect(() => {
-    if (initialEnrolled) return;
-    try {
-      const raw = localStorage.getItem("sapen_class_access");
-      if (!raw) return;
-      const map = JSON.parse(raw) as Record<string, boolean>;
-      if (map[cls.id]) setUnlocked(true);
-    } catch {}
-  }, [cls.id, initialEnrolled]);
-
-  function redeem(e: React.FormEvent) {
-    e.preventDefault();
-    const expected = (cls.kodeAkses || "").trim();
-    if (!expected) { setMsg("Kode akses kelas belum tersedia."); return; }
-    const entered = toCodeString(digits);
-    if (entered.length !== 7) { setMsg("Kode akses belum lengkap."); codeRefs.current[0]?.focus(); return; }
-    if (entered.toUpperCase() === expected.toUpperCase()) {
-      try {
-        const raw = localStorage.getItem("sapen_class_access");
-        const map = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-        map[cls.id] = true;
-        localStorage.setItem("sapen_class_access", JSON.stringify(map));
-      } catch {}
-      setCode(entered);
-      setUnlocked(true);
-      setMsg(null);
-    } else {
-      setMsg("Kode akses kelas tidak sesuai.");
-      codeRefs.current[0]?.focus();
-    }
-  }
-
   const hasFile = Boolean(mod.filePDF || mod.fileAsli);
   const pdfPath = mod.filePDF || (mod.fileType === "pdf" ? mod.fileAsli : "");
-  const viewCode = !initialEnrolled && !isAdmin && unlocked && cls.kodeAkses ? `&code=${encodeURIComponent(cls.kodeAkses)}` : "";
+  const viewCode = "";
   const pdfUrl = pdfPath ? `/api/secure-class-file/${encodeURIComponent(cls.id)}/${encodeURIComponent(mod.id)}?kind=pdf${viewCode}` : "";
   const downloadUrl = mod.fileAsli
     ? `/api/secure-class-file/${encodeURIComponent(cls.id)}/${encodeURIComponent(mod.id)}?kind=original&download=1${viewCode}`
@@ -86,33 +46,16 @@ export default function ModuleViewClient({
         {mod.deskripsi && <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#1A2E1A]/75">{mod.deskripsi}</p>}
       </div>
 
-      {!unlocked ? (
+      {!initialEnrolled && !isAdmin ? (
         <div className="max-w-xl rounded-xl border border-[#E5E7EB] bg-white p-6">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#14532D]/10 text-[#14532D]"><Lock className="h-5 w-5" /></div>
             <div>
               <h2 className="text-lg font-extrabold">Materi Terkunci</h2>
-              <p className="mt-1 text-sm text-[#1A2E1A]/75">Masukkan kode akses kelas untuk membuka seluruh bab & materi.</p>
+              <p className="mt-1 text-sm text-[#1A2E1A]/75">Daftar atau masuk ke akun peserta untuk membuka materi kelas.</p>
             </div>
           </div>
-          <form onSubmit={redeem} className="mt-4 space-y-3">
-            <div className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">
-              Kode Akses Kelas
-              <div className="mt-2">
-                <SixBoxCodeInput
-                  value={digits}
-                  onChange={(next) => setDigits(next)}
-                  onCompleteChange={(c) => setCode(c)}
-                  inputRefs={codeRefs}
-                />
-              </div>
-            </div>
-            {msg && <p className="text-xs font-bold text-red-700">{msg}</p>}
-            <div className="flex flex-wrap gap-2">
-              <button type="submit" disabled={!codeComplete} className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#14532D] bg-[#14532D] px-5 py-2.5 text-sm font-extrabold text-white hover:bg-[#0F3F22] disabled:opacity-60 disabled:cursor-not-allowed"><KeyRound className="h-4 w-4" /> Masukkan Kode Akses</button>
-              <Link href={`/kelas/${cls.slug}`} className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-5 py-2.5 text-sm font-extrabold hover:bg-[#FDFBF7]">Lihat Opsi Akses</Link>
-            </div>
-          </form>
+          <div className="mt-4 flex flex-wrap gap-2"><Link href={`/kelas/${cls.slug}`} className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#14532D] px-5 py-2.5 text-sm font-extrabold text-white hover:bg-[#0F3F22]">Lihat kelas & daftar</Link><Link href="/masuk" className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-5 py-2.5 text-sm font-extrabold hover:bg-[#FDFBF7]">Masuk</Link></div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[270px_minmax(0,1fr)] items-start">

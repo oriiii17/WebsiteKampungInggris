@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
     const label = String(body.label || "").trim();
     const rtRw = String(body.rtRw || "RT 01 / RW 01").trim();
     const holderType = body.holderType === "individu" ? "individu" : "keluarga";
-    const maxDevices = Math.max(1, Math.min(50, Number(body.maxDevices || 4)));
     const validDays = Math.max(1, Number(body.validDays || 180));
 
     if (!rawCode || !label) {
@@ -49,12 +48,10 @@ export async function POST(req: NextRequest) {
       label,
       rtRw,
       holderType,
-      maxDevices,
       expiresAt,
       isActive: true,
       createdBy: session.name,
       createdAt: new Date().toISOString(),
-      devices: [],
     } satisfies AccessCode);
 
     return NextResponse.json({ ok: true, code: created });
@@ -74,7 +71,7 @@ export async function PATCH(req: NextRequest) {
 
   const body = await req.json();
   const codeId = String(body.codeId || "");
-  const action = body.action as "toggle" | "reset_devices" | "delete";
+  const action = body.action as "toggle" | "delete";
   await updateAccessCodeStatus(codeId, action);
   return NextResponse.json({ ok: true });
 }

@@ -40,14 +40,12 @@ export async function GET() {
     stats: {
       totalModules: db.modules.length,
       totalCodes: db.accessCodes.length,
-      activeDevices: db.accessCodes.reduce((acc, c) => acc + c.devices.length, 0),
       activeSubscribers: db.subscriptions.filter((s) => s.status === "active").length,
       totalRevenueIdr: db.subscriptions
         .filter((s) => s.status === "active")
         .reduce((sum, s) => sum + s.amountIdr, 0),
       totalQuizQuestions: db.quizzes.length,
       totalFlashcards: db.flashcards.length,
-      // ── Statistik Warga RW Baru ──
       totalWarga: wargaList.length,
       wargaRw06: wargaList.filter((w) => w.rw === "RW 06").length,
       wargaRw07: wargaList.filter((w) => w.rw === "RW 07").length,
@@ -66,17 +64,24 @@ export async function GET() {
     flashcards: db.flashcards,
     matchingPairs: db.matchingPairs,
     wordChallenges: db.wordChallenges,
-    // ── Data RW & Warga ──
     warga: wargaList,
-    loginLog: (db.loginLog || []).slice(-50).reverse(), // 50 log terakhir
+    loginLog: (db.loginLog || []).slice(-50).reverse(),
     rwCodes: (db.rwCodes || []).map((c) => ({
+      id: c.id,
       rw: c.rw,
       codeDisplay: c.codeDisplay,
       isActive: c.isActive,
       updatedAt: c.updatedAt,
-      forceLogoutAt: c.forceLogoutAt,
     })),
     testimoni: db.testimoni || [],
+    classes: db.classes || [],
+    enrollments: db.enrollments || [],
+    externalUsers: (db.externalUsers || []).map((u: any) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      createdAt: u.createdAt,
+    })),
   });
 }
 

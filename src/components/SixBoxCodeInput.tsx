@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useRef } from "react";
+import React from "react";
 
 type Props = {
   value: string[];
@@ -85,12 +85,14 @@ export default function SixBoxCodeInput({ value, onChange, onCompleteChange, inp
       autoCorrect="off"
       maxLength={1}
       aria-label={`Kode karakter ${i + 1}`}
+      autoComplete="one-time-code"
+      spellCheck={false}
       className={box}
     />
   );
 
   return (
-    <div className={groupClassName || "flex items-center justify-center gap-1.5 sm:gap-2"}>
+    <div role="group" aria-label="Kode warga, enam karakter" className={groupClassName || "flex items-center justify-center gap-1.5 sm:gap-2"}>
       <div className="flex items-center gap-1.5 sm:gap-2">{[0, 1, 2].map(renderBox)}</div>
       <span className="px-0.5 text-lg font-bold text-gray-400 select-none" aria-hidden="true">-</span>
       <div className="flex items-center gap-1.5 sm:gap-2">{[3, 4, 5].map(renderBox)}</div>

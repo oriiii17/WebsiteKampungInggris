@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Copy, Save, ImagePlus, ChevronUp, ChevronDown, Loader2, GripVertical } from "lucide-react";
-import type { GameKind, GameQuestion, GameRecord, QuizLiveQuestion } from "@/lib/types";
+import React, { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2, Save, ImagePlus, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import type { GameKind, GameQuestion, GameRecord } from "@/lib/types";
 import { emptyQuestion } from "@/lib/builtin-games";
 
 const KIND_LABEL: Record<GameKind,string> = {
@@ -14,9 +14,25 @@ const KIND_LABEL: Record<GameKind,string> = {
   kata_hilang: "Kata Hilang",
   duel_kata_cepat: "Duel Kata Cepat",
 };
+const KIND_GUIDE: Record<GameKind, string> = {
+  kuis_live: "Peserta memilih jawaban dari beberapa opsi.",
+  tebak_kata: "Peserta mengetik jawaban dengan bantuan petunjuk.",
+  pasangkan_kata: "Peserta mencocokkan setiap istilah dengan pasangannya.",
+  susun_kalimat: "Peserta menyusun potongan kata menjadi kalimat utuh.",
+  tebak_gambar: "Gunakan gambar sebagai petunjuk; jawaban bisa diketik atau dipilih.",
+  kata_hilang: "Peserta mengisi bagian kosong pada kalimat.",
+  duel_kata_cepat: "Peserta mengetik jawaban secepat mungkin dalam batas waktu.",
+};
+const PROMPT_LABEL: Record<GameKind, string> = {
+  kuis_live: "Pertanyaan",
+  tebak_kata: "Kata atau arti yang harus ditebak",
+  pasangkan_kata: "Instruksi mencocokkan",
+  susun_kalimat: "Instruksi menyusun kalimat",
+  tebak_gambar: "Pertanyaan tentang gambar",
+  kata_hilang: "Petunjuk kalimat",
+  duel_kata_cepat: "Tantangan cepat",
+};
 const TIMES = [5,10,20,30,60];
-const KINDS = Object.keys(KIND_LABEL) as GameKind[];
-
 function uid(p="id"){return `${p}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;}
 
 export default function AdminGameManager({ notify }: { notify: (m:string)=>void }) {
@@ -25,19 +41,23 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState<string|null>(null);
   const [qIndex, setQIndex] = useState(0);
-  const [creatingKind, setCreatingKind] = useState<GameKind>("kuis_live");
-  const [showPicker, setShowPicker] = useState(false);
-  const fileRef = useRef<HTMLInputElement|null>(null);
+  const [tab, setTab] = useState<"games" | "questions">("games");
+  const [dirty, setDirty] = useState(false);
+  const [pendingDestination, setPendingDestination] = useState<"games" | string | null>(null);
 
   async function load(selectId?: string) {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/games");
+      const res = await fetch(selectId ? `/api/admin/games?gameId=${encodeURIComponent(selectId)}` : "/api/admin/games");
       const data = await res.json();
-      const list: GameRecord[] = data.games || [];
-      setGames(list);
-      const sid = selectId || selectedId || (list[0]?.id ?? null);
-      if (sid) { setSelectedId(sid); }
+      if (selectId && data.game) {
+        setGames((current) => current.map((game) => game.id === selectId ? data.game : game));
+        setSelectedId(selectId);
+      } else {
+        const list: GameRecord[] = data.games || [];
+        setGames(list);
+        if (selectedId) setSelectedId(selectedId);
+      }
     } catch {}
     setLoading(false);
   }
@@ -45,53 +65,68 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
 
   const selected = useMemo(()=> games.find(g=>g.id===selectedId) || null, [games, selectedId]);
   const q = selected?.questions?.[qIndex] as GameQuestion | undefined;
+  const [mediaPreviewError, setMediaPreviewError] = useState(false);
+  useEffect(() => setMediaPreviewError(false), [q?.mediaUrl]);
 
-  function updateSelected(mut: (g: GameRecord)=>GameRecord) {
+  function updateSelected(mut: (g: GameRecord)=>GameRecord, markDirty = true) {
     if (!selected) return;
     setGames(gs => gs.map(g => g.id===selected.id ? mut(JSON.parse(JSON.stringify(g))) : g));
+    if (markDirty) setDirty(true);
   }
   function updateQuestion(mut: (qq: any)=>any) {
     if (!selected) return;
     updateSelected(g => { g.questions[qIndex] = mut(g.questions[qIndex]); g.updatedAt = new Date().toISOString(); return g; });
   }
 
-  async function createGame() {
-    const res = await fetch("/api/admin/games", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ kind: creatingKind, title: `Game ${KIND_LABEL[creatingKind]} Baru` }) });
-    const data = await res.json();
-    if (!res.ok) { notify(data.error||"Gagal membuat game."); return; }
-    setShowPicker(false);
-    await load(data.game?.id);
-    setQIndex(0);
-    notify(`Game "${data.game?.title}" dibuat.`);
-  }
-
   async function saveGame() {
     if (!selected) return;
+    const ids = selected.questions.map((question) => question.id);
+    if (new Set(ids).size !== ids.length) { notify("ID soal duplikat terdeteksi. Muat ulang game lalu coba lagi."); return; }
+    const orders = selected.questions.map((_, index) => index + 1);
+    if (new Set(orders).size !== orders.length) { notify("Urutan soal duplikat terdeteksi."); return; }
     setSaving(true);
-    const res = await fetch("/api/admin/games", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ action:"upsert", game: selected }) });
-    const data = await res.json();
-    setSaving(false);
-    if (!res.ok) { notify(data.error||"Gagal menyimpan."); return; }
-    notify("Game tersimpan.");
-    await load(selected.id);
+    try {
+      const res = await fetch("/api/admin/games", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ action:"upsert", game: selected }) });
+      const data = await res.json();
+      if (!res.ok) { notify(data.error||"Gagal menyimpan."); return; }
+      notify("Soal game tersimpan.");
+      setDirty(false);
+      await load(selected.id);
+    } catch { notify("Gagal menyimpan soal. Perubahan tetap tersimpan di formulir."); }
+    finally { setSaving(false); }
   }
 
-  async function deleteGame(id: string) {
-    if (!confirm("Hapus game ini?")) return;
-    await fetch(`/api/admin/games?id=${encodeURIComponent(id)}`, { method:"DELETE" });
-    notify("Game dihapus.");
-    setSelectedId(null); setQIndex(0); load();
+  function switchToGames() {
+    if (dirty) { setPendingDestination("games"); return; }
+    setTab("games");
   }
-  async function duplicateGame(id: string) {
-    const res = await fetch("/api/admin/games", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ action:"duplicate", id }) });
-    const data = await res.json();
-    if (res.ok) { notify("Game diduplikasi."); await load(data.game?.id); }
+
+  async function selectGame(id: string) {
+    if (id === selectedId && tab === "questions") return;
+    if (dirty) { setPendingDestination(id); return; }
+    await load(id);
+    setQIndex(0);
+    setTab("questions");
+  }
+
+  async function confirmDestination() {
+    const destination = pendingDestination;
+    setPendingDestination(null);
+    setDirty(false);
+    if (destination === "games") {
+      if (selectedId) await load(selectedId);
+      setTab("games");
+    } else if (destination) {
+      await load(destination);
+      setQIndex(0);
+      setTab("questions");
+    }
   }
 
   function addQuestion() {
     if (!selected) return;
     const nq = emptyQuestion(selected.kind, uid("q"));
-    updateSelected(g => { g.questions.push(nq as any); g.updatedAt=new Date().toISOString(); return g; });
+    updateSelected(g => { g.questions.push(nq as any); g.updatedAt=new Date().toISOString(); return g; }, false);
     setQIndex((selected.questions||[]).length);
   }
   function removeQuestion(i: number) {
@@ -108,12 +143,36 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
 
   async function uploadMedia(file: File) {
     if (!selected || !q) return;
-    const fd = new FormData(); fd.append("file", file); fd.append("gameId", selected.id);
-    const res = await fetch("/api/admin/games/media", { method:"POST", body: fd });
-    const data = await res.json();
-    if (!res.ok) { notify(data.error||"Gagal upload media."); return; }
-    updateQuestion(qq=>({ ...qq, mediaUrl: data.url }));
-    notify("Media berhasil diunggah.");
+    if (file.size > 5 * 1024 * 1024) { notify("Ukuran gambar maksimal 5 MB."); return; }
+    const fd = new FormData(); fd.append("file", file); fd.append("gameId", selected.id); fd.append("questionId", q.id);
+    try {
+      const res = await fetch("/api/admin/games/media", { method:"POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal mengunggah media.");
+      updateQuestion(qq=>({ ...qq, mediaUrl: data.url }));
+      notify("Gambar soal berhasil diunggah.");
+    } catch (error) { notify(error instanceof Error ? error.message : "Gagal mengunggah gambar."); }
+  }
+
+  async function removeMedia() {
+    if (!selected || !q?.mediaUrl) return;
+    try {
+      const mediaUrl = q.mediaUrl;
+      const updatedGame: GameRecord = {
+        ...selected,
+        questions: selected.questions.map((question) => question.id === q.id ? { ...question, mediaUrl: undefined } as GameQuestion : question),
+        updatedAt: new Date().toISOString(),
+      };
+      const saveRes = await fetch("/api/admin/games", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ game: updatedGame }) });
+      const saveData = await saveRes.json();
+      if (!saveRes.ok) throw new Error(saveData.error || "Gagal menyimpan penghapusan gambar.");
+      setGames((current) => current.map((game) => game.id === updatedGame.id ? saveData.game : game));
+      setDirty(false);
+      const res = await fetch("/api/admin/games/media", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: q.mediaUrl }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(`Soal sudah diperbarui, tetapi objek media belum terhapus: ${data.error || "Gagal menghapus gambar."}`);
+      notify("Gambar soal dan file di Storage dihapus.");
+    } catch (error) { notify(error instanceof Error ? error.message : "Gagal menghapus gambar."); }
   }
 
   if (loading) return <div className="p-8 text-sm text-gray-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/>Memuat game...</div>;
@@ -123,49 +182,27 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-extrabold text-[#1A2E1A]">Kelola Game</h2>
-          <p className="text-xs text-[#1A2E1A]/70">Buat, edit, duplikat, dan hapus game (7 jenis). Semua tersimpan di database.</p>
+          <p className="text-xs text-[#1A2E1A]/70">Pilih game terlebih dahulu, lalu atur soal pada langkah berikutnya.</p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={()=>setShowPicker(v=>!v)} className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-[#14532D] px-4 py-2 text-xs font-extrabold text-white"><Plus className="h-4 w-4"/>Buat Game Baru</button>
-          {selected && <button type="button" onClick={saveGame} disabled={saving} className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-[#14532D] bg-white px-4 py-2 text-xs font-extrabold text-[#14532D] disabled:opacity-60">{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Simpan Game</button>}
+          {selected && <button type="button" onClick={saveGame} disabled={saving || !dirty} className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-[#14532D] bg-white px-4 py-2 text-xs font-extrabold text-[#14532D] disabled:opacity-60">{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Simpan Soal</button>}
         </div>
       </div>
 
-      {showPicker && (
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
-          <p className="text-sm font-bold text-[#1A2E1A] mb-2">Pilih jenis game</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-            {KINDS.map(k=> (
-              <button key={k} type="button" onClick={()=>setCreatingKind(k)} className={`rounded-lg border-2 px-3 py-3 text-left text-xs font-bold ${creatingKind===k?"border-[#14532D] bg-emerald-50 text-[#14532D]":"border-gray-200"}`}>{KIND_LABEL[k]}</button>
-            ))}
-          </div>
-          <button type="button" onClick={createGame} className="rounded-md bg-[#14532D] px-4 py-2 text-xs font-extrabold text-white">Buat ({KIND_LABEL[creatingKind]})</button>
+      <div className="flex gap-2 border-b border-rule"><button type="button" onClick={switchToGames} className={`min-h-11 border-b-2 px-4 text-sm font-bold ${tab === "games" ? "border-leaf text-leaf" : "border-transparent text-muted"}`}>1. Memilih Game</button><button type="button" onClick={()=>selected && setTab("questions")} disabled={!selected} aria-disabled={!selected} className={`min-h-11 border-b-2 px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-45 ${tab === "questions" ? "border-leaf text-leaf" : "border-transparent text-muted"}`}>2. Soal Game{!selected && " · Terkunci"}</button></div>
+
+      {tab === "games" && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          {games.length === 0 ? <div className="rounded-xl border border-dashed border-rule bg-paper-light p-8 text-sm text-muted">Master game belum tersedia. Jalankan migrasi database untuk mengisinya.</div> : games.map((game) => <article key={game.id} className={`flex min-w-0 flex-col rounded-xl border bg-white p-5 transition-shadow hover:shadow-md ${selectedId === game.id ? "border-leaf shadow-sm" : "border-rule"}`}><button type="button" onClick={() => selectGame(game.id)} className="w-full min-w-0 flex-1 text-left"><span className="inline-flex rounded-full bg-[#edf3ef] px-3 py-1 text-xs font-bold text-[#1A3C34]">{KIND_LABEL[game.kind]}</span><h3 className="mt-3 break-words text-lg font-extrabold leading-snug text-ink">{game.title}</h3><p className="mt-2 text-sm leading-6 text-body">{game.description?.trim() || KIND_GUIDE[game.kind]}</p><p className="mt-3 text-sm leading-6 text-muted">{KIND_GUIDE[game.kind]}</p></button><button type="button" onClick={() => selectGame(game.id)} className="mt-5 min-h-11 w-full rounded-lg bg-leaf px-4 text-sm font-bold text-white">Atur soal {KIND_LABEL[game.kind]}</button></article>)}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* List games */}
-        <div className="lg:col-span-3 rounded-xl border border-[#E5E7EB] bg-white p-3 space-y-2 max-h-[70vh] overflow-auto">
-          <p className="text-xs font-extrabold text-[#1A2E1A] px-1">Daftar Game ({games.length})</p>
-          {games.length===0 && <p className="text-xs text-gray-500 px-1">Belum ada game.</p>}
-          {games.map(g=> (
-            <div key={g.id} className={`rounded-lg border p-2 ${selectedId===g.id?"border-[#14532D] bg-emerald-50/40":"border-[#E5E7EB]"}`}>
-              <button type="button" onClick={()=>{setSelectedId(g.id); setQIndex(0);}} className="w-full text-left">
-                <p className="text-xs font-extrabold text-[#1A2E1A] truncate">{g.title}</p>
-                <p className="text-[11px] text-gray-500">{KIND_LABEL[g.kind]} � {(g.questions||[]).length} soal</p>
-              </button>
-              <div className="mt-1 flex gap-1">
-                <button type="button" onClick={()=>duplicateGame(g.id)} className="p-1.5 rounded border border-gray-200" title="Duplikat"><Copy className="h-3.5 w-3.5"/></button>
-                <button type="button" onClick={()=>deleteGame(g.id)} className="p-1.5 rounded border border-gray-200 text-red-600" title="Hapus"><Trash2 className="h-3.5 w-3.5"/></button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Editor */}
-        <div className="lg:col-span-9 rounded-xl border border-[#E5E7EB] bg-white p-4 min-h-[60vh]">
-          {!selected || !q ? (
-            <div className="text-sm text-gray-500">Pilih game untuk diedit, atau buat game baru.</div>
+      {tab === "questions" && (
+        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 min-h-[60vh]">
+          {!selected ? (
+            <div className="text-sm text-gray-500">Pilih game master untuk mengelola soalnya.</div>
+          ) : !q ? (
+            <div className="rounded-lg border border-dashed border-rule bg-paper-light p-8 text-center text-sm text-muted">Belum ada soal, isi soal pertama.<div className="mt-4"><button type="button" onClick={addQuestion} className="min-h-11 rounded-md bg-leaf px-4 text-sm font-bold text-white">Isi soal pertama · {KIND_LABEL[selected.kind]}</button></div></div>
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
               {/* Kiri: daftar soal */}
@@ -184,7 +221,7 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
               {/* Tengah: editor soal */}
               <div className="xl:col-span-6 space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-[#14532D]">Soal {qIndex+1} � {KIND_LABEL[selected.kind]}</span>
+                  <div><span className="text-sm font-extrabold text-[#14532D]">{KIND_LABEL[selected.kind]} · Soal {qIndex + 1}</span><p className="mt-1 text-sm leading-5 text-gray-600">{KIND_GUIDE[selected.kind]}</p></div>
                   <div className="flex gap-1">
                     <button type="button" onClick={()=>moveQuestion(qIndex,-1)} className="p-1.5 rounded border border-gray-200" title="Naik"><ChevronUp className="h-4 w-4"/></button>
                     <button type="button" onClick={()=>moveQuestion(qIndex,1)} className="p-1.5 rounded border border-gray-200" title="Turun"><ChevronDown className="h-4 w-4"/></button>
@@ -192,38 +229,34 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
                   </div>
                 </div>
 
-                <label className="block text-xs font-bold text-[#1A2E1A]/75">Judul Game<input value={selected.title} onChange={e=>updateSelected(g=>({...g,title:e.target.value}))} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm font-semibold"/></label>
-
-                <label className="block text-xs font-bold text-[#1A2E1A]/75">Pertanyaan / Instruksi (maks 120 karakter)
-                  <textarea maxLength={120} value={q.prompt} onChange={e=>updateQuestion(qq=>({...qq,prompt:e.target.value}))} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm" rows={3} placeholder="Tulis pertanyaan di sini..."/>
+                <label className="block text-sm font-bold text-[#1A2E1A]/75">{PROMPT_LABEL[selected.kind]} (maks 120 karakter)
+                  <textarea maxLength={120} value={q.prompt} onChange={e=>updateQuestion(qq=>({...qq,prompt:e.target.value}))} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm" rows={3} placeholder={`Tulis ${PROMPT_LABEL[selected.kind].toLowerCase()}...`}/>
                   <span className="text-[10px] text-gray-500">{(q.prompt||"").length}/120</span>
                 </label>
 
                 <div>
-                  <p className="text-xs font-bold text-[#1A2E1A]/75 mb-1">Upload Media (gambar)</p>
+                  <p className="mb-1 text-sm font-bold text-[#1A2E1A]/75">Gambar pendukung (opsional)</p>
                   <div className="flex flex-wrap items-center gap-2">
                     <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-[#14532D] px-3 py-2 text-xs font-bold text-[#14532D] hover:bg-emerald-50">
                       <ImagePlus className="h-4 w-4"/>Pilih / Drag & Drop / HP
-                      <input type="file" accept="image/*" className="hidden" onChange={e=>{const f=e.target.files?.[0]; if(f) uploadMedia(f); e.currentTarget.value="";}}/>
+                      <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={e=>{const f=e.target.files?.[0]; if(f) uploadMedia(f); e.currentTarget.value="";}}/>
                     </label>
                     {q.mediaUrl && <a href={q.mediaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-[#14532D] underline">Lihat media</a>}
-                    {q.mediaUrl && <button type="button" onClick={()=>updateQuestion(qq=>({...qq,mediaUrl:undefined}))} className="text-[11px] text-red-600 underline">Hapus media</button>}
+                    {q.mediaUrl && <button type="button" onClick={removeMedia} className="text-[11px] text-red-600 underline">Hapus media</button>}
                   </div>
-                  {q.mediaUrl && <img src={q.mediaUrl} alt="media" className="mt-2 max-h-32 rounded border"/>}
+                  <p className="mt-2 text-[11px] text-gray-500">JPEG, PNG, WebP, atau GIF · maksimal 5 MB</p>
+                  {q.mediaUrl && (mediaPreviewError ? <p role="status" className="mt-2 rounded-md bg-amber-50 p-3 text-xs text-amber-900">Pratinjau gagal dimuat. Periksa koneksi atau unggah ulang gambar.</p> : <img src={q.mediaUrl} alt="Pratinjau gambar soal" onError={() => setMediaPreviewError(true)} className="mt-2 max-h-32 rounded border"/>)}
                 </div>
 
                 {/* Per-type answer editor */}
                 {selected.kind === "kuis_live" && (
                   <div className="space-y-2">
-                    <p className="text-xs font-bold text-[#1A2E1A]/75">Jawaban (1-4) � centang yang benar</p>
+                    <p className="text-xs font-bold text-[#1A2E1A]/75">Pilihan jawaban · pilih satu jawaban benar</p>
                     {((q as any).options||["","","",""]).map((opt:string, oi:number)=> (
                       <div key={oi} className="flex items-center gap-2">
-                        <input type="checkbox" checked={((q as any).correctIndexes||[]).includes(oi)} onChange={e=>{
-                          const cur:number[] = ((q as any).correctIndexes||[]).slice();
-                          const next = e.target.checked ? Array.from(new Set([...cur,oi])) : cur.filter(x=>x!==oi);
-                          updateQuestion(qq=>({...qq, correctIndexes: next.length?next:[0]}));
-                        }} className="h-4 w-4"/>
-                        <input value={opt} onChange={e=>{ const ops=((q as any).options||["","","",""]).slice(); ops[oi]=e.target.value; updateQuestion(qq=>({...qq,options:ops})); }} placeholder={`Jawaban ${oi+1}`} className="flex-1 rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/>
+                        <input type="radio" name={`correct-answer-${q.id}`} checked={((q as any).correctIndexes||[0])[0]===oi} onChange={()=>updateQuestion(qq=>({...qq, correctIndexes:[oi], choiceMode:"single"}))} aria-label={`Tandai pilihan ${String.fromCharCode(65+oi)} sebagai jawaban benar`} className="h-4 w-4"/>
+                        <span className="w-5 text-xs font-bold text-gray-500">{String.fromCharCode(65+oi)}.</span>
+                        <input value={opt} onChange={e=>{ const ops=((q as any).options||["","","",""]).slice(); ops[oi]=e.target.value; updateQuestion(qq=>({...qq,options:ops})); }} placeholder={`Pilihan ${String.fromCharCode(65+oi)}`} className="flex-1 rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/>
                       </div>
                     ))}
                   </div>
@@ -251,15 +284,15 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
                 {selected.kind === "susun_kalimat" && (
                   <div className="space-y-2">
                     <label className="block text-xs font-bold">Kalimat benar (urutan kata dipisah spasi)<input value={(q as any).sentence|| ((q as any).words||[]).join(" ")} onChange={e=>updateQuestion(qq=>({...qq,sentence:e.target.value, words:e.target.value.split(/\s+/).filter(Boolean)}))} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/></label>
-                    <p className="text-[11px] text-gray-500">Kata akan diacak saat dimainkan: {((q as any).words||[]).join(" � ")}</p>
+                    <p className="text-[11px] text-gray-500">Kata akan diacak saat dimainkan: {((q as any).words||[]).join(" · ")}</p>
                   </div>
                 )}
                 {selected.kind === "tebak_gambar" && (
                   <div className="space-y-2">
                     <label className="block text-xs font-bold">Jawaban Benar<input value={(q as any).answer||""} onChange={e=>updateQuestion(qq=>({...qq,answer:e.target.value}))} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/></label>
-                    <p className="text-xs font-bold">Opsi pilihan (opsional, 1-4)</p>
+                    <p className="text-xs font-bold">Pilihan jawaban (opsional, tandai jawaban benar)</p>
                     {((q as any).options||["","","",""]).map((opt:string, oi:number)=> (
-                      <input key={oi} value={opt} onChange={e=>{ const ops=((q as any).options||["","","",""]).slice(); ops[oi]=e.target.value; updateQuestion(qq=>({...qq,options:ops})); }} placeholder={`Opsi ${oi+1}`} className="w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm mb-1"/>
+                      <div key={oi} className="flex items-center gap-2">{q.choiceMode === "multiple" ? <input type="checkbox" checked={((q as any).correctIndexes||[0]).includes(oi)} onChange={e=>updateQuestion(qq=>{ const current:number[]=(qq as any).correctIndexes||[0]; const next=e.target.checked?Array.from(new Set([...current,oi])):current.filter((index:number)=>index!==oi); return {...qq,correctIndexes:next.length?next:current}; })} aria-label={`Tandai opsi ${oi+1} sebagai jawaban benar`} className="h-4 w-4"/> : <input type="radio" name={`image-answer-${q.id}`} checked={((q as any).correctIndexes||[0])[0]===oi} onChange={()=>updateQuestion(qq=>({...qq,correctIndexes:[oi],choiceMode:"single"}))} aria-label={`Tandai opsi ${oi+1} sebagai jawaban benar`} className="h-4 w-4"/>}<input value={opt} onChange={e=>{ const ops=((q as any).options||["","","",""]).slice(); ops[oi]=e.target.value; updateQuestion(qq=>({...qq,options:ops})); }} placeholder={`Pilihan ${oi+1}`} className="mb-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/></div>
                     ))}
                   </div>
                 )}
@@ -267,10 +300,7 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
                   <div className="space-y-2">
                     <label className="block text-xs font-bold">Kalimat (gunakan ___ untuk bagian kosong)<input value={(q as any).sentence||""} onChange={e=>updateQuestion(qq=>({...qq,sentence:e.target.value}))} placeholder="Contoh: I ___ to school every day." className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/></label>
                     <label className="block text-xs font-bold">Kata Jawaban<input value={(q as any).answer||""} onChange={e=>updateQuestion(qq=>({...qq,answer:e.target.value}))} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/></label>
-                    <p className="text-xs font-bold">Pilihan opsional (1-4)</p>
-                    {((q as any).options||["","","",""]).map((opt:string, oi:number)=> (
-                      <input key={oi} value={opt} onChange={e=>{ const ops=((q as any).options||["","","",""]).slice(); ops[oi]=e.target.value; updateQuestion(qq=>({...qq,options:ops})); }} placeholder={`Opsi ${oi+1}`} className="w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm mb-1"/>
-                    ))}
+                    <p className="text-xs leading-5 text-gray-600">Peserta menjawab dengan mengetik kata yang mengisi bagian kosong.</p>
                   </div>
                 )}
                 {selected.kind === "duel_kata_cepat" && (
@@ -303,20 +333,21 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
                       ))}
                     </div>
                   </div>
-                  <div>
+                  {selected.kind === "tebak_gambar" && <div>
                     <label className="block text-xs font-bold mb-1">Opsi Jawaban</label>
                     <div className="flex gap-1.5">
                       <button type="button" onClick={()=>updateQuestion(qq=>({...qq,choiceMode:"single"}))} className={`flex-1 rounded-md px-2 py-1.5 text-xs font-bold border ${q.choiceMode!=="multiple"?"bg-[#14532D] text-white border-[#14532D]":"border-gray-200"}`}>Tunggal</button>
                       <button type="button" onClick={()=>updateQuestion(qq=>({...qq,choiceMode:"multiple"}))} className={`flex-1 rounded-md px-2 py-1.5 text-xs font-bold border ${q.choiceMode==="multiple"?"bg-[#14532D] text-white border-[#14532D]":"border-gray-200"}`}>Ganda</button>
                     </div>
-                  </div>
+                  </div>}
                 </div>
                 <button type="button" onClick={saveGame} disabled={saving} className="w-full rounded-md bg-[#14532D] px-4 py-2.5 text-sm font-extrabold text-white disabled:opacity-60">{saving?"Menyimpan...":"Simpan Perubahan"}</button>
               </div>
             </div>
           )}
         </div>
-      </div>
+      )}
+      {pendingDestination && <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" role="presentation"><section role="dialog" aria-modal="true" aria-labelledby="unsaved-title" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"><h3 id="unsaved-title" className="text-lg font-extrabold text-[#1A2E1A]">Perubahan belum disimpan</h3><p className="mt-2 text-sm leading-6 text-gray-600">Perubahan belum disimpan, yakin ingin kembali? Perubahan akan hilang.</p><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={()=>setPendingDestination(null)} className="min-h-10 rounded-lg border border-gray-200 px-4 text-sm font-bold">Batal</button><button type="button" onClick={confirmDestination} className="min-h-10 rounded-lg bg-[#14532D] px-4 text-sm font-bold text-white">Ya, Kembali</button></div></section></div>}
     </div>
   );
 }
