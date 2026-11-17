@@ -1,19 +1,39 @@
 import Link from "next/link";
+import { ArrowUpRight, BookOpen, Gamepad2, MapPin } from "lucide-react";
 import { SITE_CONFIG } from "@/config/site";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-rule bg-paper-light pb-24 text-muted md:pb-0">
-      <div className="workbook-wrap flex flex-col gap-3 py-5 text-xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-center sm:text-left">
-          <p className="font-bold text-ink">{SITE_CONFIG.name}</p>
-          <p className="mt-1">{SITE_CONFIG.location} · © {new Date().getFullYear()} Seluruh hak cipta dilindungi.</p>
+    <footer className="site-footer pb-24 md:pb-0">
+      <div className="workbook-wrap site-footer-main">
+        <div className="site-footer-brand">
+          <Link href="/" className="site-footer-name">{SITE_CONFIG.name}</Link>
+          <p>Ruang belajar Bahasa Inggris yang tumbuh bersama warga Kampung Sapen.</p>
+          <span><MapPin aria-hidden="true" className="h-4 w-4" /> {SITE_CONFIG.location}</span>
         </div>
-        <nav aria-label="Navigasi footer" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-semibold text-leaf">
-          <Link href="/" className="underline underline-offset-4 hover:text-leaf-dark">Beranda</Link>
-          <Link href="/tentang" className="underline underline-offset-4 hover:text-leaf-dark">Tentang</Link>
-          <Link href="/faq" className="underline underline-offset-4 hover:text-leaf-dark">FAQ</Link>
+
+        <nav aria-label="Jelajahi website" className="site-footer-nav">
+          <h2>Jelajahi</h2>
+          <Link href="/kelas"><BookOpen aria-hidden="true" />Kelas</Link>
+          <Link href="/games"><Gamepad2 aria-hidden="true" />Permainan</Link>
+          <Link href="/sesi">Sesi kelas</Link>
         </nav>
+
+        <nav aria-label="Informasi" className="site-footer-nav">
+          <h2>Informasi</h2>
+          <Link href="/tentang">Tentang Sapen English</Link>
+          <Link href="/faq">Pertanyaan umum</Link>
+          <Link href="/masuk">Masuk</Link>
+        </nav>
+
+        <div className="site-footer-cta">
+          <p>Belajar dimulai dari satu percakapan.</p>
+          <Link href="/kelas">Temukan kelas <ArrowUpRight aria-hidden="true" className="h-4 w-4" /></Link>
+        </div>
+      </div>
+      <div className="workbook-wrap site-footer-bottom">
+        <span>{SITE_CONFIG.location}</span>
+        <span>© {new Date().getFullYear()} {SITE_CONFIG.name}. Hak cipta dilindungi.</span>
       </div>
     </footer>
   );

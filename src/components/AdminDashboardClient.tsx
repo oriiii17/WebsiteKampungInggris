@@ -10,7 +10,6 @@ import {
   CalendarClock,
   CheckCircle2,
   AlertCircle,
-  Copy,
   CreditCard,
   ExternalLink,
   Gamepad2,
@@ -18,16 +17,8 @@ import {
   KeyRound,
   LogOut,
   Menu,
-  Plus,
   RefreshCw,
-  Send,
-  Settings,
-  Trash2,
-  Trophy,
-  UserPlus,
   Users,
-  MessageSquare,
-  ChevronDown,
   Radio,
 } from "lucide-react";
 import {
@@ -104,15 +95,28 @@ interface AdminOverviewData {
   plans?: Array<{ id: string; name: string; priceIdr: number; durationDays: number }>;
 }
 
+const ADMIN_TABS = ["dashboard", "classes", "warga", "testimoni", "codes", "games", "game-builder", "sessions", "public", "payments"] as const;
+type TabType = (typeof ADMIN_TABS)[number];
+
 export default function AdminDashboardClient() {
   const dialog = useAppDialog();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const validTabs = ["classes", "warga", "testimoni", "codes", "games", "game-builder", "sessions", "public", "payments"] as const;
-  type TabType = (typeof validTabs)[number];
 
   const paramTab = searchParams.get("tab") as TabType | null;
-  const initialTab = paramTab && validTabs.includes(paramTab) ? paramTab : "classes";
+  const initialTab = paramTab && ADMIN_TABS.includes(paramTab) ? paramTab : "dashboard";
+  const tabLabels: Record<TabType, string> = {
+    dashboard: "Dashboard",
+    classes: "Kelas",
+    warga: "Akses RW & Peserta",
+    testimoni: "Testimoni",
+    codes: "Peserta & Akses Kelas",
+    games: "Host Kuis / Game",
+    "game-builder": "Kelola Game",
+    sessions: "Sesi Tatap Muka",
+    public: "Situs Publik",
+    payments: "Pembayaran",
+  };
 
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,7 +136,7 @@ export default function AdminDashboardClient() {
 
   useEffect(() => {
     const qTab = searchParams.get("tab") as TabType | null;
-    if (qTab && validTabs.includes(qTab) && qTab !== tab) {
+    if (qTab && ADMIN_TABS.includes(qTab) && qTab !== tab) {
       setTab(qTab);
     }
   }, [searchParams, tab]);
@@ -170,7 +174,7 @@ export default function AdminDashboardClient() {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch("/api/admin/overview");
+      const res = await fetch("/api/admin/overview", { cache: "no-store" });
       if (!res.ok) {
         setData(null);
         setLoadError(res.status === 401 || res.status === 403
@@ -237,7 +241,13 @@ export default function AdminDashboardClient() {
 
   const navGroups = [
     {
-      title: "Kelola",
+      title: "Ringkasan",
+      items: [
+        { id: "dashboard" as const, label: "Dashboard", icon: BookOpen },
+      ],
+    },
+    {
+      title: "Pengelolaan",
       items: [
         { id: "classes" as const, label: "Kelas", icon: GraduationCap },
         { id: "sessions" as const, label: "Sesi Tatap Muka", icon: CalendarClock },
@@ -267,7 +277,7 @@ export default function AdminDashboardClient() {
           <div key={group.title}>
             <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#1A2E1A]/45">{group.title}</p>
             <div className="space-y-1">
-              {group.items.map((item: any) => {
+                {group.items.map((item: any) => {
                 const Icon = item.icon;
                 const active = !item.href && tab === item.id;
                 const cls = `flex min-h-[44px] w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-xs font-bold transition ${
@@ -282,7 +292,7 @@ export default function AdminDashboardClient() {
                     <span>{item.label}</span>
                   </Link>
                 ) : (
-                  <button key={item.id} type="button" onClick={() => handleSelectTab(item.id)} className={cls}>
+                  <button key={item.id} type="button" onClick={() => handleSelectTab(item.id)} aria-current={active ? "page" : undefined} className={cls}>
                     <Icon className="h-4 w-4 shrink-0 text-[#14532D]" />
                     <span>{item.label}</span>
                   </button>
@@ -343,16 +353,49 @@ export default function AdminDashboardClient() {
         <main className="px-3 py-4 sm:px-4 lg:px-6 lg:py-6">
           <div className="mx-auto max-w-[1680px] space-y-5">
             <div className="max-w-3xl">
-              <h1 className="text-2xl font-extrabold tracking-tight text-[#1A2E1A] sm:text-[30px]">Dashboard Pengelolaan Kampung Inggris Sapen</h1>
-              <p className="mt-1 text-sm leading-relaxed text-[#1A2E1A]/75">Kelola kelas, akses peserta, kuis live, situs publik, dan pembayaran dari sidebar.</p>
+              <h1 className="text-2xl font-extrabold tracking-tight text-[#1A2E1A] sm:text-[30px]">
+                {tab === "dashboard" ? "Dashboard Pengurus" : tabLabels[tab]}
+              </h1>
+              <p className="mt-1 text-sm leading-relaxed text-[#1A2E1A]/75">
+                {tab === "dashboard" ? `Selamat datang, ${data.session.name}. Berikut ringkasan pengelolaan Sapen English.` : "Kelola data dan aktivitas Kampung Inggris Sapen."}
+              </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-              <StatCard label="Modul Aktif" value={`${data.stats.totalModules}`} subValue="Flipbook terbit" icon={<BookOpen className="h-4 w-4" />} />
-              <StatCard label="Kode Akses" value={`${data.stats.totalCodes}`} subValue="Kode aktif" icon={<KeyRound className="h-4 w-4" />} />
-              <StatCard label="Soal & Kosakata" value={`${data.stats.totalQuizQuestions + data.stats.totalFlashcards}`} subValue="Item latihan" icon={<Gamepad2 className="h-4 w-4" />} />
-              <StatCard label="Pendapatan" value={`Rp ${data.stats.totalRevenueIdr.toLocaleString("id-ID")}`} subValue="Langganan umum" icon={<CreditCard className="h-4 w-4" />} />
-            </div>
+            {tab === "dashboard" && (
+              <section aria-label="Ringkasan pengelolaan" className="space-y-6">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <StatCard label="Modul Aktif" value={`${data.stats.totalModules}`} subValue="Flipbook terbit" icon={<BookOpen className="h-4 w-4" />} />
+                  <StatCard label="Kode Akses" value={`${data.stats.totalCodes}`} subValue="Kode aktif" icon={<KeyRound className="h-4 w-4" />} />
+                  <StatCard label="Soal & Kosakata" value={`${data.stats.totalQuizQuestions + data.stats.totalFlashcards}`} subValue="Item latihan" icon={<Gamepad2 className="h-4 w-4" />} />
+                  <StatCard label="Pendapatan" value={`Rp ${data.stats.totalRevenueIdr.toLocaleString("id-ID")}`} subValue="Langganan umum" icon={<CreditCard className="h-4 w-4" />} />
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
+                  <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
+                    <h2 className="text-lg font-bold text-leaf">Ikhtisar kegiatan</h2>
+                    <p className="mt-1 text-sm text-muted">Status utama yang membantu Anda menentukan pekerjaan berikutnya.</p>
+                    <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+                      <div><dt className="text-xs text-muted">Kelas</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.classes?.length ?? 0}</dd></div>
+                      <div><dt className="text-xs text-muted">Warga terdaftar</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.totalWarga ?? data.warga?.length ?? 0}</dd></div>
+                      <div><dt className="text-xs text-muted">Aktif hari ini</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.activeToday ?? 0}</dd></div>
+                      <div><dt className="text-xs text-muted">Menunggu moderasi</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.pendingTestimoni ?? 0}</dd></div>
+                    </dl>
+                  </section>
+                  <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
+                    <h2 className="text-lg font-bold text-leaf">Pintasan kerja</h2>
+                    <p className="mt-1 text-sm text-muted">Buka alur yang paling sering dipakai pengurus.</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {[
+                        ["classes", "Kelola kelas"],
+                        ["sessions", "Buat sesi tatap muka"],
+                        ["game-builder", "Buat game"],
+                        ["games", "Host kuis live"],
+                      ].map(([id, label]) => <button key={id} type="button" onClick={() => handleSelectTab(id as TabType)} className="inline-flex min-h-11 items-center rounded-lg border border-rule bg-white px-3 py-2 text-sm font-bold text-leaf transition-colors hover:border-forest hover:bg-forest-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tomato">{label}</button>)}
+                    </div>
+                  </section>
+                </div>
+              </section>
+            )}
 
             {toast && (
               <div role="status" className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm font-bold ${toast.includes("izin database Supabase") ? "border-amber-300 bg-amber-50 text-amber-950" : "border-[#E5E7EB] bg-white text-[#14532D]"}`}>

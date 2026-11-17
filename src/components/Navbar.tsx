@@ -89,7 +89,7 @@ export default function Navbar({ session }: NavbarProps) {
         <nav className={styles.desktopNav} aria-label="Navigasi utama">
           {publicNavLinks.map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return <Link key={item.href} href={item.href} className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}>{item.label}</Link>;
+            return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}>{item.label}</Link>;
           })}
         </nav>
 

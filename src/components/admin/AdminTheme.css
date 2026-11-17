@@ -11,6 +11,7 @@
   background: var(--admin-page) !important;
   color: var(--admin-text) !important;
   accent-color: var(--admin-forest);
+  color-scheme: light;
 }
 
 .admin-theme *,
@@ -39,8 +40,7 @@
 
 .admin-theme :where(header) {
   border-color: var(--admin-border) !important;
-  box-shadow: 0 1px 3px rgb(26 32 39 / 4%);
-  background-image: linear-gradient(105deg, #fffdf8, var(--paper-light));
+  background-color: var(--paper-light) !important;
 }
 
 /* The selected sidebar item is the single strong navigation surface. */
@@ -56,7 +56,7 @@
 .admin-theme aside nav button,
 .admin-theme aside nav a {
   border-radius: 12px !important;
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 .admin-theme aside nav button:not([class*="bg-[#E8F0E9]"]):hover,
 .admin-theme aside nav a:not([class*="bg-[#E8F0E9]"]):hover {
@@ -177,6 +177,21 @@
   color: var(--admin-muted);
 }
 
+.admin-theme ::selection {
+  color: var(--forest-deep);
+  background: var(--saffron);
+}
+
+.admin-theme :where(button, a, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+
+.admin-theme [aria-live],
+.admin-theme [role="alert"],
+.admin-theme [role="status"] {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 767px) {
   .admin-theme main {
     padding-left: 12px;
@@ -187,5 +202,16 @@
   }
   .admin-theme main [class*="grid-cols-2"] {
     gap: 12px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-theme *,
+  .admin-theme *::before,
+  .admin-theme *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

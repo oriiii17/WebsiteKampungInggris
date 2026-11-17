@@ -1,8 +1,7 @@
 import React, { Suspense } from "react";
 import type { Metadata } from "next";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import PublicChrome from "@/components/PublicChrome";
 import { getServerSession } from "@/lib/auth";
 import { SITE_CONFIG } from "@/config/site";
 import AppDialogProvider from "@/components/AppDialogProvider";
@@ -43,7 +42,7 @@ const organizationSchema = {
 
 async function NavbarWithSession() {
   const session = await getServerSession();
-  return <Navbar session={session} />;
+  return <PublicChrome session={session} />;
 }
 
 export default function RootLayout({
@@ -65,12 +64,11 @@ export default function RootLayout({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, "\\u003c") }} />
         <AppDialogProvider>
         <a href="#main-content" className="skip-link">Lewati ke konten utama</a>
-        <Suspense fallback={<div className="navbar-fallback bg-paper border-b border-rule" aria-hidden="true" />}>
+        <Suspense fallback={null}>
           <NavbarWithSession />
         </Suspense>
         <main id="main-content" tabIndex={-1} className="flex-1">{children}</main>
         </AppDialogProvider>
-        <Footer />
       </body>
     </html>
   );

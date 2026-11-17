@@ -338,7 +338,7 @@ export default function AdminClassesManager({ notify }: Props) {
                       <p className="mt-1 text-xs text-[#1A2E1A]/70 line-clamp-2">{cls.description}</p>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                      {cls.isPublished && <Link href={`/tutor/sesi?classId=${encodeURIComponent(cls.id)}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[#244b3a] px-3 text-xs font-bold text-white hover:bg-[#183b2d]"><Plus className="h-3.5 w-3.5" />Buat sesi</Link>}
+                      {cls.isPublished && <Link href={`/sesi/kelola?classId=${encodeURIComponent(cls.id)}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[#244b3a] px-3 text-xs font-bold text-white hover:bg-[#183b2d]"><Plus className="h-3.5 w-3.5" />Buat sesi</Link>}
                       <button type="button" onClick={()=>startEdit(cls)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] text-[#14532D] hover:bg-[#FDFBF7]" title="Edit"><Pencil className="h-4 w-4" /></button>
                       <Link href={`/kelas/${cls.slug}`} target="_blank" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] text-[#1A2E1A] hover:bg-[#FDFBF7]" title="Lihat Publik"><ExternalLink className="h-4 w-4" /></Link>
                       <button type="button" onClick={()=>handleDelete(cls.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] text-[#7A1F1F] hover:bg-[#FDFBF7]" title="Hapus"><Trash2 className="h-4 w-4" /></button>

@@ -33,15 +33,16 @@ function fromRow(row: any): GameBlueprint {
 
 export async function GET() {
   const session = await getServerSession();
-  if (!isAdminSession(session)) return NextResponse.json({ error: "Akses khusus pengurus." }, { status: 403 });
+  const headers = { "Cache-Control": "no-store, max-age=0" };
+  if (!isAdminSession(session)) return NextResponse.json({ error: "Akses khusus pengurus." }, { status: 403, headers });
   const supabase = await getSupabaseServerClient();
   if (supabase) {
     const { data, error } = await supabase.from("game_blueprints").select("*").order("updated_at", { ascending: false });
-    if (error) return NextResponse.json({ error: error.code === "42P01" || error.code === "PGRST205" ? "Terapkan migrasi game_blueprints terlebih dahulu." : "Game belum dapat dimuat." }, { status: 503 });
-    return NextResponse.json({ games: (data || []).map(fromRow) });
+    if (error) return NextResponse.json({ error: error.code === "42P01" || error.code === "PGRST205" ? "Terapkan migrasi game_blueprints terlebih dahulu." : "Game belum dapat dimuat." }, { status: 503, headers });
+    return NextResponse.json({ games: (data || []).map(fromRow) }, { headers });
   }
   const db = await readLocalDb();
-  return NextResponse.json({ games: db.gameBlueprints || [] });
+  return NextResponse.json({ games: db.gameBlueprints || [] }, { headers });
 }
 
 export async function POST(request: Request) {

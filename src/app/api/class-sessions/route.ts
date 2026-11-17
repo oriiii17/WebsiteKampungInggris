@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   if (title.length < 3 || title.length > 100) return NextResponse.json({ error: "Nama sesi harus berisi 3–100 karakter." }, { status: 400 });
   const classId = String(body.classId || "").trim();
   const classes = await getClasses(true);
-  const parentClass = classes.find((item) => item.id === classId && item.isPublished);
+  const parentClass = classes.find((item) => item.id === classId && item.isPublished && item.status !== "draft");
   if (!parentClass) return NextResponse.json({ error: "Pilih kelas terbit yang valid." }, { status: 400 });
   const startsAt = body.startsAt ? new Date(body.startsAt).toISOString() : null;
   const id = randomUUID(); const createdAt = new Date().toISOString(); const code = makeCode();

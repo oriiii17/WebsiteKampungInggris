@@ -7,9 +7,12 @@ export async function GET() {
   if (!isTutorSession(session)) return NextResponse.json({ error: "Akses khusus tutor." }, { status: 403 });
   try {
     const classes = await getClasses(true);
-    return NextResponse.json({ classes: classes.filter((item) => item.isPublished).map(({ id, title, slug }) => ({ id, title, slug })) });
+    const published = classes
+      .filter((item) => item.isPublished && item.status !== "draft")
+      .map(({ id, title, slug, isPublished, status }) => ({ id, title, slug, isPublished, status }));
+    return NextResponse.json({ classes: published }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
     console.error("[api/class-sessions/classes]", error);
-    return NextResponse.json({ error: "Daftar kelas belum dapat dimuat.", code: "CLASS_LIST_FAILED" }, { status: 503 });
+    return NextResponse.json({ error: "Daftar kelas terbit belum dapat dimuat. Coba muat ulang atau periksa koneksi database.", code: "CLASS_LIST_FAILED" }, { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 }

@@ -1,100 +1,156 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { ExternalLink, Loader2, Play, Radio, Copy, CheckCircle2, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { CheckCircle2, Copy, ExternalLink, Gamepad2, Loader2, Play, Radio, RefreshCw } from "lucide-react";
+import type { GameBlueprint } from "@/lib/game-blueprint";
 
-type G = { id: string; title: string; kind: string; questions?: any[] };
+type ActiveSession = { pin: string; hostId: string; templateTitle: string };
+const updatedTime = (game: GameBlueprint) => Date.parse(game.updatedAt || "") || Date.parse(game.createdAt || "") || 0;
 
-export default function AdminHostGameTab({ notify }: { notify: (m: string) => void }) {
-  const [games, setGames] = useState<G[]>([]);
+export default function AdminHostGameTab({ notify }: { notify: (message: string) => void }) {
+  const [games, setGames] = useState<GameBlueprint[]>([]);
   const [gameId, setGameId] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [loadingGames, setLoadingGames] = useState(true);
-  const [session, setSession] = useState<{ pin: string; hostId: string; templateTitle: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [session, setSession] = useState<ActiveSession | null>(null);
   const [error, setError] = useState("");
 
-  async function loadGames() {
-    setLoadingGames(true);
+  const publishedGames = useMemo(() => games
+    .filter((game) => game.status === "published")
+    .sort((a, b) => updatedTime(b) - updatedTime(a)), [games]);
+
+  const loadGames = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const res = await fetch("/api/admin/games");
-      const data = await res.json();
-      const list: G[] = data.games || [];
-      setGames(list);
-      if (list.length && !gameId) setGameId(list[0].id);
-    } catch {}
-    setLoadingGames(false);
-  }
-  useEffect(() => { loadGames(); }, []);
+      const response = await fetch("/api/admin/game-builder", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Game terbit belum dapat dimuat.");
+      const latest = Array.isArray(data.games) ? data.games as GameBlueprint[] : [];
+      setGames(latest);
+      setGameId((current) => latest.some((game) => game.id === current && game.status === "published")
+        ? current
+        : latest.filter((game) => game.status === "published")
+          .sort((a, b) => updatedTime(b) - updatedTime(a))[0]?.id || "");
+    } catch (reason) {
+      setGames([]);
+      setError(reason instanceof Error ? reason.message : "Game terbit belum dapat dimuat.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadGames(); }, [loadGames]);
 
   async function createSession() {
-    if (!gameId) { setError("Pilih game terlebih dahulu."); return; }
-    setLoading(true); setError("");
+    if (!gameId) {
+      setError("Pilih game terbit terlebih dahulu.");
+      return;
+    }
+    setCreating(true);
+    setError("");
     try {
-      const res = await fetch("/api/game/live/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gameId }) });
-      const data = await res.json();
-      if (!res.ok || !data.ok) { setError(data.error || "Gagal membuat sesi kuis."); setLoading(false); return; }
+      const response = await fetch("/api/game/live/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId, source: "blueprint" }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Sesi kuis belum dapat dibuat.");
       localStorage.setItem(`sapen_host_${data.pin}`, data.hostId);
       setSession({ pin: data.pin, hostId: data.hostId, templateTitle: data.templateTitle || "Kuis Live" });
-      notify(`Sesi dibuat! PIN: ${data.pin}`);
-    } catch { setError("Gagal membuat sesi kuis."); }
-    setLoading(false);
+      notify(`Sesi ${data.pin} siap dibuka.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Periksa koneksi lalu coba buat sesi lagi.");
+    } finally {
+      setCreating(false);
+    }
   }
 
-  const hostUrl = session ? `/game/host/${session.pin}` : "";
-  const joinUrl = session ? `/game/join?pin=${session.pin}` : "";
+  async function copyPin() {
+    if (!session) return;
+    try {
+      await navigator.clipboard.writeText(session.pin);
+      notify("PIN sesi berhasil disalin.");
+    } catch {
+      setError("PIN tidak dapat disalin otomatis. Pilih dan salin PIN secara manual.");
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-[#E5E7EB] bg-white p-6">
-        <div className="flex items-start gap-3 mb-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#14532D] text-white"><Radio className="h-5 w-5" /></div>
-          <div className="flex-1">
-            <h2 className="text-lg font-extrabold text-[#1A2E1A]">Host Kuis / Game (Live)</h2>
-            <p className="text-xs text-[#1A2E1A]/70 mt-0.5 leading-relaxed">Pilih game buatan admin (Kelola Game), buat sesi untuk mendapatkan PIN 6 digit, lalu buka layar host dan bagikan PIN ke peserta.</p>
+      <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
+        <div className="flex flex-wrap items-start gap-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-forest text-white"><Radio className="h-5 w-5" aria-hidden="true" /></span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-forest">Host kuis live</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">Pilih game yang sudah diterbitkan di Game Builder. Sistem akan membuat PIN untuk peserta dan membuka ruang host.</p>
           </div>
-          <button type="button" onClick={loadGames} className="text-xs font-bold text-[#14532D] inline-flex items-center gap-1"><RefreshCw className="h-3.5 w-3.5"/>Muat</button>
+          <button type="button" onClick={() => void loadGames()} disabled={loading} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-rule bg-white px-3 text-sm font-bold text-forest transition-colors hover:bg-forest-soft disabled:opacity-60">
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
+            Muat ulang
+          </button>
         </div>
 
-        {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{error}</div>}
+        {error && <div role="alert" className="mt-5 rounded-lg border border-tomato/30 bg-tomato/5 px-4 py-3 text-sm text-tomato">{error}</div>}
 
-        {loadingGames ? (
-          <div className="text-sm text-gray-500 py-6 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/>Memuat daftar game...</div>
-        ) : games.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-600">Belum ada game. Buat game dulu di menu <strong>Kelola Game</strong>.</div>
-        ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 mb-5 max-h-72 overflow-auto pr-1">
-            {games.map((g) => (
-              <button key={g.id} type="button" onClick={() => setGameId(g.id)} className={`text-left rounded-xl border-2 p-4 transition ${gameId === g.id ? "border-[#14532D] bg-emerald-50/40" : "border-gray-200 hover:border-gray-300"}`}>
-                <div className="flex items-center justify-between mb-1"><span className="text-sm font-bold text-[#111827]">{g.title}</span>{gameId === g.id && <CheckCircle2 className="h-4 w-4 text-[#14532D]" />}</div>
-                <p className="text-xs text-gray-600 capitalize">{(g.kind||"").replace(/_/g," ")}</p>
-                <p className="mt-2 text-[11px] font-semibold text-amber-700">{(g.questions||[]).length} soal</p>
-              </button>
-            ))}
+        {loading ? (
+          <div className="mt-6 flex items-center gap-3 rounded-lg bg-white px-4 py-5 text-sm text-muted" role="status"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Memuat game terbit…</div>
+        ) : publishedGames.length === 0 ? (
+          <div className="mt-6 rounded-lg border border-dashed border-rule-strong bg-white p-5 sm:p-6">
+            <Gamepad2 className="h-6 w-6 text-forest" aria-hidden="true" />
+            <h3 className="mt-3 font-bold text-ink">Belum ada game yang siap dimainkan</h3>
+            <p className="mt-1 max-w-xl text-sm leading-6 text-muted">Terbitkan blueprint Game Builder terlebih dahulu. Draf belum tersedia untuk sesi live.</p>
+            <Link href="/admin?tab=game-builder" className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-tomato px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-tomato-deep">Buka Game Builder</Link>
           </div>
+        ) : (
+          <>
+            <div className="mt-6 flex items-baseline justify-between gap-3">
+              <h3 className="font-bold text-ink">Pilih game</h3>
+              <p className="text-xs text-muted">{publishedGames.length} game terbit · yang terbaru ditampilkan lebih dulu</p>
+            </div>
+            <div className="mt-3 grid max-h-[28rem] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
+              {publishedGames.map((game) => {
+                const selected = game.id === gameId;
+                const itemCount = game.items.reduce((count, item) => count + Math.max(1, item.words?.length || item.vocabulary?.length || item.pairs?.length || item.sortItems?.length || 1), 0);
+                return (
+                  <button key={game.id} type="button" aria-pressed={selected} onClick={() => setGameId(game.id)} className={`group min-h-28 min-w-0 rounded-lg border p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tomato ${selected ? "border-forest bg-forest-soft" : "border-rule bg-white hover:border-forest/60"}`}>
+                    <span className="flex items-start justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block break-words font-bold leading-snug text-ink">{game.title}</span>
+                        <span className="mt-1 block break-words text-xs capitalize text-muted">{game.template.replaceAll("-", " ")} · {game.level}</span>
+                      </span>
+                      {selected && <CheckCircle2 className="h-5 w-5 shrink-0 text-forest" aria-label="Game dipilih" />}
+                    </span>
+                    <span className="mt-3 block text-xs font-semibold text-forest">{itemCount} materi permainan</span>
+                  </button>
+                );
+              })}
+            </div>
+            <button type="button" onClick={() => void createSession()} disabled={creating || !gameId} className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-tomato px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-tomato-deep disabled:cursor-not-allowed disabled:opacity-60">
+              {creating ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Membuat sesi…</> : <><Play className="h-4 w-4" aria-hidden="true" />Buat sesi dan dapatkan PIN</>}
+            </button>
+          </>
         )}
-
-        <button type="button" onClick={createSession} disabled={loading || !gameId} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#14532D] px-6 py-3 text-sm font-bold text-white hover:bg-[#0f3d21] disabled:opacity-60">
-          {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Membuat Sesi...</> : <><Play className="h-4 w-4" />Buat Sesi &amp; Dapatkan PIN Baru</>}
-        </button>
-      </div>
+      </section>
 
       {session && (
-        <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50/50 p-6 space-y-4">
-          <div className="flex items-center gap-2 text-emerald-800 font-extrabold"><CheckCircle2 className="h-5 w-5" />Sesi Aktif Dibuat</div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl bg-white border border-emerald-200 p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-500">PIN Peserta (6 digit)</p>
-              <p className="mt-1 font-mono text-4xl font-black tracking-[0.2em] text-[#14532D]">{session.pin}</p>
-              <p className="mt-1 text-xs text-gray-600">Game: {session.templateTitle}</p>
+        <section aria-live="polite" className="rounded-xl border border-forest/25 bg-forest-soft p-5 sm:p-6">
+          <div className="flex items-center gap-2 font-bold text-forest"><CheckCircle2 className="h-5 w-5" aria-hidden="true" />Sesi siap dibuka</div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
+            <div className="rounded-lg border border-rule bg-white p-4">
+              <p className="text-xs font-bold text-muted">PIN peserta</p>
+              <p className="mt-1 select-all font-display text-4xl font-bold tracking-[0.18em] text-forest tabular-nums">{session.pin}</p>
+              <p className="mt-2 break-words text-sm text-muted">Game: {session.templateTitle}</p>
             </div>
-            <div className="rounded-xl bg-white border border-emerald-200 p-4 space-y-2 text-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Aksi Host</p>
-              <a href={hostUrl} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-lg border border-[#14532D] bg-[#14532D] px-3 py-2 font-bold text-white hover:bg-[#0f3d21]"><span>Buka Layar Host / Proyektor</span><ExternalLink className="h-4 w-4" /></a>
-              <a href={joinUrl} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-lg border border-gray-300 px-3 py-2 font-bold text-[#1A2E1A] hover:bg-gray-50"><span>Buka Halaman Join Peserta</span><ExternalLink className="h-4 w-4" /></a>
-              <button type="button" onClick={() => { navigator.clipboard.writeText(session.pin); notify("PIN disalin!"); }} className="flex w-full items-center justify-between rounded-lg border border-gray-300 px-3 py-2 font-bold text-[#1A2E1A] hover:bg-gray-50"><span>Salin PIN</span><Copy className="h-4 w-4" /></button>
+            <div className="flex flex-col gap-2">
+              <a href={`/game/host/${session.pin}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-between gap-3 rounded-lg bg-forest px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-forest-deep"><span>Buka layar host</span><ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" /></a>
+              <a href={`/game/join?pin=${session.pin}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-between gap-3 rounded-lg border border-rule bg-white px-4 py-2 text-sm font-bold text-forest transition-colors hover:bg-forest-soft"><span>Pratinjau halaman peserta</span><ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" /></a>
+              <button type="button" onClick={() => void copyPin()} className="inline-flex min-h-11 items-center justify-between gap-3 rounded-lg border border-rule bg-white px-4 py-2 text-sm font-bold text-forest transition-colors hover:bg-forest-soft"><span>Salin PIN</span><Copy className="h-4 w-4 shrink-0" aria-hidden="true" /></button>
             </div>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
