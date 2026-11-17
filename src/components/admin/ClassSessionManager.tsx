@@ -12,7 +12,7 @@ type GuestRow = { id: string; full_name: string; whatsapp: string; status: strin
 type SessionDetail = StoredClassSession & { classTitle: string; classSlug?: string | null; attendeeCount: number; pendingCount: number };
 const inputClass = "mt-1.5 min-h-11 w-full rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] px-3 py-2 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20";
 
-export default function ClassSessionManager() {
+export default function ClassSessionManager({ initialClassId }: { initialClassId?: string }) {
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [detail, setDetail] = useState<{ attendees: AttendanceRow[]; guests: GuestRow[] } | null>(null);
@@ -34,9 +34,10 @@ export default function ClassSessionManager() {
       const sessionData = await sessionResponse.json(); const classData = await classResponse.json();
       if (!sessionResponse.ok) throw new Error(sessionData.error || "Sesi belum dapat dimuat.");
       setSessions(sessionData.sessions || []); setClasses((classData.classes || []).filter((item: ClassItem) => item.isPublished));
+      if (initialClassId && (classData.classes || []).some((item: ClassItem) => item.id === initialClassId && item.isPublished)) setClassId(initialClassId);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Sesi belum dapat dimuat."); }
     finally { setLoading(false); }
-  }, []);
+  }, [initialClassId]);
   useEffect(() => { void loadSessions(); }, [loadSessions]);
 
   useEffect(() => {

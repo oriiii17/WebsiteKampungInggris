@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Presentation, Play, ArrowLeft, Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 import type { SessionPayload } from "@/lib/types";
 
-type G = { id: string; title: string; kind: string; questions?: any[] };
+type G = { id: string; title: string; kind: string; source: "legacy" | "blueprint"; questions?: any[]; items?: any[] };
 
 export default function HostCreateClient({ sessionUser }: { sessionUser: SessionPayload | null }) {
   const router = useRouter();
@@ -19,12 +19,18 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
   async function loadGames() {
     setLoadingGames(true);
     try {
-      const res = await fetch("/api/admin/games");
-      const data = await res.json();
-      const list: G[] = data.games || [];
+      const [legacyRes, blueprintRes] = await Promise.all([fetch("/api/admin/games"), fetch("/api/admin/game-builder")]);
+      const [legacyData, blueprintData] = await Promise.all([legacyRes.json(), blueprintRes.json()]);
+      if (!legacyRes.ok) throw new Error(legacyData.error || "Game lama gagal dimuat.");
+      if (!blueprintRes.ok) throw new Error(blueprintData.error || "Blueprint game gagal dimuat.");
+      const list: G[] = [
+        ...(legacyData.games || []).map((game: any) => ({ ...game, source: "legacy" as const })),
+        ...(blueprintData.games || []).filter((game: any) => game.status === "published").map((game: any) => ({ ...game, kind: game.template, source: "blueprint" as const })),
+      ];
       setGames(list);
-      if (list.length) setSelected(list[0].id);
-    } catch { setError("Gagal memuat daftar game."); }
+      if (list.length) setSelected(`${list[0].source}:${list[0].id}`);
+      else setSelected("");
+    } catch (error) { setError(error instanceof Error ? error.message : "Gagal memuat daftar game."); }
     setLoadingGames(false);
   }
   useEffect(() => { loadGames(); }, []);
@@ -33,7 +39,8 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
     if (!selected) return;
     setLoading(true); setError("");
     try {
-      const res = await fetch("/api/game/live/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gameId: selected }) });
+      const [source, gameId] = selected.split(":", 2);
+      const res = await fetch("/api/game/live/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gameId, source }) });
       const data = await res.json();
       if (!res.ok || !data.ok) { setError(data.error || "Gagal membuka sesi."); setLoading(false); return; }
       localStorage.setItem(`sapen_host_${data.pin}`, data.hostId);
@@ -69,15 +76,15 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
             <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">Pilih Game</label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {games.map((g) => {
-                const isSelected = selected === g.id;
+                const isSelected = selected === `${g.source}:${g.id}`;
                 return (
-                  <button type="button" key={g.id} onClick={() => setSelected(g.id)} className={`text-left rounded-xl border-2 p-4 transition-all relative ${isSelected ? "border-[#14532D] bg-emerald-50/30 ring-2 ring-[#14532D]/20 shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"}`}>
+                  <button type="button" key={`${g.source}:${g.id}`} onClick={() => setSelected(`${g.source}:${g.id}`)} className={`text-left rounded-xl border-2 p-4 transition-all relative ${isSelected ? "border-[#14532D] bg-emerald-50/30 ring-2 ring-[#14532D]/20 shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"}`}>
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{(g.kind||"").replace(/_/g," ")}</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{g.source === "blueprint" ? "Game Builder · " : "Game klasik · "}{(g.kind||"").replace(/-/g," ").replace(/_/g," ")}</span>
                       {isSelected && <CheckCircle2 className="h-5 w-5 text-[#14532D]" />}
                     </div>
                     <h3 className="font-bold text-sm text-[#111827] mb-1">{g.title}</h3>
-                    <div className="text-[11px] font-semibold text-gray-500 pt-2 border-t border-gray-100">{(g.questions||[]).length} Soal</div>
+                    <div className="text-[11px] font-semibold text-gray-500 pt-2 border-t border-gray-100">{(g.questions||g.items||[]).length} Soal</div>
                   </button>
                 );
               })}

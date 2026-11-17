@@ -48,27 +48,3 @@ export function createBrowserSupabaseClient(): SupabaseClient | null {
   );
 }
 
-let serviceClient: SupabaseClient | null = null;
-
-/**
- * Mengembalikan Supabase client berhak penuh untuk operasi server Next.js:
- * Memakai SUPABASE_SERVICE_ROLE_KEY bila tersedia. Tanpa kunci server,
- * operasi berjalan dengan client publik dan tetap dibatasi oleh RLS.
- */
-export async function getSupabaseAdmin(): Promise<SupabaseClient | null> {
-  if (!isSupabaseConfigured()) return null;
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (serviceKey) {
-    if (!serviceClient) {
-      serviceClient = createClient(url, serviceKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
-    }
-    return serviceClient;
-  }
-
-  return createPublicSupabaseClient();
-}

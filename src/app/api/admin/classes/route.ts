@@ -111,10 +111,24 @@ function buildClass(body: any, existing?: ClassItem): ClassItem {
   };
 }
 
-export async function GET() {
+async function getSessionImpact(classId: string) {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return { sessions: 0, attendance: 0 };
+  const { data, error } = await supabase.from("class_sessions").select("id").eq("class_id", classId);
+  if (error) throw new Error(`Gagal memeriksa sesi kelas (${error.code || "Supabase"}).`);
+  const ids = (data || []).map((row) => row.id);
+  if (!ids.length) return { sessions: 0, attendance: 0 };
+  const { count, error: attendanceError } = await supabase.from("class_session_attendance").select("id", { count: "exact", head: true }).in("session_id", ids);
+  if (attendanceError) throw new Error(`Gagal memeriksa presensi (${attendanceError.code || "Supabase"}).`);
+  return { sessions: ids.length, attendance: count || 0 };
+}
+
+export async function GET(req: NextRequest) {
   const session = await getServerSession();
   if (!isAdminSession(session)) return NextResponse.json({ ok: false, error: "Akses ditolak." }, { status: 403 });
   try {
+    const impactId = req.nextUrl.searchParams.get("impact");
+    if (impactId) return NextResponse.json({ ok: true, impact: await getSessionImpact(impactId) });
     const classes = await getClasses(true);
     return NextResponse.json({ ok: true, classes: await withInstalledGames(classes) });
   } catch (err) {
@@ -138,9 +152,10 @@ export async function POST(req: NextRequest) {
       console.error("[api/admin/classes POST] verifikasi gagal, kelas tidak ditemukan setelah simpan", toSave.id);
       return NextResponse.json({ ok: false, error: "Kelas gagal tersimpan ke database (verifikasi setelah simpan tidak menemukan data). Coba lagi." }, { status: 500 });
     }
-    const classes = await getClasses(true);
+    const classes = await withInstalledGames(await getClasses(true));
+    const [savedWithGames] = await withInstalledGames([verified]);
     console.log("[api/admin/classes POST] tersimpan & terverifikasi", { id: verified.id, title: verified.title, modules: verified.modules?.length || 0 });
-    return NextResponse.json({ ok: true, class: verified, classes, verified: true });
+    return NextResponse.json({ ok: true, class: savedWithGames, classes, verified: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Gagal membuat kelas.";
     console.error("[api/admin/classes POST]", err);
@@ -165,9 +180,10 @@ export async function PATCH(req: NextRequest) {
       console.error("[api/admin/classes PATCH] verifikasi gagal", toSave.id);
       return NextResponse.json({ ok: false, error: "Perubahan kelas gagal tersimpan ke database (verifikasi gagal)." }, { status: 500 });
     }
-    const classes = await getClasses(true);
+    const classes = await withInstalledGames(await getClasses(true));
+    const [savedWithGames] = await withInstalledGames([verified]);
     console.log("[api/admin/classes PATCH] tersimpan & terverifikasi", { id: verified.id, title: verified.title, modules: verified.modules?.length || 0 });
-    return NextResponse.json({ ok: true, class: verified, classes, verified: true });
+    return NextResponse.json({ ok: true, class: savedWithGames, classes, verified: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Gagal memperbarui kelas.";
     console.error("[api/admin/classes PATCH]", err);
@@ -182,6 +198,8 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ ok: false, error: "ID kelas diperlukan." }, { status: 400 });
+    const impact = await getSessionImpact(id);
+    if (impact.sessions > 0) return NextResponse.json({ ok: false, error: "Kelas masih dipakai sesi. Pindahkan sesi ke kelas lain terlebih dahulu agar riwayat sesi dan presensi tetap tersimpan.", impact }, { status: 409 });
     const ok = await deleteClass(id);
     const stillThere = await getClassByIdOrSlug(id);
     if (ok && stillThere) {

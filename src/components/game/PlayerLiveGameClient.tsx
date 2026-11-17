@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Gamepad2, CheckCircle2, XCircle, Clock, Trophy, Loader2, ArrowRight, Send, Leaf, Sun, BookOpen, Sparkles } from "lucide-react";
+import { Gamepad2, CheckCircle2, XCircle, Clock, Trophy, Loader2, ArrowRight, Send, Leaf, Sun, BookOpen, Sparkles, Volume2 } from "lucide-react";
 import confetti from "canvas-confetti";
 
 type Q = any;
@@ -167,7 +167,7 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
           <div className="flex-1 flex flex-col py-2 space-y-3">
             <div className="flex items-center justify-between text-xs text-slate-300 px-1"><span>Soal {state.currentQuestionIndex + 1} / {state.totalQuestions}</span><span className="font-semibold text-emerald-400">{Math.max(1, state.timeLimitSec || 20)}s</span></div>
             {q.mediaUrl && (mediaLoadFailed ? <p role="status" className="text-sm text-amber-300">Gambar soal tidak dapat dimuat.</p> : <img src={q.mediaUrl} alt="Gambar soal" onError={() => setMediaLoadFailed(true)} className="w-full max-h-40 object-contain rounded-xl border border-slate-700 bg-slate-900"/>)}
-            <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-sm text-white font-semibold leading-relaxed">{q.question || q.prompt}{q.sentence ? <div className="mt-2 text-emerald-300">{q.sentence}</div> : null}{q.hint ? <div className="mt-1 text-xs text-slate-400">Petunjuk: {q.hint}</div> : null}</div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-sm text-white font-semibold leading-relaxed"><div className="flex items-start justify-between gap-3"><span>{q.question || q.prompt}</span>{q.audioText && <button type="button" aria-label="Putar audio soal" onClick={() => { if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(String(q.audioText)); utterance.lang = "en-US"; window.speechSynthesis.speak(utterance); } }} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-emerald-400/40 px-3 text-xs font-bold text-emerald-300 hover:bg-emerald-400/10"><Volume2 className="h-4 w-4" />Dengarkan</button>}</div>{q.sentence ? <div className="mt-2 text-emerald-300">{q.sentence}</div> : null}{q.hint ? <div className="mt-1 text-xs text-slate-400">Petunjuk: {q.hint}</div> : null}</div>
 
             {!hasSubmitted ? (
               <div className="flex-1 flex flex-col gap-2">

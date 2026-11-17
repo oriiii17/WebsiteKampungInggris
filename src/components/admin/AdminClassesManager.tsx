@@ -194,8 +194,16 @@ export default function AdminClassesManager({ notify }: Props) {
   }
 
   async function handleDelete(id: string) {
-    if (!(await dialog.confirm("Yakin ingin menghapus kelas ini?", "Hapus kelas?"))) return;
     try {
+      const impactRes = await fetch(`/api/admin/classes?impact=${encodeURIComponent(id)}`, { cache: "no-store" });
+      const impactData = await impactRes.json().catch(() => ({}));
+      if (!impactRes.ok || !impactData.ok) throw new Error(impactData.error || "Gagal memeriksa sesi dan presensi kelas.");
+      const { sessions = 0, attendance = 0 } = impactData.impact || {};
+      if (sessions > 0) {
+        await dialog.alert(`Kelas ini masih digunakan oleh ${sessions} sesi dan memiliki ${attendance} catatan presensi. Sesi dan presensi harus tetap tersimpan. Pindahkan sesi ke kelas lain sebelum menghapus kelas ini.`, "Kelas masih digunakan");
+        return;
+      }
+      if (!(await dialog.confirm("Kelas ini tidak memiliki sesi atau presensi. Hapus kelas beserta materi dan game yang terpasang? Tindakan ini tidak dapat dibatalkan.", "Hapus kelas?"))) return;
       const res = await fetch(`/api/admin/classes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -329,7 +337,8 @@ export default function AdminClassesManager({ notify }: Props) {
                       {cls.tingkat && <p className="text-xs font-semibold text-[#14532D]">Tingkat {cls.tingkat}</p>}
                       <p className="mt-1 text-xs text-[#1A2E1A]/70 line-clamp-2">{cls.description}</p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
+                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                      {cls.isPublished && <Link href={`/tutor/sesi?classId=${encodeURIComponent(cls.id)}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[#244b3a] px-3 text-xs font-bold text-white hover:bg-[#183b2d]"><Plus className="h-3.5 w-3.5" />Buat sesi</Link>}
                       <button type="button" onClick={()=>startEdit(cls)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] text-[#14532D] hover:bg-[#FDFBF7]" title="Edit"><Pencil className="h-4 w-4" /></button>
                       <Link href={`/kelas/${cls.slug}`} target="_blank" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] text-[#1A2E1A] hover:bg-[#FDFBF7]" title="Lihat Publik"><ExternalLink className="h-4 w-4" /></Link>
                       <button type="button" onClick={()=>handleDelete(cls.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] text-[#7A1F1F] hover:bg-[#FDFBF7]" title="Hapus"><Trash2 className="h-4 w-4" /></button>

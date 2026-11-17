@@ -40,6 +40,25 @@ test("engine menambah skor, streak, dan mengurangi nyawa", async () => {
   assert.equal(result.finished, true);
 });
 
+test("engine mengevaluasi interaksi semua tujuh template pratinjau", async () => {
+  const source = await readFile(new URL("../src/lib/game-engine.ts", import.meta.url), "utf8");
+  const javascript = ts.transpile(source, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext });
+  const engine = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+  const cases = [
+    ["multiple-choice-quiz", { correctIndex: 1 }, 1],
+    ["listen-and-choose", { correctIndex: 0 }, 0],
+    ["drag-and-sort", { sortItems: [{ categoryId: "a" }, { categoryId: "b" }] }, ["a", "b"]],
+    ["sentence-builder", { words: ["We", "learn", "English"] }, ["We", "learn", "English"]],
+    ["matching", { pairs: [{ left: "hello", right: "halo" }] }, [{ left: "hello", right: "halo" }]],
+    ["word-bank", { vocabulary: [{ term: "hello", translation: "halo" }] }, "halo"],
+    ["word-search", { words: ["SAPEN", "LEARN"] }, ["SAPEN", "LEARN"]],
+  ];
+  for (const [template, item, answer] of cases) {
+    const game = { template };
+    assert.equal(engine.evaluateBlueprintAnswer(game, item, answer), true, `${template} must accept its correct preview answer`);
+  }
+});
+
 test("kode, status pendaftaran, dan QR mengarah ke alur presensi sesi", async () => {
   const source = await readFile(new URL("../src/lib/class-session.ts", import.meta.url), "utf8");
   const javascript = ts.transpile(source, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext });

@@ -202,6 +202,30 @@ export default function AdminWargaManager({
     finally { setSavingCode(false); }
   }
 
+  async function handleRwCodeStatus(code: RwCodeItem) {
+    try {
+      const res = await fetch("/api/admin/rw-codes", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: code.id, action: "toggle" }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Status kode gagal diperbarui.");
+      setCodes((current) => current.map((item) => item.id === code.id ? { ...item, isActive: data.isActive } : item));
+      notify(data.isActive ? `Kode ${code.rw} diaktifkan.` : `Kode ${code.rw} dinonaktifkan.`);
+      onRefresh();
+    } catch (error) { notify(error instanceof Error ? error.message : "Status kode gagal diperbarui."); }
+  }
+
+  async function handleDeleteRwCode(code: RwCodeItem) {
+    if (!(await dialog.confirm(`Hapus kode ${code.codeDisplay} untuk ${code.rw}? Warga tidak dapat menggunakannya lagi.`, "Hapus kode RW?"))) return;
+    try {
+      const res = await fetch(`/api/admin/rw-codes?id=${encodeURIComponent(code.id)}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Kode gagal dihapus.");
+      setCodes((current) => current.filter((item) => item.id !== code.id));
+      if (selectedCodeId === code.id) { setSelectedCodeId(""); setCustomCodeDigits(Array(6).fill("")); }
+      notify(`Kode ${code.codeDisplay} dihapus.`);
+      onRefresh();
+    } catch (error) { notify(error instanceof Error ? error.message : "Kode gagal dihapus."); }
+  }
+
   async function exportParticipants() {
     try {
       const response = await fetch(`/api/admin/export?type=warga&format=${exportFormat}`);
@@ -246,7 +270,7 @@ export default function AdminWargaManager({
                   <span className="text-xs font-bold text-[#14532D]">{codesForRw.length} kode</span>
                 </button>
                 <div className="mt-3 space-y-1.5">
-                  {codesForRw.map((code, index) => <button key={code.id} type="button" onClick={() => { setSelectedRw(rwName); setSelectedCodeId(code.id); }} className={`flex min-h-10 w-full items-center justify-between rounded-md px-2.5 text-left ${selectedCodeId === code.id ? "bg-white ring-1 ring-[#14532D]" : "hover:bg-white"}`}><span className="font-mono text-xs font-extrabold tracking-wider text-[#14532D]">{String(index + 1).padStart(2, "0")} · {code.codeDisplay}</span><span className="text-[10px] font-bold text-slate-500">{code.isActive ? "Aktif" : "Nonaktif"}</span></button>)}
+                  {codesForRw.map((code, index) => <div key={code.id} className={`flex min-h-10 items-center gap-1 rounded-md px-2 ${selectedCodeId === code.id ? "bg-white ring-1 ring-[#14532D]" : "hover:bg-white"}`}><button type="button" onClick={() => { setSelectedRw(rwName); setSelectedCodeId(code.id); setCustomCodeDigits(code.codeDisplay.replace("-", "").split("")); }} className="flex min-w-0 flex-1 items-center justify-between gap-2 py-1 text-left"><span className="truncate font-mono text-xs font-extrabold tracking-wider text-[#14532D]">{String(index + 1).padStart(2, "0")} · {code.codeDisplay}</span><span className={`shrink-0 text-[10px] font-bold ${code.isActive ? "text-emerald-700" : "text-slate-500"}`}>{code.isActive ? "Aktif" : "Nonaktif"}</span></button><button type="button" aria-label={`Edit kode ${code.codeDisplay}`} title="Edit kode" onClick={() => { setSelectedRw(rwName); setSelectedCodeId(code.id); setCustomCodeDigits(code.codeDisplay.replace("-", "").split("")); }} className="rounded p-1.5 text-slate-500 hover:bg-slate-100"><Edit2 className="h-3.5 w-3.5" /></button><button type="button" aria-label={`${code.isActive ? "Nonaktifkan" : "Aktifkan"} kode ${code.codeDisplay}`} title={code.isActive ? "Nonaktifkan" : "Aktifkan"} onClick={() => handleRwCodeStatus(code)} className={`rounded p-1.5 ${code.isActive ? "text-amber-700 hover:bg-amber-50" : "text-emerald-700 hover:bg-emerald-50"}`}><Ban className="h-3.5 w-3.5" /></button><button type="button" aria-label={`Hapus kode ${code.codeDisplay}`} title="Hapus kode" onClick={() => handleDeleteRwCode(code)} className="rounded p-1.5 text-red-600 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" /></button></div>)}
                   {codesForRw.length === 0 && <p className="text-xs text-slate-500">Belum ada kode yang tersimpan.</p>}
                 </div>
               </section>

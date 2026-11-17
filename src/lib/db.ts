@@ -40,7 +40,12 @@ function sbErrMsg(ctx: string, err: any): string {
 }
 
 function throwSb(ctx: string, err: any): never {
-  console.error("[Supabase]", ctx, err);
+  console.error("[Supabase]", ctx, {
+    code: err?.code || "SUPABASE_ERROR",
+    message: err?.message || "Error tidak diketahui.",
+    details: err?.details || "",
+    hint: err?.hint || "",
+  });
   throw new Error(sbErrMsg(ctx, err));
 }
 
