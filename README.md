@@ -1,5 +1,14 @@
 # Sapen English — Platform Belajar Bahasa Inggris Warga Kampung Sapen
 
+## Fitur Game Builder dan sesi tatap muka
+
+- Buka **/admin** → **Kelola Game** untuk membuat game dari tujuh template. Draf divalidasi dengan `src/lib/game.schema.json`, autosave ke tabel Supabase `game_blueprints`, dan bisa diterbitkan ke katalog **/games**. Jika Supabase belum dikonfigurasi, data tersimpan pada database lokal aplikasi.
+- Satu baris CSV/Excel berisi satu soal. Untuk template pilihan ganda, gunakan urutan kolom: pertanyaan, pilihan A–E, indeks jawaban benar (indeks dimulai dari `0`). Teks juga dapat ditempel langsung di editor.
+- Runtime menerima blueprint JSON, bukan komponen khusus per game. Tambahkan template dengan memperbarui enum dan `allOf` di `src/lib/game.schema.json`, tipe/template di `src/lib/game-blueprint.ts`, editor dan renderer di `GameBuilderClient.tsx` serta `BlueprintGameClient.tsx`, lalu sertakan data contoh tervalidasi.
+- Tiga contoh data siap digunakan ada di `data/games/`: **Telling the Time**, **Sort It Out: Around Sapen**, dan **Describing a Place in Jogja**.
+- Tutor membuka **/tutor/sesi** (atau Pengurus → **Sesi Tatap Muka**) untuk membuat sesi, membagikan kode/QR, mengatur approval/kuota, dan mengekspor CSV. Terapkan migrasi `supabase/migrations/20261117150000_game_blueprints.sql` dan `20261117160000_class_sessions_and_attendance.sql` serta `20261117170000_live_game_avatars_teams.sql` pada proyek Supabase. Sesi live `/game/host` membagi peserta ke tim Daun dan Mentari, menampilkan avatar, dan membatasi sesi hingga 50 peserta.
+- Jalankan pemeriksaan skema dan logika yang tersedia dengan `npm test`; tipe dengan `npx tsc --noEmit`; lint dengan `npm run lint`.
+
 Platform pembelajaran Bahasa Inggris modern, cepat, dan mobile-first untuk warga Kampung Sapen (RW 06, RW 07, RW 08, Kelurahan Demangan, Gondokusuman, Yogyakarta) dan pembelajar umum.
 
 ---

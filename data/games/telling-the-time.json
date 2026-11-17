@@ -1,0 +1,18 @@
+{
+  "id": "sapen-telling-the-time",
+  "title": "Telling the Time",
+  "template": "multiple-choice-quiz",
+  "level": "A1",
+  "topic": "Waktu dan rutinitas",
+  "language": "id-en",
+  "coverImage": "/images/game-time.svg",
+  "status": "published",
+  "createdAt": "2026-11-17T00:00:00.000Z",
+  "updatedAt": "2026-11-17T00:00:00.000Z",
+  "settings": { "hearts": 3, "timeLimitSec": 20, "randomizeQuestions": true, "randomizeOptions": false, "mode": "both", "theme": "forest", "mascot": "Burung Sapen" },
+  "items": [
+    { "id": "time-1", "prompt": "How do you say 07:30?", "options": [{ "id": "a", "text": "It's half past seven." }, { "id": "b", "text": "It's a quarter to seven." }, { "id": "c", "text": "It's seven o'clock." }], "correctIndex": 0, "explanation": "Half past seven berarti pukul setengah delapan atau 07.30." },
+    { "id": "time-2", "prompt": "What time is a quarter to nine?", "options": [{ "id": "a", "text": "08:15" }, { "id": "b", "text": "08:45" }, { "id": "c", "text": "09:15" }], "correctIndex": 1, "explanation": "A quarter to nine adalah lima belas menit sebelum pukul sembilan." },
+    { "id": "time-3", "prompt": "Complete: English class starts ___ eight in the morning.", "options": [{ "id": "a", "text": "at" }, { "id": "b", "text": "on" }, { "id": "c", "text": "in" }], "correctIndex": 0, "explanation": "Gunakan at untuk menyebut waktu yang spesifik." }
+  ]
+}

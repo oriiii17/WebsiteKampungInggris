@@ -1,0 +1,16 @@
+{
+  "id": "sapen-sort-it-out",
+  "title": "Sort It Out: Around Sapen",
+  "template": "drag-and-sort",
+  "level": "A2",
+  "topic": "Tempat dan aktivitas sekitar Sapen",
+  "language": "id-en",
+  "coverImage": "/images/sapen-gang-belajar.svg",
+  "status": "published",
+  "createdAt": "2026-11-17T00:00:00.000Z",
+  "updatedAt": "2026-11-17T00:00:00.000Z",
+  "settings": { "hearts": 4, "timeLimitSec": 0, "randomizeQuestions": false, "randomizeOptions": true, "mode": "both", "theme": "tomato" },
+  "items": [
+    { "id": "sort-1", "prompt": "Put each activity in the right place.", "categories": [{ "id": "learn", "label": "Places to learn" }, { "id": "eat", "label": "Places to eat" }], "sortItems": [{ "text": "study English with a tutor", "categoryId": "learn" }, { "text": "practice new words with friends", "categoryId": "learn" }, { "text": "order gudeg for lunch", "categoryId": "eat" }, { "text": "buy an afternoon snack", "categoryId": "eat" }] }
+  ]
+}

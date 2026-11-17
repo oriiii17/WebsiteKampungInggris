@@ -55,7 +55,8 @@ export default function Navbar({ session }: NavbarProps) {
   const publicNavLinks = [
     { href: "/", label: "Beranda" },
     { href: "/kelas", label: "Kelas" },
-    { href: "/game", label: "Game" },
+    { href: "/games", label: "Games" },
+    { href: "/sesi", label: "Sesi Kelas" },
     { href: "/tentang", label: "Tentang" },
     { href: "/faq", label: "FAQ" },
   ];
@@ -152,7 +153,7 @@ export default function Navbar({ session }: NavbarProps) {
       <nav className={styles.bottomNav} aria-label="Navigasi bawah">
         <Link href="/" className={`${styles.bottomLink} ${pathname === "/" ? styles.bottomLinkActive : ""}`}><GraduationCap />Beranda</Link>
         <Link href="/kelas" className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen />Kelas</Link>
-        <Link href="/game" className={`${styles.bottomLink} ${pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 />Game</Link>
+        <Link href="/games" className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 />Games</Link>
         {session ? (
           <Link href="/akun" className={`${styles.bottomLink} ${pathname.startsWith("/akun") ? styles.bottomLinkActive : ""}`}><User />Akun</Link>
         ) : (

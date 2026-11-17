@@ -3,12 +3,12 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Gamepad2, CheckCircle2, XCircle, Clock, Trophy, Loader2, ArrowRight, Send } from "lucide-react";
+import { Gamepad2, CheckCircle2, XCircle, Clock, Trophy, Loader2, ArrowRight, Send, Leaf, Sun, BookOpen, Sparkles } from "lucide-react";
 import confetti from "canvas-confetti";
 
 type Q = any;
-interface PlayerInfo { id: string; name: string; score: number; }
-interface SessionState { pin: string; templateTitle: string; status: "lobby" | "question" | "reveal" | "podium" | "closed"; currentQuestionIndex: number; totalQuestions: number; questionStartedAt: number; timeLimitSec: number; currentQuestion: Q | null; playersList: PlayerInfo[]; }
+interface PlayerInfo { id: string; name: string; score: number; avatarId?: string; team?: string; }
+interface SessionState { pin: string; templateTitle: string; status: "lobby" | "question" | "reveal" | "podium" | "closed"; currentQuestionIndex: number; totalQuestions: number; questionStartedAt: number; timeLimitSec: number; currentQuestion: Q | null; playersList: PlayerInfo[]; teamScores?: { team: string; score: number; players: number }[]; }
 
 const SHAPES = [
   { symbol: "○", bg: "bg-red-500 hover:bg-red-600" },
@@ -23,6 +23,8 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
   const router = useRouter();
   const [playerId, setPlayerId] = useState("");
   const [playerName, setPlayerName] = useState("");
+  const [playerAvatarId, setPlayerAvatarId] = useState("leaf");
+  const [playerTeam, setPlayerTeam] = useState("forest");
   const [state, setState] = useState<SessionState | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [lastPoints, setLastPoints] = useState<number | null>(null);
@@ -62,7 +64,7 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
   useEffect(() => {
     const raw = sessionStorage.getItem(`sapen_game_${pin}`);
     if (!raw) { router.push(`/game/join?pin=${pin}`); return; }
-    try { const p = JSON.parse(raw); setPlayerId(p.playerId); setPlayerName(p.playerName); } catch { router.push(`/game/join?pin=${pin}`); }
+    try { const p = JSON.parse(raw); setPlayerId(p.playerId); setPlayerName(p.playerName); setPlayerAvatarId(p.avatarId || "leaf"); setPlayerTeam(p.team || "forest"); } catch { router.push(`/game/join?pin=${pin}`); }
   }, [pin, router]);
 
   useEffect(() => {
@@ -142,10 +144,11 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
     <div className={`workbook-live flex min-h-screen w-full max-w-[1200px] select-none flex-col bg-paper transition-all ${flash === "correct" ? "bg-emerald-900/40 ring-4 ring-emerald-400/60" : ""} ${flash === "wrong" ? "animate-[shake_.35s_ease]" : ""}`}>
       <header className="bg-slate-950/80 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-xs">{playerName.charAt(0).toUpperCase() || "?"}</div>
+          <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${playerTeam === "forest" ? "bg-emerald-600 text-white" : "bg-amber-400 text-amber-950"}`}>{playerAvatarId === "sun" ? <Sun className="h-4 w-4" /> : playerAvatarId === "bird" ? <Sparkles className="h-4 w-4" /> : playerAvatarId === "book" ? <BookOpen className="h-4 w-4" /> : <Leaf className="h-4 w-4" />}</div>
           <div>
             <p className="text-xs font-bold text-white leading-tight truncate max-w-[180px]">{playerName}</p>
             <p className="text-[10px] text-slate-400">PIN: {state.pin}</p>
+            <p className="text-[10px] font-bold text-emerald-300">Tim {playerTeam === "forest" ? "Daun" : "Mentari"}</p>
           </div>
         </div>
         {myPlayerInfo && (<div className="flex items-center gap-2"><span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs font-mono font-bold text-amber-400 border border-slate-700">{myPlayerInfo.score} pt</span>{myRank > 0 && <span className="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold text-slate-300">#{myRank}</span>}</div>)}
@@ -156,7 +159,7 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-5 animate-[fadeIn_.4s_ease] min-h-[60vh]">
             <div className="h-24 w-24 rounded-3xl bg-emerald-600/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-300 animate-pulse shadow-[0_0_40px_rgba(16,185,129,.25)]"><Gamepad2 className="h-12 w-12" /></div>
             <div><h1 className="text-3xl font-black text-white">Kamu Sudah Masuk!</h1><p className="text-sm text-slate-300 mt-2 leading-relaxed">Tunggu sebentar ya, <strong className="text-white">{playerName}</strong>. Host akan segera memulai.</p></div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 w-full max-w-xl text-xs text-slate-300">Game: <span className="font-bold text-emerald-400">{state.templateTitle}</span><br/>Peserta: <span className="font-bold text-white">{state.playersList.length} orang</span></div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 w-full max-w-xl text-xs text-slate-300">Game: <span className="font-bold text-emerald-400">{state.templateTitle}</span><br/>Peserta: <span className="font-bold text-white">{state.playersList.length} orang</span><br/>Tim kamu: <span className="font-bold text-white">{playerTeam === "forest" ? "Daun" : "Mentari"}</span></div>
           </div>
         )}
 

@@ -7,17 +7,20 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
     "@types/jszip": "^3.4.0",
+    "ajv": "^6.15.0",
     "canvas-confetti": "^1.9.3",
     "jszip": "^3.10.2",
     "lucide-react": "^0.475.0",
     "next": "^15.3.0",
     "page-flip": "^2.0.7",
     "pdfjs-dist": "^4.10.38",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "xlsx": "^0.18.5"

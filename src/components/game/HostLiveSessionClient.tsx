@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Play, ArrowRight, Trophy, XCircle, Copy, Check, Sparkles, Award, Crown } from "lucide-react";
+import { Users, Play, ArrowRight, Trophy, XCircle, Copy, Check, Sparkles, Award, Crown, Leaf, Sun, BookOpen } from "lucide-react";
 import confetti from "canvas-confetti";
 
 interface SessionState {
   pin: string; templateTitle: string; hostName: string; status: "lobby" | "question" | "reveal" | "podium" | "closed";
   currentQuestionIndex: number; totalQuestions: number; questionStartedAt: number; timeLimitSec: number;
-  currentQuestion: any; playersList: any[]; answersDetail?: any[]; answerDistribution?: number[];
+  currentQuestion: any; playersList: any[]; answersDetail?: any[]; answerDistribution?: number[]; teamScores?: { team: string; score: number; players: number }[];
 }
 const SHAPES = [
   { symbol: "○", label: "A", color: "bg-red-500" },
@@ -84,12 +84,13 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
       </header>
 
       <main className="flex-1 p-4 sm:p-8 max-w-6xl mx-auto w-full">
+        {!!state.teamScores?.length && <section aria-label="Papan skor tim" className="mb-6 grid gap-3 sm:grid-cols-2">{state.teamScores.map((team) => <div key={team.team} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${team.team === "forest" ? "border-emerald-800 bg-emerald-950/60 text-emerald-100" : "border-amber-800 bg-amber-950/50 text-amber-100"}`}><div className="flex items-center gap-3">{team.team === "forest" ? <Leaf className="h-5 w-5" /> : <Sun className="h-5 w-5" />}<span className="font-bold">Tim {team.team === "forest" ? "Daun" : "Mentari"}<span className="ml-2 text-xs font-normal opacity-75">{team.players} peserta</span></span></div><span className="font-mono text-xl font-black tabular-nums">{team.score} pt</span></div>)}</section>}
         {state.status === "lobby" && (
           <div className="space-y-8 py-4">
             <div className="text-center space-y-3 animate-[fadeIn_.5s_ease]"><span className="inline-block bg-slate-800/80 border border-slate-700 px-4 py-1 rounded-full text-xs font-bold text-slate-300 uppercase tracking-widest">Ruang Tunggu</span><h2 className="text-3xl sm:text-5xl font-black text-white">Buka HP: <span className="text-emerald-400 underline underline-offset-8">/game/join</span></h2><p className="text-slate-300 text-lg">Masukkan PIN: <span className="text-amber-400 font-black font-mono text-3xl tracking-[0.2em]">{state.pin}</span></p></div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6 backdrop-blur">
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800"><div className="flex items-center gap-2 text-slate-200 font-bold"><Users className="h-5 w-5 text-emerald-400" /><span>Peserta Bergabung ({totalPlayers})</span></div>{totalPlayers === 0 && <span className="text-xs text-slate-500 animate-pulse">Menunggu peserta...</span>}</div>
-              {totalPlayers === 0 ? (<div className="text-center py-10 text-slate-500"><p>Belum ada peserta. Tampilkan PIN di layar!</p></div>) : (<div className="flex flex-wrap gap-2.5 max-h-[320px] overflow-y-auto pr-1">{state.playersList.map((player:any) => (<div key={player.id} className="group flex items-center gap-2 rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2 text-sm font-bold text-white shadow-sm hover:border-emerald-500/50 transition"><span className="h-6 w-6 rounded-full bg-emerald-600/30 text-emerald-300 text-xs flex items-center justify-center">●</span><span>{player.name}</span><button onClick={() => sendAction("kick", player.id)} title="Keluarkan" aria-label={`Keluarkan ${player.name}`} className="min-h-11 min-w-11 text-red-400 hover:text-red-300 ml-1">×</button></div>))}</div>)}
+              {totalPlayers === 0 ? (<div className="text-center py-10 text-slate-500"><p>Belum ada peserta. Tampilkan PIN di layar!</p></div>) : (<div className="flex flex-wrap gap-2.5 max-h-[320px] overflow-y-auto pr-1">{state.playersList.map((player:any) => (<div key={player.id} className="group flex items-center gap-2 rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2 text-sm font-bold text-white shadow-sm hover:border-emerald-500/50 transition"><span className={`h-7 w-7 rounded-full flex items-center justify-center ${player.team === "forest" ? "bg-emerald-600/30 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>{player.avatarId === "sun" ? <Sun className="h-4 w-4" /> : player.avatarId === "bird" ? <Sparkles className="h-4 w-4" /> : player.avatarId === "book" ? <BookOpen className="h-4 w-4" /> : <Leaf className="h-4 w-4" />}</span><span>{player.name}<small className="ml-2 text-[10px] font-semibold text-slate-400">{player.team === "forest" ? "Daun" : "Mentari"}</small></span><button onClick={() => sendAction("kick", player.id)} title="Keluarkan" aria-label={`Keluarkan ${player.name}`} className="min-h-11 min-w-11 text-red-400 hover:text-red-300 ml-1">×</button></div>))}</div>)}
             </div>
             <div className="text-center pt-2"><button onClick={() => sendAction("start")} disabled={totalPlayers === 0 || actionLoading} className="inline-flex min-h-[56px] items-center gap-3 rounded-md bg-earth px-10 py-5 text-xl font-black text-white shadow-card transition hover:bg-earth-dark active:scale-95 disabled:cursor-not-allowed disabled:bg-paper-deep disabled:text-muted"><Play className="h-6 w-6 fill-white" /><span>Mulai ({totalPlayers} Peserta)</span></button></div>
           </div>

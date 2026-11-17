@@ -1,0 +1,17 @@
+{
+  "id": "sapen-descriptive-text-jogja",
+  "title": "Describing a Place in Jogja",
+  "template": "multiple-choice-quiz",
+  "level": "B1",
+  "topic": "Descriptive text: tempat wisata Yogyakarta",
+  "language": "id-en",
+  "coverImage": "/images/cover-reading.svg",
+  "status": "published",
+  "createdAt": "2026-11-17T00:00:00.000Z",
+  "updatedAt": "2026-11-17T00:00:00.000Z",
+  "settings": { "hearts": 3, "timeLimitSec": 30, "randomizeQuestions": true, "randomizeOptions": true, "mode": "both", "theme": "saffron" },
+  "items": [
+    { "id": "jogja-1", "prompt": "Read: 'The palace has a wide courtyard and carefully carved wooden doors.' Which detail describes its appearance?", "options": [{ "id": "a", "text": "Its location in the city" }, { "id": "b", "text": "Its wide courtyard and carved doors" }, { "id": "c", "text": "The time it opens" }], "correctIndex": 1, "explanation": "Descriptive details help readers picture the place." },
+    { "id": "jogja-2", "prompt": "Which sentence uses an adjective to describe a place?", "options": [{ "id": "a", "text": "Visitors arrive at noon." }, { "id": "b", "text": "The quiet garden feels peaceful." }, { "id": "c", "text": "We walked to the station." }], "correctIndex": 1, "explanation": "Quiet dan peaceful memberi sifat atau kesan pada taman." }
+  ]
+}

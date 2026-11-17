@@ -1,4 +1,4 @@
-export type UserRole = "pengurus" | "developer" | "peserta" | "umum";
+export type UserRole = "pengurus" | "developer" | "tutor" | "member" | "guest" | "peserta" | "umum";
 
 // ============================================================
 // WARGA RW - Model login khusus warga Kampung Sapen per RW
@@ -43,7 +43,7 @@ export interface TestimoniRecord {
   createdAt: string;
 }
 
-export type AccessOrigin = "admin" | "warga_kode" | "luar_langganan" | "luar_belum_aktif";
+export type AccessOrigin = "admin" | "tutor" | "guest" | "warga_kode" | "luar_langganan" | "luar_belum_aktif";
 
 export interface SessionPayload {
   id: string;
@@ -57,6 +57,8 @@ export interface SessionPayload {
   expiresAt?: string;
   watermarkText: string;
   avatarDataUrl?: string;
+  guestRegistrationId?: string;
+  guestSessionId?: string;
 }
 
 export interface SyllabusItem {
@@ -431,4 +433,8 @@ export interface DatabaseSchema {
   enrollments?: ClassEnrollment[];
   // â”€â”€ Kelola Game (DB-backed, editable) â”€â”€
   games?: GameRecord[];
+  gameBlueprints?: import("./game-blueprint").GameBlueprint[];
+  classSessions?: import("./class-session").StoredClassSession[];
+  classSessionGuests?: import("./class-session").StoredClassSessionGuest[];
+  classSessionAttendance?: import("./class-session").ClassSessionAttendance[];
 }

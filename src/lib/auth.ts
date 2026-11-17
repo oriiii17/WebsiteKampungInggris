@@ -45,8 +45,9 @@ export async function getServerSession(): Promise<SessionPayload | null> {
   const raw = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const session = decodeSessionToken(raw);
   if (!session) return null;
+  if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) return null;
   const hasSupabaseUserId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(session.id);
-  if ((session.origin === "admin" || session.origin === "luar_belum_aktif" || session.origin === "luar_langganan") && !hasSupabaseUserId) {
+  if ((session.origin === "admin" || session.origin === "tutor" || session.origin === "luar_belum_aktif" || session.origin === "luar_langganan") && !hasSupabaseUserId) {
     return null;
   }
   return session;
@@ -65,6 +66,10 @@ export function hasActiveMaterialAccess(session: SessionPayload | null): boolean
 
 export function isAdminSession(session: SessionPayload | null): boolean {
   return Boolean(session && (session.role === "pengurus" || session.role === "developer"));
+}
+
+export function isTutorSession(session: SessionPayload | null): boolean {
+  return Boolean(session && (isAdminSession(session) || session.role === "tutor"));
 }
 
 /**

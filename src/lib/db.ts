@@ -645,6 +645,10 @@ async function readNormalizedLocalDb(): Promise<DatabaseSchema | null> {
     if (!parsed.testimoni) parsed.testimoni = [];
     if (!parsed.classes) parsed.classes = [];
     if (!parsed.enrollments) parsed.enrollments = [];
+    if (!parsed.gameBlueprints) parsed.gameBlueprints = [];
+    if (!parsed.classSessions) parsed.classSessions = [];
+    if (!parsed.classSessionGuests) parsed.classSessionGuests = [];
+    if (!parsed.classSessionAttendance) parsed.classSessionAttendance = [];
     const changed = ensureBuiltinGames(parsed);
     if (changed) await fs.writeFile(DB_FILE, JSON.stringify(parsed, null, 2), "utf8");
     return parsed;
@@ -664,6 +668,10 @@ export async function readLocalDb(): Promise<DatabaseSchema> {
       const merged: DatabaseSchema = {
         ...remote,
         games: mergeByIdPreferLocal(local?.games || [], remote.games || []),
+        gameBlueprints: local?.gameBlueprints || [],
+        classSessions: local?.classSessions || [],
+        classSessionGuests: local?.classSessionGuests || [],
+        classSessionAttendance: local?.classSessionAttendance || [],
         classes: mergeByIdPreferLocal(local?.classes || [], remote.classes || []),
         enrollments: mergeByIdPreferLocal(local?.enrollments || [], remote.enrollments || []),
         warga: (remote.warga || []) as any,

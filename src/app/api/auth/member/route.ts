@@ -8,6 +8,7 @@ import { SessionPayload } from "@/lib/types";
 import { createPublicSupabaseClient } from "@/lib/supabase";
 import { checkApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import { isHttpsRequest } from "@/lib/request-security";
+import { SUPABASE_ACCESS_TOKEN_COOKIE } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
   const limit = checkApiRateLimit(`member:${getRequestIp(req)}`, 10, 10 * 60 * 1000);
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     const profile = await authClient.from("profiles").select("full_name,role").eq("id", authData.user.id).maybeSingle();
     const role = profile.data?.role || authData.user.user_metadata?.role;
-    if (role !== "umum" && role !== "peserta") {
+    if (role !== "umum" && role !== "peserta" && role !== "tutor") {
       return NextResponse.json({ error: "Akun ini tidak dapat masuk melalui Peserta Umum." }, { status: 403 });
     }
     const authName = profile.data?.full_name || String(authData.user.user_metadata?.full_name || email.split("@")[0]);
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       name: authName,
       email,
       role,
-      origin: activeSub ? "luar_langganan" : "luar_belum_aktif",
+      origin: role === "tutor" ? "tutor" : activeSub ? "luar_langganan" : "luar_belum_aktif",
       expiresAt: activeSub?.expiresAt,
       watermarkText: `${authName} • ${email}`,
     };
@@ -70,6 +71,15 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 30,
       secure: isHttpsRequest(req),
     });
+    if (role === "tutor" && authData.session?.access_token) {
+      res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, authData.session.access_token, {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60,
+        secure: isHttpsRequest(req),
+      });
+    }
     return res;
   } catch (err) {
     return NextResponse.json(

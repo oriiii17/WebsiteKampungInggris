@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import {
   BookOpen,
+  CalendarClock,
   CheckCircle2,
   AlertCircle,
   Copy,
@@ -48,6 +49,8 @@ import AdminTestimoniManager from "@/components/admin/AdminTestimoniManager";
 import AdminClassesManager from "@/components/admin/AdminClassesManager";
 import AdminHostGameTab from "@/components/admin/AdminHostGameTab";
 import AdminGameManager from "@/components/admin/AdminGameManager";
+import GameBuilderClient from "@/components/admin/GameBuilderClient";
+import ClassSessionManager from "@/components/admin/ClassSessionManager";
 import AdminCodesManager from "@/components/admin/AdminCodesManager";
 import "@/components/admin/AdminTheme.css";
 import { useAppDialog } from "@/components/AppDialogProvider";
@@ -105,7 +108,7 @@ export default function AdminDashboardClient() {
   const dialog = useAppDialog();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const validTabs = ["classes", "warga", "testimoni", "codes", "games", "game-builder", "public", "payments"] as const;
+  const validTabs = ["classes", "warga", "testimoni", "codes", "games", "game-builder", "sessions", "public", "payments"] as const;
   type TabType = (typeof validTabs)[number];
 
   const paramTab = searchParams.get("tab") as TabType | null;
@@ -237,6 +240,7 @@ export default function AdminDashboardClient() {
       title: "Kelola",
       items: [
         { id: "classes" as const, label: "Kelas", icon: GraduationCap },
+        { id: "sessions" as const, label: "Sesi Tatap Muka", icon: CalendarClock },
         { id: "warga" as const, label: "Akses RW & Peserta", icon: KeyRound },
         { id: "codes" as const, label: "Peserta & Akses Kelas", icon: Users },
         { id: "game-builder" as const, label: "Kelola Game", icon: Gamepad2 },
@@ -384,8 +388,16 @@ export default function AdminDashboardClient() {
       )}
 
       {tab === "game-builder" && (
-        <AdminGameManager notify={notify} />
+        <div className="space-y-6">
+          <GameBuilderClient notify={notify} />
+          <details className="border-t border-rule pt-4">
+            <summary className="cursor-pointer text-sm font-bold text-leaf">Kelola game klasik</summary>
+            <div className="mt-4"><AdminGameManager notify={notify} /></div>
+          </details>
+        </div>
       )}
+
+      {tab === "sessions" && <ClassSessionManager />}
 
       {tab === "games" && (
         <AdminHostGameTab notify={notify} />

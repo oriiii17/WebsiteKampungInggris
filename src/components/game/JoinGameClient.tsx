@@ -3,14 +3,22 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Gamepad2, KeyRound, User, Loader2 } from "lucide-react";
+import { ArrowLeft, Bird, BookOpen, Gamepad2, KeyRound, Leaf, Sun, User, Loader2 } from "lucide-react";
+
+const AVATARS = [
+  { id: "leaf", label: "Daun", Icon: Leaf },
+  { id: "book", label: "Buku", Icon: BookOpen },
+  { id: "sun", label: "Mentari", Icon: Sun },
+  { id: "bird", label: "Burung", Icon: Bird },
+] as const;
 
 export default function JoinGameClient({ defaultName = "" }: { defaultName?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [pin, setPin] = useState("");
-  const [name, setName] = useState("");
+  const [name, setName] = useState(defaultName);
+  const [avatarId, setAvatarId] = useState<(typeof AVATARS)[number]["id"]>("leaf");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -61,6 +69,7 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
         body: JSON.stringify({
           playerName: cleanName,
           playerId,
+          avatarId,
         }),
       });
 
@@ -75,6 +84,8 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
       sessionStorage.setItem(`sapen_game_${cleanPin}`, JSON.stringify({
         playerId: data.playerId,
         playerName: data.playerName,
+        avatarId: data.avatarId,
+        team: data.team,
       }));
 
       router.push(`/game/play/${cleanPin}`);
@@ -126,6 +137,11 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
             />
           </div>
         </div>
+
+        <fieldset>
+          <legend className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-700">Pilih avatar</legend>
+          <div className="grid grid-cols-4 gap-2">{AVATARS.map(({ id, label, Icon }) => <button key={id} type="button" aria-pressed={avatarId === id} onClick={() => setAvatarId(id)} className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-earth ${avatarId === id ? "border-leaf bg-leaf text-white" : "border-rule-strong bg-white text-leaf hover:bg-paper"}`}><Icon className="h-5 w-5" />{label}</button>)}</div>
+        </fieldset>
 
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">

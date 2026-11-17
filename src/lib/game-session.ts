@@ -48,6 +48,8 @@ export interface PlayerSession {
   name: string;
   score: number;
   streak: number;
+  avatarId: "leaf" | "book" | "sun" | "bird";
+  team: "forest" | "saffron";
   lastAnswer?: PlayerLastAnswer;
   connectedAt: number;
 }
@@ -167,7 +169,7 @@ export function getLiveSession(pin: string): LiveGameSession | null {
   return s;
 }
 
-export function joinPlayerToSession(pin: string, playerName: string, playerId: string): { ok: boolean; error?: string; session?: LiveGameSession } {
+export function joinPlayerToSession(pin: string, playerName: string, playerId: string, avatarId: PlayerSession["avatarId"] = "leaf", forcedTeam?: PlayerSession["team"]): { ok: boolean; error?: string; session?: LiveGameSession } {
   const session = getLiveSession(pin);
   if (!session) return { ok: false, error: "PIN sesi tidak ditemukan atau sudah selesai." };
   if (session.status === "closed") return { ok: false, error: "Sesi kuis sudah ditutup oleh host." };
@@ -176,8 +178,11 @@ export function joinPlayerToSession(pin: string, playerName: string, playerId: s
   for (const [pId, p] of Object.entries(session.players)) {
     if (pId !== playerId && p.name.toLowerCase() === nameLower) return { ok: false, error: `Nama "${playerName}" sudah digunakan peserta lain dalam sesi ini.` };
   }
-  if (!session.players[playerId]) session.players[playerId] = { id: playerId, name: playerName.trim(), score: 0, streak: 0, connectedAt: Date.now() };
-  else session.players[playerId].name = playerName.trim();
+  if (!session.players[playerId]) {
+    const forestCount = Object.values(session.players).filter((player) => player.team === "forest").length;
+    const saffronCount = Object.values(session.players).filter((player) => player.team === "saffron").length;
+    session.players[playerId] = { id: playerId, name: playerName.trim(), score: 0, streak: 0, avatarId, team: forcedTeam || (forestCount <= saffronCount ? "forest" : "saffron"), connectedAt: Date.now() };
+  } else { session.players[playerId].name = playerName.trim(); session.players[playerId].avatarId = avatarId; if (forcedTeam) session.players[playerId].team = forcedTeam; }
   session.lastActive = Date.now();
   emitSessionUpdate(pin, session);
   return { ok: true, session };
@@ -194,7 +199,7 @@ export function sanitizeSessionForClient(session: LiveGameSession) {
   Object.values(session.players).forEach((p) => {
     const ans = p.lastAnswer && p.lastAnswer.questionIndex === idx ? p.lastAnswer : null;
     if (ans && typeof ans.optionIndex === "number" && ans.optionIndex >= 0 && ans.optionIndex <= 3) distribution[ans.optionIndex]++;
-    answersDetail.push({ id: p.id, name: p.name, score: p.score, optionIndex: ans ? (ans.optionIndex ?? null) : null, optionIndexes: ans?.optionIndexes || [], textAnswer: ans?.textAnswer, isCorrect: ans ? ans.isCorrect : null, pointsEarned: ans ? ans.pointsEarned : 0 });
+    answersDetail.push({ id: p.id, name: p.name, score: p.score, avatarId: p.avatarId, team: p.team, optionIndex: ans ? (ans.optionIndex ?? null) : null, optionIndexes: ans?.optionIndexes || [], textAnswer: ans?.textAnswer, isCorrect: ans ? ans.isCorrect : null, pointsEarned: ans ? ans.pointsEarned : 0 });
   });
   answersDetail.sort((a, b) => b.score - a.score);
   const reveal = session.status === "reveal" || session.status === "podium";
@@ -218,7 +223,8 @@ export function sanitizeSessionForClient(session: LiveGameSession) {
     status: session.status, currentQuestionIndex: session.currentQuestionIndex, totalQuestions: session.totalQuestions,
     questionStartedAt: session.questionStartedAt, timeLimitSec: currentQ?.timeLimitSec || 20,
     currentQuestion: clientQuestion,
-    playersList: Object.values(session.players).map((p) => ({ id: p.id, name: p.name, score: p.score, hasAnswered: Boolean(p.lastAnswer && p.lastAnswer.questionIndex === session.currentQuestionIndex) })).sort((a, b) => b.score - a.score),
+    playersList: Object.values(session.players).map((p) => ({ id: p.id, name: p.name, score: p.score, avatarId: p.avatarId, team: p.team, hasAnswered: Boolean(p.lastAnswer && p.lastAnswer.questionIndex === session.currentQuestionIndex) })).sort((a, b) => b.score - a.score),
+    teamScores: (["forest", "saffron"] as const).map((team) => ({ team, score: Object.values(session.players).filter((player) => player.team === team).reduce((sum, player) => sum + player.score, 0), players: Object.values(session.players).filter((player) => player.team === team).length })),
     answersDetail, answerDistribution: distribution,
   };
 }
