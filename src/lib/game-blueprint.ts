@@ -86,7 +86,7 @@ export function validateGameBlueprint(value: unknown): { valid: boolean; errors:
 }
 
 export function createEmptyBlueprint(template: GameTemplateId, now = new Date().toISOString()): GameBlueprint {
-  const starterItem: GameBlueprintItem = { id: `item-${Date.now()}`, prompt: "Tulis instruksi untuk peserta." };
+  const starterItem: GameBlueprintItem = { id: `item-${Date.now()}`, prompt: "" };
   if (template === "multiple-choice-quiz" || template === "listen-and-choose") {
     Object.assign(starterItem, {
       ...(template === "listen-and-choose" ? { audioText: "" } : {}),

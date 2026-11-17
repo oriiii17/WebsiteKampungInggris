@@ -53,7 +53,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const guest = db.classSessionGuests?.find((item) => item.id === body.registrationId && item.sessionId === id);
     if (!guest) return NextResponse.json({ error: "Pendaftaran tidak ditemukan." }, { status: 404 });
     const attendance = db.classSessionAttendance ||= [];
-    if (local.capacity && attendance.filter((item) => item.sessionId === id).length >= local.capacity) return NextResponse.json({ error: "Kuota sesi sudah penuh." }, { status: 409 });
     guest.status = "approved";
     if (!attendance.some((item) => item.guestRegistrationId === guest.id)) attendance.push({ id: crypto.randomUUID(), sessionId: id, participantKey: `guest:${guest.id}`, participantName: guest.name, participantType: "guest", guestRegistrationId: guest.id, whatsapp: guest.whatsapp, attendedAt: new Date().toISOString() });
     await writeLocalDb(db); return NextResponse.json({ ok: true });

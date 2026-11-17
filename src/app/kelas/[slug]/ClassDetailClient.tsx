@@ -6,15 +6,17 @@ import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Gamepad2, Lock, ShieldCh
 import { ClassItem, ModuleItem, SessionPayload } from "@/lib/types";
 import AddToCartButton from "@/components/AddToCartButton";
 import { classIllustration, gameIllustration } from "@/lib/illustrations";
+import type { GameBlueprint } from "@/lib/game-blueprint";
 
 interface Props {
   classItem: ClassItem;
   includedModules: ModuleItem[];
   isEnrolled: boolean;
   sessionUser: SessionPayload | null;
+  blueprintGames: GameBlueprint[];
 }
 
-export default function ClassDetailClient({ classItem, includedModules, isEnrolled, sessionUser }: Props) {
+export default function ClassDetailClient({ classItem, includedModules, isEnrolled, sessionUser, blueprintGames }: Props) {
   void sessionUser;
   const publishedModules = classItem.modules?.length
     ? [...classItem.modules].sort((a, b) => a.urutan - b.urutan)
@@ -45,7 +47,7 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
           <p className="mt-4 max-w-2xl text-base leading-7 text-body">{classItem.description}</p>
           <div className="mt-7 flex flex-wrap gap-x-5 gap-y-3 border-t border-rule pt-5 text-sm text-body">
             <span className="inline-flex items-center gap-2"><BookOpen className="h-4 w-4 text-leaf" />{publishedModules.length} materi</span>
-            <span className="inline-flex items-center gap-2"><Gamepad2 className="h-4 w-4 text-earth" />{classItem.gameTemplateIds?.length || 0} game kelas</span>
+            <span className="inline-flex items-center gap-2"><Gamepad2 className="h-4 w-4 text-earth" />{blueprintGames.length + (classItem.gameTemplateIds?.length || 0)} game kelas</span>
           </div>
         </div>
         <figure className="class-detail-art illustration-frame">
@@ -108,6 +110,7 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
           </div>
         </section>
       )}
+      {blueprintGames.length > 0 && <section className="class-detail-section"><div className="mb-5 border-b border-rule pb-4"><p className="workbook-print-note">Game terpasang</p><h2 className="mt-2 text-2xl sm:text-3xl">Game untuk kelas ini</h2></div><ul className="divide-y divide-rule">{blueprintGames.map((game) => <li key={game.id} className="flex flex-wrap items-center justify-between gap-4 py-4"><div><h3 className="font-bold">{game.title}</h3><p className="mt-1 text-sm text-muted">{game.level} · {game.topic} · {game.items.length} soal</p></div>{isEnrolled ? <Link href={`/games/${encodeURIComponent(game.id)}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-leaf px-4 text-sm font-bold text-white">Mainkan <ArrowRight className="h-4 w-4" /></Link> : <span className="text-sm text-muted">Masukkan kode akses untuk bermain</span>}</li>)}</ul></section>}
     </div>
   );
 }

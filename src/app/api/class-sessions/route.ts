@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getServerSession, isTutorSession } from "@/lib/auth";
-import { readLocalDb, writeLocalDb } from "@/lib/db";
+import { getClasses, readLocalDb, writeLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type { StoredClassSession } from "@/lib/class-session";
 
@@ -9,8 +9,7 @@ const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function makeCode() { return Array.from({ length: 6 }, () => CODE_CHARS[randomInt(CODE_CHARS.length)]).join(""); }
 function fromRow(row: any): StoredClassSession {
   return { id: row.id, code: row.code, title: row.title, teacherId: row.teacher_id, teacherName: row.teacher_name,
-    status: row.status, requireApproval: row.require_approval, capacity: row.capacity,
-    materialLinks: row.material_links || [], gameIds: row.game_ids || [], createdAt: row.created_at, closedAt: row.closed_at || undefined };
+    status: row.status, requireApproval: row.require_approval, classId: row.class_id, startsAt: row.starts_at || undefined, createdAt: row.created_at, closedAt: row.closed_at || undefined };
 }
 
 export async function GET() {
@@ -25,12 +24,13 @@ export async function GET() {
     const sessions = await Promise.all((data || []).map(async (row) => {
       const { count } = await supabase.from("class_session_attendance").select("id", { count: "exact", head: true }).eq("session_id", row.id);
       const { count: pending } = await supabase.from("class_session_guests").select("id", { count: "exact", head: true }).eq("session_id", row.id).eq("status", "pending");
-      return { ...fromRow(row), attendeeCount: count || 0, pendingCount: pending || 0 };
+      const { data: parent } = await supabase.from("classes").select("title,slug").eq("id", row.class_id).maybeSingle();
+      return { ...fromRow(row), classTitle: parent?.title || "Kelas belum dipetakan", classSlug: parent?.slug || null, attendeeCount: count || 0, pendingCount: pending || 0 };
     }));
     return NextResponse.json({ sessions });
   }
   const db = await readLocalDb();
-  return NextResponse.json({ sessions: (db.classSessions || []).filter((item) => session?.role !== "tutor" || item.teacherId === session.id).map((item) => ({ ...item, attendeeCount: db.classSessionAttendance?.filter((attendance) => attendance.sessionId === item.id).length || 0, pendingCount: db.classSessionGuests?.filter((guest) => guest.sessionId === item.id && guest.status === "pending").length || 0 })) });
+  return NextResponse.json({ sessions: (db.classSessions || []).filter((item) => session?.role !== "tutor" || item.teacherId === session.id).map((item) => ({ ...item, classTitle: db.classes?.find((parent) => parent.id === item.classId)?.title || "Kelas belum dipetakan", classSlug: db.classes?.find((parent) => parent.id === item.classId)?.slug || null, attendeeCount: db.classSessionAttendance?.filter((attendance) => attendance.sessionId === item.id).length || 0, pendingCount: db.classSessionGuests?.filter((guest) => guest.sessionId === item.id && guest.status === "pending").length || 0 })) });
 }
 
 export async function POST(request: Request) {
@@ -39,21 +39,20 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const title = String(body.title || "").trim().replace(/\s+/g, " ");
   if (title.length < 3 || title.length > 100) return NextResponse.json({ error: "Nama sesi harus berisi 3–100 karakter." }, { status: 400 });
-  const rawCapacity = body.capacity === "" || body.capacity === null || body.capacity === undefined ? null : Number(body.capacity);
-  if (rawCapacity !== null && (!Number.isInteger(rawCapacity) || rawCapacity < 1 || rawCapacity > 500)) return NextResponse.json({ error: "Kuota harus berupa angka antara 1 dan 500." }, { status: 400 });
-  const materialLinks = Array.isArray(body.materialLinks) ? body.materialLinks.map((value: unknown) => String(value).trim()).filter(Boolean).slice(0, 10) : [];
-  if (materialLinks.some((value: string) => { try { return !["http:", "https:"].includes(new URL(value).protocol); } catch { return true; } })) return NextResponse.json({ error: "Tautan materi harus menggunakan alamat HTTP atau HTTPS yang valid." }, { status: 400 });
-  const gameIds: string[] = Array.isArray(body.gameIds) ? Array.from(new Set<string>((body.gameIds as unknown[]).map(String))).slice(0, 10) : [];
+  const classId = String(body.classId || "").trim();
+  const classes = await getClasses(true);
+  const parentClass = classes.find((item) => item.id === classId && item.isPublished);
+  if (!parentClass) return NextResponse.json({ error: "Pilih kelas terbit yang valid." }, { status: 400 });
+  const startsAt = body.startsAt ? new Date(body.startsAt).toISOString() : null;
   const id = randomUUID(); const createdAt = new Date().toISOString(); const code = makeCode();
   const newSession: StoredClassSession = { id, code, title, teacherId: session!.id, teacherName: session!.name,
-    status: "open", requireApproval: body.requireApproval === true, capacity: rawCapacity,
-    materialLinks, gameIds, createdAt };
+    status: "open", requireApproval: body.requireApproval === true, classId, startsAt: startsAt || undefined, createdAt };
   const supabase = await getSupabaseServerClient();
   if (supabase) {
     const { data, error } = await supabase.from("class_sessions").insert({
       id, code, title, teacher_id: newSession.teacherId, teacher_name: newSession.teacherName,
-      status: "open", require_approval: newSession.requireApproval, capacity: rawCapacity,
-      material_links: materialLinks, game_ids: gameIds, created_at: createdAt,
+      status: "open", require_approval: newSession.requireApproval, class_id: classId,
+      starts_at: startsAt, created_at: createdAt,
     }).select("*").single();
     if (error) return NextResponse.json({ error: "Sesi belum dapat dibuat. Terapkan migrasi presensi lalu coba lagi." }, { status: 503 });
     return NextResponse.json({ session: fromRow(data) }, { status: 201 });

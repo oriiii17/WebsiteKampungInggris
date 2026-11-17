@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
 import { getClasses, getClassByIdOrSlug, upsertClass, deleteClass } from "@/lib/db";
 import { ClassItem, ClassModule, ClassQuiz } from "@/lib/types";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
+
+async function withInstalledGames(items: ClassItem[]) {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase || !items.length) return items;
+  const { data, error } = await supabase.from("class_games").select("class_id,game_id").in("class_id", items.map((item) => item.id));
+  if (error) { console.error("[api/admin/classes] class_games", { code: error.code, message: error.message, details: error.details, hint: error.hint }); return items; }
+  return items.map((item) => ({ ...item, gameBlueprintIds: (data || []).filter((row) => row.class_id === item.id).map((row) => row.game_id) }));
+}
+
+async function saveInstalledGames(classId: string, ids: unknown) {
+  const gameIds = Array.isArray(ids) ? [...new Set(ids.filter((id): id is string => typeof id === "string"))].slice(0, 100) : [];
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return;
+  if (gameIds.length) {
+    const { data: published, error: validateError } = await supabase.from("game_blueprints").select("id").in("id", gameIds).eq("status", "published");
+    if (validateError) throw new Error("Game terbit belum dapat diverifikasi.");
+    if ((published || []).length !== gameIds.length) throw new Error("Pilih hanya game yang sudah diterbitkan.");
+  }
+  const { error: deleteError } = await supabase.from("class_games").delete().eq("class_id", classId);
+  if (deleteError) throw new Error(`Relasi game kelas gagal diperbarui (${deleteError.code}).`);
+  if (gameIds.length) {
+    const { error } = await supabase.from("class_games").insert(gameIds.map((game_id) => ({ class_id: classId, game_id })));
+    if (error) throw new Error(`Game kelas gagal disimpan (${error.code}).`);
+  }
+}
 
 function slugify(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -75,6 +101,7 @@ function buildClass(body: any, existing?: ClassItem): ClassItem {
     moduleIds: Array.isArray(body.moduleIds) ? body.moduleIds : (existing?.moduleIds || []),
     modules,
     gameTemplateIds: Array.isArray(body.gameTemplateIds) ? body.gameTemplateIds : (existing?.gameTemplateIds || []),
+    gameBlueprintIds: Array.isArray(body.gameBlueprintIds) ? body.gameBlueprintIds : (existing?.gameBlueprintIds || []),
     isPublished,
     createdAt: existing?.createdAt || body.createdAt || new Date().toISOString(),
     tingkat: ["Pemula", "Menengah", "Lanjutan"].includes(body.tingkat) ? body.tingkat : (existing?.tingkat || "Pemula"),
@@ -89,7 +116,7 @@ export async function GET() {
   if (!isAdminSession(session)) return NextResponse.json({ ok: false, error: "Akses ditolak." }, { status: 403 });
   try {
     const classes = await getClasses(true);
-    return NextResponse.json({ ok: true, classes });
+    return NextResponse.json({ ok: true, classes: await withInstalledGames(classes) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Gagal memuat kelas.";
     console.error("[api/admin/classes GET]", err);
@@ -105,6 +132,7 @@ export async function POST(req: NextRequest) {
     if (!String(body.title || "").trim()) return NextResponse.json({ ok: false, error: "Judul kelas wajib diisi." }, { status: 400 });
     const toSave = buildClass(body);
     await upsertClass(toSave);
+    await saveInstalledGames(toSave.id, toSave.gameBlueprintIds);
     const verified = await getClassByIdOrSlug(toSave.id);
     if (!verified) {
       console.error("[api/admin/classes POST] verifikasi gagal, kelas tidak ditemukan setelah simpan", toSave.id);
@@ -131,6 +159,7 @@ export async function PATCH(req: NextRequest) {
     if (!existing) return NextResponse.json({ ok: false, error: `Kelas dengan ID ${body.id} tidak ditemukan di database.` }, { status: 404 });
     const toSave = buildClass(body, existing);
     await upsertClass(toSave);
+    await saveInstalledGames(toSave.id, toSave.gameBlueprintIds);
     const verified = await getClassByIdOrSlug(toSave.id);
     if (!verified) {
       console.error("[api/admin/classes PATCH] verifikasi gagal", toSave.id);

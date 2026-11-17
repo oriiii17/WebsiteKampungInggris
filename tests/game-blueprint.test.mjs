@@ -46,10 +46,9 @@ test("kode, status pendaftaran, dan QR mengarah ke alur presensi sesi", async ()
   const attendance = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
   assert.equal(attendance.normalizeClassCode("ab-c123"), "ABC123");
   assert.deepEqual(attendance.validateGuestRegistration("  Siti   Aminah ", "+62 812-3456-7890"), { name: "Siti Aminah", whatsapp: "+6281234567890" });
-  assert.equal(attendance.resolveGuestEntry("open", null, 0, false), "approved");
-  assert.equal(attendance.resolveGuestEntry("open", 20, 0, true), "pending");
-  assert.equal(attendance.resolveGuestEntry("open", 1, 1, false), "full");
-  assert.equal(attendance.resolveGuestEntry("closed", null, 0, false), "closed");
+  assert.equal(attendance.resolveGuestEntry("open", false), "approved");
+  assert.equal(attendance.resolveGuestEntry("open", true), "pending");
+  assert.equal(attendance.resolveGuestEntry("closed", false), "closed");
   const joinUrl = attendance.classSessionJoinUrl("https://kampungsapen.id/", "ab-c123");
   assert.equal(joinUrl, "https://kampungsapen.id/sesi/ABC123");
   assert.match(await QRCode.toDataURL(joinUrl), /^data:image\/png;base64,/);

@@ -201,6 +201,7 @@ export interface ClassItem {
   moduleIds: string[]; // Daftar ID modul yang termasuk dalam kelas (backward compat)
   modules?: ClassModule[]; // Struktur baru: modul per kelas
   gameTemplateIds: string[]; // Daftar template game interaktif yang dimasukkan ke kelas
+  gameBlueprintIds?: string[];
   isPublished: boolean;
   createdAt: string;
   tingkat?: "Pemula" | "Menengah" | "Lanjutan";

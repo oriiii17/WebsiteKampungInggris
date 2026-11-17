@@ -9,9 +9,8 @@ export interface StoredClassSession {
   teacherName: string;
   status: ClassSessionStatus;
   requireApproval: boolean;
-  capacity: number | null;
-  materialLinks: string[];
-  gameIds: string[];
+  classId: string;
+  startsAt?: string;
   createdAt: string;
   closedAt?: string;
 }
@@ -52,8 +51,7 @@ export function classSessionJoinUrl(origin: string, code: unknown): string {
   return `${origin.replace(/\/$/, "")}/sesi/${normalizeClassCode(code)}`;
 }
 
-export function resolveGuestEntry(status: ClassSessionStatus, capacity: number | null, attendeeCount: number, requireApproval: boolean): "closed" | "full" | "pending" | "approved" {
+export function resolveGuestEntry(status: ClassSessionStatus, requireApproval: boolean): "closed" | "pending" | "approved" {
   if (status !== "open") return "closed";
-  if (capacity !== null && attendeeCount >= capacity) return "full";
   return requireApproval ? "pending" : "approved";
 }

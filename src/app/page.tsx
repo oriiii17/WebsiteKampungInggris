@@ -9,6 +9,8 @@ import type { ClassItem } from "@/lib/types";
 import type { Metadata } from "next";
 import { canonicalUrl } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Kampung Inggris Sapen | Belajar Bahasa Inggris di Demangan, Yogyakarta",
   description: "Kelas, materi, dan game Bahasa Inggris untuk warga RW 06, 07, 08 Demangan, Gondokusuman, Yogyakarta serta peserta umum.",
