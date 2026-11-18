@@ -1,0 +1,740 @@
+[
+  {
+    "route": "/",
+    "width": 360,
+    "scroll": true,
+    "clientWidth": 360,
+    "scrollWidth": 360,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Masuk untuk Menulis Ulasan",
+        "height": 38
+      },
+      {
+        "tag": "A",
+        "text": "Kampung Inggris Sapen",
+        "height": 27
+      },
+      {
+        "tag": "A",
+        "text": "Kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Permainan",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Sesi kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Tentang Sapen English",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Pertanyaan umum",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Masuk",
+        "height": 40
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Kampung Inggris Sapen | Belajar Bahasa Inggris di Demangan, Yogyakarta",
+    "errors": []
+  },
+  {
+    "route": "/kelas",
+    "width": 360,
+    "scroll": true,
+    "clientWidth": 360,
+    "scrollWidth": 360,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Kampung Inggris Sapen",
+        "height": 27
+      },
+      {
+        "tag": "A",
+        "text": "Kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Permainan",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Sesi kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Tentang Sapen English",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Pertanyaan umum",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Masuk",
+        "height": 40
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Daftar Kelas Bahasa Inggris | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/games",
+    "width": 360,
+    "scroll": true,
+    "clientWidth": 360,
+    "scrollWidth": 360,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Gabung game kelas",
+        "height": 20
+      },
+      {
+        "tag": "A",
+        "text": "Kampung Inggris Sapen",
+        "height": 27
+      },
+      {
+        "tag": "A",
+        "text": "Kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Permainan",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Sesi kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Tentang Sapen English",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Pertanyaan umum",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Masuk",
+        "height": 40
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Games Bahasa Inggris | Sapen English",
+    "errors": []
+  },
+  {
+    "route": "/sesi",
+    "width": 360,
+    "scroll": true,
+    "clientWidth": 360,
+    "scrollWidth": 360,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "← Kembali ke beranda",
+        "height": 40
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": true,
+    "title": "Kampung Inggris Sapen | Platform Belajar Bahasa Inggris Praktis & Profesional",
+    "errors": []
+  },
+  {
+    "route": "/tentang",
+    "width": 360,
+    "scroll": true,
+    "clientWidth": 360,
+    "scrollWidth": 360,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Kampung Inggris Sapen",
+        "height": 27
+      },
+      {
+        "tag": "A",
+        "text": "Kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Permainan",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Sesi kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Tentang Sapen English",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Pertanyaan umum",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Masuk",
+        "height": 40
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Tentang Kampung Inggris Sapen | Program Belajar di Demangan",
+    "errors": []
+  },
+  {
+    "route": "/masuk",
+    "width": 360,
+    "scroll": true,
+    "clientWidth": 360,
+    "scrollWidth": 360,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Lupa Password?",
+        "height": 18
+      },
+      {
+        "tag": "A",
+        "text": "Daftar di sini",
+        "height": 16
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Masuk dengan Kode Warga →",
+        "height": 16
+      },
+      {
+        "tag": "A",
+        "text": "Login Admin di sini",
+        "height": 16
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Masuk | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/admin/masuk",
+    "width": 360,
+    "scroll": true,
+    "clientWidth": 360,
+    "scrollWidth": 360,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Kembali ke beranda.",
+        "height": 18
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": true,
+    "title": "Panel Admin | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/",
+    "width": 390,
+    "scroll": true,
+    "clientWidth": 390,
+    "scrollWidth": 390,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Masuk untuk Menulis Ulasan",
+        "height": 38
+      },
+      {
+        "tag": "A",
+        "text": "Kampung Inggris Sapen",
+        "height": 27
+      },
+      {
+        "tag": "A",
+        "text": "Kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Permainan",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Sesi kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Tentang Sapen English",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Pertanyaan umum",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Masuk",
+        "height": 40
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Kampung Inggris Sapen | Belajar Bahasa Inggris di Demangan, Yogyakarta",
+    "errors": []
+  },
+  {
+    "route": "/kelas",
+    "width": 390,
+    "scroll": true,
+    "clientWidth": 390,
+    "scrollWidth": 390,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Kampung Inggris Sapen",
+        "height": 27
+      },
+      {
+        "tag": "A",
+        "text": "Kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Permainan",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Sesi kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Tentang Sapen English",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Pertanyaan umum",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Masuk",
+        "height": 40
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Daftar Kelas Bahasa Inggris | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/games",
+    "width": 390,
+    "scroll": true,
+    "clientWidth": 390,
+    "scrollWidth": 390,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Gabung game kelas",
+        "height": 20
+      },
+      {
+        "tag": "A",
+        "text": "Kampung Inggris Sapen",
+        "height": 27
+      },
+      {
+        "tag": "A",
+        "text": "Kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Permainan",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Sesi kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Tentang Sapen English",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Pertanyaan umum",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Masuk",
+        "height": 40
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Games Bahasa Inggris | Sapen English",
+    "errors": []
+  },
+  {
+    "route": "/sesi",
+    "width": 390,
+    "scroll": true,
+    "clientWidth": 390,
+    "scrollWidth": 390,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "← Kembali ke beranda",
+        "height": 40
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": true,
+    "title": "Kampung Inggris Sapen | Platform Belajar Bahasa Inggris Praktis & Profesional",
+    "errors": []
+  },
+  {
+    "route": "/tentang",
+    "width": 390,
+    "scroll": true,
+    "clientWidth": 390,
+    "scrollWidth": 390,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Kampung Inggris Sapen",
+        "height": 27
+      },
+      {
+        "tag": "A",
+        "text": "Kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Permainan",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Sesi kelas",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Tentang Sapen English",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Pertanyaan umum",
+        "height": 40
+      },
+      {
+        "tag": "A",
+        "text": "Masuk",
+        "height": 40
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Tentang Kampung Inggris Sapen | Program Belajar di Demangan",
+    "errors": []
+  },
+  {
+    "route": "/masuk",
+    "width": 390,
+    "scroll": true,
+    "clientWidth": 390,
+    "scrollWidth": 390,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Lupa Password?",
+        "height": 18
+      },
+      {
+        "tag": "A",
+        "text": "Daftar di sini",
+        "height": 16
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Masuk dengan Kode Warga →",
+        "height": 16
+      },
+      {
+        "tag": "A",
+        "text": "Login Admin di sini",
+        "height": 16
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Masuk | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/admin/masuk",
+    "width": 390,
+    "scroll": true,
+    "clientWidth": 390,
+    "scrollWidth": 390,
+    "footerBelowMain": true,
+    "short": [
+      {
+        "tag": "A",
+        "text": "Kembali ke beranda.",
+        "height": 18
+      }
+    ],
+    "fullNavbar": false,
+    "backVisible": true,
+    "title": "Panel Admin | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/",
+    "width": 768,
+    "scroll": true,
+    "clientWidth": 768,
+    "scrollWidth": 768,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Kampung Inggris Sapen | Belajar Bahasa Inggris di Demangan, Yogyakarta",
+    "errors": []
+  },
+  {
+    "route": "/kelas",
+    "width": 768,
+    "scroll": true,
+    "clientWidth": 768,
+    "scrollWidth": 768,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Daftar Kelas Bahasa Inggris | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/games",
+    "width": 768,
+    "scroll": false,
+    "clientWidth": 768,
+    "scrollWidth": 836,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Games Bahasa Inggris | Sapen English",
+    "errors": []
+  },
+  {
+    "route": "/sesi",
+    "width": 768,
+    "scroll": true,
+    "clientWidth": 768,
+    "scrollWidth": 768,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": false,
+    "backVisible": true,
+    "title": "Kampung Inggris Sapen | Platform Belajar Bahasa Inggris Praktis & Profesional",
+    "errors": []
+  },
+  {
+    "route": "/tentang",
+    "width": 768,
+    "scroll": true,
+    "clientWidth": 768,
+    "scrollWidth": 768,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Tentang Kampung Inggris Sapen | Program Belajar di Demangan",
+    "errors": []
+  },
+  {
+    "route": "/masuk",
+    "width": 768,
+    "scroll": true,
+    "clientWidth": 768,
+    "scrollWidth": 768,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": false,
+    "backVisible": false,
+    "title": "Masuk | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/admin/masuk",
+    "width": 768,
+    "scroll": true,
+    "clientWidth": 768,
+    "scrollWidth": 768,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": false,
+    "backVisible": true,
+    "title": "Panel Admin | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/",
+    "width": 1440,
+    "scroll": true,
+    "clientWidth": 1440,
+    "scrollWidth": 1440,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": true,
+    "backVisible": false,
+    "title": "Kampung Inggris Sapen | Belajar Bahasa Inggris di Demangan, Yogyakarta",
+    "errors": []
+  },
+  {
+    "route": "/kelas",
+    "width": 1440,
+    "scroll": true,
+    "clientWidth": 1440,
+    "scrollWidth": 1440,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": true,
+    "backVisible": false,
+    "title": "Daftar Kelas Bahasa Inggris | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/games",
+    "width": 1440,
+    "scroll": true,
+    "clientWidth": 1440,
+    "scrollWidth": 1440,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": true,
+    "backVisible": false,
+    "title": "Games Bahasa Inggris | Sapen English",
+    "errors": []
+  },
+  {
+    "route": "/sesi",
+    "width": 1440,
+    "scroll": true,
+    "clientWidth": 1440,
+    "scrollWidth": 1440,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": true,
+    "backVisible": true,
+    "title": "Kampung Inggris Sapen | Platform Belajar Bahasa Inggris Praktis & Profesional",
+    "errors": []
+  },
+  {
+    "route": "/tentang",
+    "width": 1440,
+    "scroll": true,
+    "clientWidth": 1440,
+    "scrollWidth": 1440,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": true,
+    "backVisible": false,
+    "title": "Tentang Kampung Inggris Sapen | Program Belajar di Demangan",
+    "errors": []
+  },
+  {
+    "route": "/masuk",
+    "width": 1440,
+    "scroll": true,
+    "clientWidth": 1440,
+    "scrollWidth": 1440,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": true,
+    "backVisible": false,
+    "title": "Masuk | Kampung Inggris Sapen",
+    "errors": []
+  },
+  {
+    "route": "/admin/masuk",
+    "width": 1440,
+    "scroll": true,
+    "clientWidth": 1440,
+    "scrollWidth": 1440,
+    "footerBelowMain": true,
+    "short": [],
+    "fullNavbar": false,
+    "backVisible": true,
+    "title": "Panel Admin | Kampung Inggris Sapen",
+    "errors": []
+  }
+]

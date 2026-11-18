@@ -47,6 +47,19 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
   const code = rawCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const current = await getServerSession();
   const supabase = await getSupabaseServerClient();
+  if (supabase) {
+    const { data, error } = await supabase.rpc("get_class_session_info", { p_code: code });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row) return NextResponse.json({ error: "Kode sesi tidak ditemukan." }, { status: 404 });
+    if (row.status !== "open") return NextResponse.json({ error: "Sesi sudah ditutup." }, { status: 410 });
+    if (row.starts_at && new Date(row.starts_at).getTime() > Date.now()) return NextResponse.json({ error: `Sesi belum dibuka. Jadwalnya ${new Date(row.starts_at).toLocaleString("id-ID")}.` }, { status: 425 });
+  } else {
+    const db = await readLocalDb();
+    const local = db.classSessions?.find((item) => item.code === code);
+    if (!local) return NextResponse.json({ error: "Kode sesi tidak ditemukan." }, { status: 404 });
+    if (local.status !== "open") return NextResponse.json({ error: "Sesi sudah ditutup." }, { status: 410 });
+    if (local.startsAt && new Date(local.startsAt).getTime() > Date.now()) return NextResponse.json({ error: `Sesi belum dibuka. Jadwalnya ${new Date(local.startsAt).toLocaleString("id-ID")}.` }, { status: 425 });
+  }
 
   if (current?.role === "member" || (current?.origin === "warga_kode" && current.role === "peserta")) {
     if (supabase) {
@@ -74,15 +87,19 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
   if (!limit.allowed) return NextResponse.json({ error: "Terlalu banyak percobaan mendaftar. Coba lagi beberapa menit." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
   const { validateGuestRegistration } = await import("@/lib/class-session");
   const body = await request.json().catch(() => ({}));
+  if (body.consent !== true) return NextResponse.json({ error: "Setujui penggunaan data untuk pendaftaran dan presensi terlebih dahulu." }, { status: 400 });
   const guest = validateGuestRegistration(body.name, body.whatsapp);
   if (!guest) return NextResponse.json({ error: "Periksa nama (2–80 karakter) dan nomor WhatsApp (9–15 digit)." }, { status: 400 });
-  let result: { registrationId: string; sessionId: string; title: string; status: "pending" | "approved" } | null = null;
+  let result: { registrationId: string; sessionId: string; title: string; status: "pending" | "approved" | "rejected" } | null = null;
   if (supabase) {
     const { data, error } = await supabase.rpc("register_class_session_guest", { p_code: code, p_name: guest.name, p_whatsapp: guest.whatsapp });
     const row = Array.isArray(data) ? data[0] : data;
     if (error || !row) {
-      const message = error?.message || "SESSION_NOT_FOUND";
-      const friendly = message.includes("SESSION_CLOSED") ? "Sesi sudah ditutup." : "Pendaftaran belum berhasil. Periksa kode atau coba lagi.";
+      const message = error?.message || "";
+      const friendly = message.includes("SESSION_CLOSED") ? "Sesi sudah ditutup. Pendaftaran tidak lagi tersedia."
+        : message.includes("SESSION_NOT_FOUND") ? "Kode sesi tidak ditemukan. Periksa kembali kode dari tutor."
+          : message.toLowerCase().includes("whatsapp") ? "Nomor WhatsApp belum dapat digunakan. Periksa kembali nomornya."
+            : "Pendaftaran belum berhasil. Periksa data yang diisi lalu coba lagi.";
       return NextResponse.json({ error: friendly }, { status: 400 });
     }
     result = { registrationId: row.registration_id, sessionId: row.session_id, title: row.session_title, status: row.registration_status };

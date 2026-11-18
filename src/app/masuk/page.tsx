@@ -2,7 +2,6 @@
 
 import React, { Suspense, useRef, useState } from "react";
 import SixBoxCodeInput, { toCodeString } from "@/components/SixBoxCodeInput";
-import CommunityIllustrationPanel from "@/components/CommunityIllustrationPanel";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -115,9 +114,12 @@ function MasukContent() {
             </form>
           )}
         </section>
-        <p className="mt-3 text-center text-xs text-muted">Pengurus atau Developer? <Link href="/admin/masuk" className="font-bold text-leaf underline underline-offset-4">Login Admin di sini</Link></p>
+        <footer className="mt-5 border-t border-rule pt-3 text-center"><Link href="/admin/masuk" className="text-xs text-muted underline underline-offset-4 hover:text-leaf">Khusus pengurus</Link></footer>
       </div>
-      <CommunityIllustrationPanel title="Belajar dari lingkunganmu." description="Pilih jalur belajar untuk peserta umum atau masuk dengan kode warga dari pengelola." />
+      <figure className="auth-illustration-panel illustration-frame relative overflow-hidden">
+        <Image src="/images/community/percakapan-jogja.webp" alt="Peserta belajar bahasa Inggris melalui percakapan bersama di Yogyakarta" fill sizes="(max-width: 767px) 100vw, 45vw" className="object-cover" />
+        <figcaption className="auth-illustration-copy"><h2 className="text-2xl font-bold">Belajar dari lingkunganmu.</h2><p className="mt-2">Pilih jalur belajar untuk peserta umum atau masuk dengan kode warga dari pengelola.</p></figcaption>
+      </figure>
       </div>
     </main>
   );

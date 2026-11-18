@@ -4,7 +4,6 @@ import Image from "next/image";
 import { ArrowRight, BookOpen, CheckCircle2, Clock, Gamepad2, Info } from "lucide-react";
 import { getClasses, getModules } from "@/lib/db";
 import AddToCartButton from "@/components/AddToCartButton";
-import { classIllustration } from "@/lib/illustrations";
 import type { Metadata } from "next";
 import { canonicalUrl } from "@/lib/seo";
 
@@ -60,7 +59,7 @@ async function KelasIndexContent({
               return (
                 <article key={cls.id} className="grid min-w-0 gap-4 rounded-2xl border border-rule bg-white p-4 shadow-card sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-5 sm:p-5 lg:grid-cols-[11rem_minmax(0,1fr)_15rem] lg:items-start lg:gap-6">
                   <div className="illustration-frame relative aspect-[16/10] min-w-0 self-start sm:row-span-1 sm:aspect-square lg:aspect-[4/5]">
-                    <Image src={classIllustration(cls.title, index)} alt={`Ilustrasi sampul kelas ${cls.title}`} fill priority={index === 0} fetchPriority={index === 0 ? "high" : "auto"} sizes="(max-width: 639px) 100vw, (max-width: 1023px) 144px, 176px" className="object-cover" />
+                    <Image src={["/images/community/kelas-interior-card.webp", "/images/community/diskusi-warga-card.webp", "/images/community/belajar-kawasan-card.webp"][index % 3]} alt={`Suasana belajar bersama untuk kelas ${cls.title}`} fill priority={index === 0} fetchPriority={index === 0 ? "high" : "auto"} sizes="(max-width: 639px) 100vw, (max-width: 1023px) 144px, 176px" className="object-cover" />
                   </div>
                   <div className="min-w-0">
                     <p className="mb-2 text-xs font-bold text-earth">LEMBAR {String(index + 1).padStart(2, "0")}</p>

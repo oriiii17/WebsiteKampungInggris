@@ -104,7 +104,7 @@ export function createEmptyBlueprint(template: GameTemplateId, now = new Date().
   }
   return {
     id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    title: "Game baru",
+    title: "",
     template,
     level: "A1",
     topic: "Kosakata sehari-hari",

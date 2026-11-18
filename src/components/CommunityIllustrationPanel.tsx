@@ -3,7 +3,7 @@ import Image from "next/image";
 export default function CommunityIllustrationPanel({
   title,
   description,
-  image = "/assets/WhatsApp Image 2026-11-17 at 04.41.05.jpg",
+  image = "/images/community/belajar-taman.webp",
 }: {
   title: string;
   description: string;
@@ -14,7 +14,7 @@ export default function CommunityIllustrationPanel({
       <div className="auth-illustration-art">
         <Image
           src={image}
-          alt="Warga Sapen belajar Bahasa Inggris bersama di ruang terbuka"
+          alt="Kelompok belajar Bahasa Inggris bersama di lingkungan Kampung Sapen"
           fill
           priority
           sizes="(max-width: 899px) 100vw, 46vw"

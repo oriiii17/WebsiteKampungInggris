@@ -44,6 +44,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (error || data !== true) return NextResponse.json({ error: "Peserta belum dapat disetujui. Periksa kuota sesi." }, { status: 409 });
       return NextResponse.json({ ok: true });
     }
+    if (body.action === "reject" && typeof body.registrationId === "string") {
+      const { error } = await supabase.from("class_session_guests").update({ status: "rejected" }).eq("id", body.registrationId).eq("session_id", id).eq("status", "pending");
+      if (error) return NextResponse.json({ error: "Pendaftaran tamu belum dapat ditolak." }, { status: 503 });
+      return NextResponse.json({ ok: true });
+    }
     return NextResponse.json({ error: "Aksi tidak dikenal." }, { status: 400 });
   }
   const db = await readLocalDb(); const local = db.classSessions?.find((item) => item.id === id && (session?.role !== "tutor" || item.teacherId === session.id));
@@ -55,6 +60,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const attendance = db.classSessionAttendance ||= [];
     guest.status = "approved";
     if (!attendance.some((item) => item.guestRegistrationId === guest.id)) attendance.push({ id: crypto.randomUUID(), sessionId: id, participantKey: `guest:${guest.id}`, participantName: guest.name, participantType: "guest", guestRegistrationId: guest.id, whatsapp: guest.whatsapp, attendedAt: new Date().toISOString() });
+    await writeLocalDb(db); return NextResponse.json({ ok: true });
+  }
+  if (body.action === "reject" && typeof body.registrationId === "string") {
+    const guest = db.classSessionGuests?.find((item) => item.id === body.registrationId && item.sessionId === id);
+    if (!guest) return NextResponse.json({ error: "Pendaftaran tidak ditemukan." }, { status: 404 });
+    guest.status = "rejected";
     await writeLocalDb(db); return NextResponse.json({ ok: true });
   }
   return NextResponse.json({ error: "Aksi tidak dikenal." }, { status: 400 });

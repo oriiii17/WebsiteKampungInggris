@@ -1,5 +1,5 @@
 export type ClassSessionStatus = "open" | "closed";
-export type GuestStatus = "pending" | "approved";
+export type GuestStatus = "pending" | "approved" | "rejected";
 
 export interface StoredClassSession {
   id: string;

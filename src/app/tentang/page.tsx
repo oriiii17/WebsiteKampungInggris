@@ -18,15 +18,15 @@ export default function TentangPage() {
             <Link href="/kelas" className="mt-7 inline-flex min-h-11 w-fit items-center gap-2 rounded-md bg-earth px-4 py-2.5 text-sm font-extrabold text-white hover:bg-earth-dark">Jelajahi kelas <ArrowRight className="h-4 w-4" /></Link>
           </div>
           <figure className="illustration-frame relative min-h-72 md:min-h-[480px]">
-            <Image src="/images/sapen-gang-belajar.svg" alt="Ilustrasi suasana Kampung Sapen dengan rumah, pepohonan, sepeda, dan kegiatan belajar" fill priority sizes="(max-width: 768px) 100vw, 50vw" className="object-contain p-2 sm:p-4" />
-            <figcaption className="absolute bottom-4 left-4"><span className="workbook-photo-note">Suasana belajar di Sapen · ilustrasi</span></figcaption>
+            <Image src="/images/community/kampung-sapen-belajar.webp" alt="Peserta belajar bersama di kawasan Kampung Sapen" fill priority sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+            <figcaption className="absolute bottom-4 left-4"><span className="workbook-photo-note">Suasana belajar di Sapen</span></figcaption>
           </figure>
         </div>
       </section>
 
       <section className="workbook-section bg-white">
         <div className="workbook-wrap grid gap-8 md:grid-cols-[.9fr_1.1fr] md:gap-14">
-          <div><p className="workbook-print-note">Profil</p><h2 className="workbook-section-heading mt-3">Satu platform untuk beragam cara belajar.</h2><figure className="mt-6"><Image src="/images/rw-neighborhoods.svg" alt="Ilustrasi tiga wilayah belajar RW 06, RW 07, dan RW 08" width={720} height={300} sizes="(max-width: 767px) 100vw, 45vw" /><figcaption className="workbook-print-note mt-2">RW 06 · RW 07 · RW 08</figcaption></figure></div>
+          <div><p className="workbook-print-note">Profil</p><h2 className="workbook-section-heading mt-3">Satu platform untuk beragam cara belajar.</h2><figure className="illustration-frame relative mt-6 aspect-[16/9]"><Image src="/images/community/belajar-kawasan.webp" alt="Peserta berdiskusi sambil belajar di ruang terbuka" fill sizes="(max-width: 767px) 100vw, 45vw" className="object-cover" /><figcaption className="absolute bottom-3 left-3"><span className="workbook-photo-note">RW 06 · RW 07 · RW 08</span></figcaption></figure></div>
           <div className="max-w-3xl space-y-5 text-base leading-8 text-body">
             <p>Program ini menggabungkan akses belajar gratis bagi warga dengan kelas terstruktur untuk peserta umum. Warga menggunakan kode wilayah, sementara peserta umum dapat membuat akun dan melihat katalog kelas.</p>
             <p>Materi digital, latihan mandiri, dan sesi permainan live mendukung kegiatan belajar di rumah maupun bersama pengajar.</p>

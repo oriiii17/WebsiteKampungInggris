@@ -2,6 +2,7 @@ import React, { Suspense } from "react";
 import type { Metadata } from "next";
 import "./globals.css";
 import PublicChrome from "@/components/PublicChrome";
+import PublicFooter from "@/components/PublicFooter";
 import { getServerSession } from "@/lib/auth";
 import { SITE_CONFIG } from "@/config/site";
 import AppDialogProvider from "@/components/AppDialogProvider";
@@ -60,7 +61,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="flex min-h-screen flex-col font-sans">
+      <body className="flex min-h-dvh flex-col font-sans">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, "\\u003c") }} />
         <AppDialogProvider>
         <a href="#main-content" className="skip-link">Lewati ke konten utama</a>
@@ -68,6 +69,7 @@ export default function RootLayout({
           <NavbarWithSession />
         </Suspense>
         <main id="main-content" tabIndex={-1} className="flex-1">{children}</main>
+        <Suspense fallback={null}><PublicFooter /></Suspense>
         </AppDialogProvider>
       </body>
     </html>

@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, User } from "lucide-react";
-import CommunityIllustrationPanel from "@/components/CommunityIllustrationPanel";
 
 export default function DaftarPage() {
   const router = useRouter();
@@ -57,8 +56,12 @@ export default function DaftarPage() {
           <button type="submit" disabled={loading} className="flex min-h-12 w-full items-center justify-center rounded-md bg-earth py-3.5 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:opacity-60">{loading ? "Membuat akun..." : "Buat Akun"}</button>
         </form>
         <p className="mt-5 text-center text-xs text-muted">Sudah punya akun? <Link href="/masuk" className="font-bold text-leaf underline underline-offset-4">Masuk di sini</Link></p>
+        <Link href="/" className="mt-4 inline-flex min-h-11 items-center text-sm font-bold text-leaf underline underline-offset-4">← Kembali ke beranda</Link>
       </div>
-      <CommunityIllustrationPanel title="Mulai perjalanan belajarmu." description="Buat akun peserta umum, lalu pilih kelas yang sesuai dengan tujuan belajarmu." />
+      <figure className="auth-illustration-panel illustration-frame relative overflow-hidden">
+        <Image src="/images/community/english-camp.webp" alt="Peserta mengikuti kegiatan belajar bahasa Inggris bersama di English camp" fill sizes="(max-width: 767px) 100vw, 45vw" className="object-cover" />
+        <figcaption className="auth-illustration-copy"><h2 className="text-2xl font-bold">Mulai perjalanan belajarmu.</h2><p className="mt-2">Buat akun peserta umum, lalu pilih kelas yang sesuai dengan tujuan belajarmu.</p></figcaption>
+      </figure>
       </div>
     </main>
   );

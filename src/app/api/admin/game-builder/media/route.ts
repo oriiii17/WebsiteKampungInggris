@@ -32,11 +32,10 @@ export async function POST(request: NextRequest) {
       console.error("[api/admin/game-builder/media] Supabase storage", { code: error.name, message: error.message });
       return NextResponse.json({ error: "Gambar belum dapat diunggah. Periksa konfigurasi penyimpanan.", code: "MEDIA_UPLOAD_FAILED" }, { status: 503 });
     }
-    const { data } = supabase.storage.from("game-media").getPublicUrl(objectPath);
-    return NextResponse.json({ url: data.publicUrl });
+    return NextResponse.json({ url: `/api/game-media/${filename}` });
   }
-  const directory = path.join(process.cwd(), "public", "uploads", "games");
+  const directory = path.join(process.cwd(), "data", "uploads", "games");
   await mkdir(directory, { recursive: true });
   await writeFile(path.join(directory, filename), bytes, { flag: "wx" });
-  return NextResponse.json({ url: `/uploads/games/${filename}` });
+  return NextResponse.json({ url: `/api/game-media/${filename}` });
 }

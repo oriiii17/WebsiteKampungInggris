@@ -23,13 +23,13 @@ export const metadata: Metadata = {
 };
 
 const assets = {
-  hero: "WhatsApp Image 2026-11-17 at 04.41.05.jpg",
-  conversation: "WhatsApp Image 2026-11-17 at 04.41.05 (1).jpg",
-  grammar: "WhatsApp Image 2026-11-17 at 04.41.05 (2).jpg",
-  camp: "WhatsApp Image 2026-11-17 at 04.41.05 (3).jpg",
-  galleryOne: "Sunrise English Circle in Java.png",
-  galleryTwo: "Gemini_Generated_Image_49q9l249q9l249q9.jfif",
-  community: "WhatsApp Image 2026-11-17 at 04.41.05 (5).jpg",
+  hero: "/images/community/kelas-interior.webp",
+  conversation: "/images/community/diskusi-warga-card.webp",
+  grammar: "/images/community/belajar-taman-card.webp",
+  camp: "/images/community/english-camp.webp",
+  galleryOne: "/images/community/belajar-kawasan-card.webp",
+  galleryTwo: "/images/community/belajar-pantai-card.webp",
+  community: "/images/community/kampung-sapen-belajar.webp",
 };
 
 function LocalPhoto({
@@ -45,7 +45,7 @@ function LocalPhoto({
 }) {
   return (
     <Image
-      src={`/assets/${encodeURIComponent(file)}`}
+      src={file.startsWith("/") ? file : `/assets/${encodeURIComponent(file)}`}
       alt={alt}
       fill
       sizes="(max-width: 700px) 100vw, (max-width: 1200px) 52vw, 640px"

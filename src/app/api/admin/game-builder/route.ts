@@ -24,10 +24,15 @@ function toRow(game: GameBlueprint) {
 }
 
 function fromRow(row: any): GameBlueprint {
+  const normalizeMedia = (value?: string | null) => {
+    if (!value) return undefined;
+    const match = value.match(/(?:\/uploads\/games\/|\/storage\/v1\/object\/public\/game-media\/builder\/|\/api\/game-media\/)([^/?#]+\.(?:jpg|png|webp))/i);
+    return match ? `/api/game-media/${match[1]}` : value;
+  };
   return {
     id: row.id, title: row.title, template: row.template, level: row.level, topic: row.topic,
-    language: row.language, coverImage: row.cover_image || undefined, status: row.status, plays: row.play_count || 0,
-    settings: row.settings, items: row.items, createdAt: row.created_at, updatedAt: row.updated_at,
+    language: row.language, coverImage: normalizeMedia(row.cover_image), status: row.status, plays: row.play_count || 0,
+    settings: row.settings, items: Array.isArray(row.items) ? row.items.map((item: any) => ({ ...item, mediaUrl: normalizeMedia(item.mediaUrl) })) : row.items, createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 

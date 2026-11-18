@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -119,6 +119,7 @@ export default function AdminDashboardClient() {
   };
 
   const [data, setData] = useState<AdminOverviewData | null>(null);
+  const hasLoadedOverview = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabType>(initialTab);
@@ -171,18 +172,18 @@ export default function AdminDashboardClient() {
   }, []);
 
   const fetchOverview = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedOverview.current) setLoading(true);
     setLoadError(null);
     try {
       const res = await fetch("/api/admin/overview", { cache: "no-store" });
       if (!res.ok) {
-        setData(null);
+        if (!hasLoadedOverview.current) setData(null);
         setLoadError(res.status === 401 || res.status === 403
           ? "Sesi admin tidak valid. Silakan masuk kembali."
           : "Data dashboard belum dapat dimuat. Coba lagi.");
-      } else setData(await res.json());
+      } else { setData(await res.json()); hasLoadedOverview.current = true; }
     } catch {
-      setData(null);
+      if (!hasLoadedOverview.current) setData(null);
       setLoadError("Data dashboard belum dapat dimuat. Periksa koneksi lalu coba lagi.");
     } finally {
       setLoading(false);

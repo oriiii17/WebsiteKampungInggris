@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, ArrowUpRight, ShoppingBag, Trash2 } from "lucide-react";
 import type { ClassItem } from "@/lib/types";
-import { classIllustration } from "@/lib/illustrations";
 
 const KEY = "sapen_class_cart";
+const classPhotos = ["/images/community/kelas-interior-card.webp", "/images/community/belajar-taman-card.webp", "/images/community/kampung-sapen-belajar-card.webp", "/images/community/diskusi-warga-card.webp"];
 function readCartIds(): string[] {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(KEY) || "[]");
@@ -42,7 +42,7 @@ export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
         </section>
       : <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
           <ul className="space-y-4">{items.map((item, index) => <li key={item.id} className="grid min-w-0 gap-4 rounded-xl border border-rule bg-white p-4 sm:grid-cols-[9rem_minmax(0,1fr)_auto] sm:items-center sm:p-5">
-            <div className="illustration-frame relative aspect-[4/3] overflow-hidden rounded-lg"><Image src={classIllustration(item.title, index)} alt="" fill sizes="(max-width: 639px) 100vw, 144px" className="object-cover" /></div>
+            <div className="illustration-frame relative aspect-[4/3] overflow-hidden rounded-lg"><Image src={classPhotos[index % classPhotos.length]} alt={`Suasana belajar peserta kelas ${item.title}`} fill sizes="(max-width: 639px) 100vw, 144px" className="object-cover" /></div>
             <div className="min-w-0"><p className="workbook-print-note">Kelas pilihan</p><h2 className="mt-1 break-words text-2xl">{item.title}</h2><p className="mt-2 text-sm leading-6 text-body">{item.subtitle || item.description}</p><p className="mt-3 text-sm font-bold text-ink">Rp {item.priceIdr.toLocaleString("id-ID")}</p></div>
             <button type="button" onClick={() => remove(item.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-rule px-3 text-sm font-bold text-body transition hover:border-red-300 hover:text-red-700 sm:self-start" aria-label={`Hapus ${item.title} dari keranjang`}><Trash2 className="h-4 w-4" /><span className="sm:sr-only">Hapus</span></button>
           </li>)}</ul>
