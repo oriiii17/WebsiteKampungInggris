@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getServerSession } from "@/lib/auth";
+import { getSessionWithGuestContext } from "@/lib/auth";
 import TellingTimeGame from "@/components/games/TellingTimeGame";
 import WordMatchGame from "@/components/games/WordMatchGame";
 import WordBuilderGame from "@/components/games/WordBuilderGame";
@@ -22,7 +22,7 @@ interface Props {
 
 export default async function GameDetailPage({ params }: Props) {
   const { gameId } = await params;
-  const session = await getServerSession();
+  const session = await getSessionWithGuestContext();
 
   if (!VALID_GAME_IDS.includes(gameId as GameId)) {
     notFound();

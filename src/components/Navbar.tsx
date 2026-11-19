@@ -17,6 +17,7 @@ export default function Navbar({ session }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = session?.role === "pengurus" || session?.role === "developer";
+  const isGuest = session?.role === "guest" || session?.origin === "guest";
   const isAdminRoute = pathname.startsWith("/admin");
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -52,7 +53,10 @@ export default function Navbar({ session }: NavbarProps) {
     return <header className="hidden" aria-hidden="true" />;
   }
 
-  const publicNavLinks = [
+  const publicNavLinks = isGuest ? [
+    { href: "/kelas", label: "Kelas" },
+    { href: "/games", label: "Games" },
+  ] : [
     { href: "/", label: "Beranda" },
     { href: "/kelas", label: "Kelas" },
     { href: "/games", label: "Games" },
@@ -62,21 +66,23 @@ export default function Navbar({ session }: NavbarProps) {
   ];
 
   async function handleLogout() {
-    if (isAdmin) {
+    if (isGuest) {
+      try { await fetch("/api/auth/session?scope=guest", { method: "DELETE" }); } catch {}
+    } else if (isAdmin) {
       try {
         const { createBrowserSupabaseClient } = await import("@/lib/supabase");
         const supabase = createBrowserSupabaseClient();
         if (supabase) await supabase.auth.signOut({ scope: "local" });
       } catch {}
     }
-    try { await fetch("/api/auth/session", { method: "DELETE" }); } catch {}
+    if (!isGuest) try { await fetch("/api/auth/session", { method: "DELETE" }); } catch {}
     try { localStorage.removeItem("sapen_last_quiz_name"); } catch {}
     setOpen(false);
     router.push("/");
     router.refresh();
   }
 
-  const displayName = session?.name || "Pengguna";
+  const displayName = isGuest ? "Guest" : session?.name || "Pengguna";
   const initial = (displayName.trim()[0] || "U").toUpperCase();
 
   return (
@@ -94,7 +100,7 @@ export default function Navbar({ session }: NavbarProps) {
         </nav>
 
         <div className={styles.desktopActions}>
-          <Link href="/keranjang" className={styles.cartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-4 w-4" /><span>Keranjang</span></Link>
+          {!isGuest && <Link href="/keranjang" className={styles.cartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-4 w-4" /><span>Keranjang</span></Link>}
           {!session ? (
             <>
               <Link href="/masuk" className={styles.signIn}>
@@ -115,11 +121,11 @@ export default function Navbar({ session }: NavbarProps) {
                 <div className={styles.accountMenu}>
                   <div className={styles.accountSummary}>
                     <strong>{displayName}</strong>
-                    <span>{isAdmin ? "Pengurus" : "Peserta"}</span>
+                    <span>{isGuest ? "Guest" : isAdmin ? "Pengurus" : "Peserta"}</span>
                   </div>
-                  <Link href="/akun" onClick={() => setOpen(false)} className={styles.menuItem}><Settings />Akun Saya / Pengaturan Akun</Link>
+                  {!isGuest && <Link href="/akun" onClick={() => setOpen(false)} className={styles.menuItem}><Settings />Akun Saya / Pengaturan Akun</Link>}
                   {isAdmin && <Link href="/admin" onClick={() => setOpen(false)} className={styles.menuItem}><GraduationCap />Panel Pengurus</Link>}
-                  <button type="button" onClick={handleLogout} className={styles.menuLogout}><LogOut />Keluar</button>
+                  <button type="button" onClick={handleLogout} className={styles.menuLogout}><LogOut />Logout</button>
                 </div>
               )}
             </div>
@@ -127,7 +133,7 @@ export default function Navbar({ session }: NavbarProps) {
         </div>
 
         <div className={styles.mobileActions}>
-          <Link href="/keranjang" className={styles.mobileCartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-5 w-5" /></Link>
+          {!isGuest && <Link href="/keranjang" className={styles.mobileCartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-5 w-5" /></Link>}
           {session ? (
             <button type="button" onClick={() => setOpen((v) => !v)} className={styles.mobileAccountButton} aria-label="Menu akun" aria-expanded={open}>{initial}</button>
           ) : (
@@ -141,20 +147,20 @@ export default function Navbar({ session }: NavbarProps) {
 
       {open && session && (
         <div className={styles.mobileAccountPanel}>
-          <div className={styles.mobileIdentity}><span className={styles.avatar}>{initial}</span><span>{displayName}</span></div>
+          <div className={styles.mobileIdentity}><span className={styles.avatar}>{initial}</span><span>{displayName} · {isGuest ? "Guest" : isAdmin ? "Pengurus" : "Peserta"}</span></div>
           <div className={styles.mobileAccountLinks}>
-              <Link href="/akun" onClick={() => setOpen(false)} className={styles.mobileAccountLink}><User />Akun</Link>
+              {!isGuest && <Link href="/akun" onClick={() => setOpen(false)} className={styles.mobileAccountLink}><User />Akun</Link>}
               {isAdmin && <Link href="/admin" onClick={() => setOpen(false)} className={styles.mobileAccountLink}><GraduationCap />Panel Pengurus</Link>}
-              <button type="button" onClick={handleLogout} className={styles.mobileLogout}><LogOut />Keluar</button>
+              <button type="button" onClick={handleLogout} className={styles.mobileLogout}><LogOut />Logout</button>
             </div>
         </div>
       )}
 
       <nav className={styles.bottomNav} aria-label="Navigasi bawah">
-        <Link href="/" className={`${styles.bottomLink} ${pathname === "/" ? styles.bottomLinkActive : ""}`}><GraduationCap />Beranda</Link>
+        {!isGuest && <Link href="/" className={`${styles.bottomLink} ${pathname === "/" ? styles.bottomLinkActive : ""}`}><GraduationCap />Beranda</Link>}
         <Link href="/kelas" className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen />Kelas</Link>
         <Link href="/games" className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 />Games</Link>
-        {session ? (
+        {isGuest ? null : session ? (
           <Link href="/akun" className={`${styles.bottomLink} ${pathname.startsWith("/akun") ? styles.bottomLinkActive : ""}`}><User />Akun</Link>
         ) : (
           <Link href="/masuk" className={`${styles.bottomLink} ${pathname.startsWith("/masuk") ? styles.bottomLinkActive : ""}`}><KeyRound />Masuk</Link>

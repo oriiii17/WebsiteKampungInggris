@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession, isTutorSession } from "@/lib/auth";
+import { canManageSessions, getServerSession } from "@/lib/auth";
 import { readLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 
@@ -7,7 +7,7 @@ function csvCell(value: unknown) { return `"${String(value ?? "").replace(/"/g, 
 
 export async function GET(_request: Request, context: { params: Promise<{ sessionKey: string }> }) {
   const user = await getServerSession();
-  if (!isTutorSession(user)) return NextResponse.json({ error: "Akses khusus tutor." }, { status: 403 });
+  if (!canManageSessions(user)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
   const { sessionKey: id } = await context.params;
   const supabase = await getSupabaseServerClient();
   let title = "Sesi"; let rows: { participant_name: string; participant_type: string; attended_at: string }[] = [];

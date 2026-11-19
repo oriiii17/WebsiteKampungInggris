@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerSession, isTutorSession } from "@/lib/auth";
+import { canManageSessions, getServerSession } from "@/lib/auth";
 import { getClasses } from "@/lib/db";
 
 export async function GET() {
   const session = await getServerSession();
-  if (!isTutorSession(session)) return NextResponse.json({ error: "Akses khusus tutor." }, { status: 403 });
+  if (!canManageSessions(session)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
   try {
     const classes = await getClasses(true);
     const published = classes

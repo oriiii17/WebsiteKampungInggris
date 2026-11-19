@@ -9,6 +9,7 @@ import { getServerSession } from "@/lib/auth";
 import type { ClassItem } from "@/lib/types";
 import type { Metadata } from "next";
 import { canonicalUrl } from "@/lib/seo";
+import { formatIDR } from "@/lib/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ async function HomeTestimonials() {
 const featuredClassIds = ["class-1794595557465", "class-conversation-starter", "class-grammar-mastery"];
 
 function formatPrice(price: number) {
-  return `Rp ${new Intl.NumberFormat("id-ID").format(price)}`;
+  return formatIDR(price);
 }
 
 const learningRoutes = [

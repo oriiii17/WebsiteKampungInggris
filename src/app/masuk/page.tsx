@@ -3,9 +3,9 @@
 import React, { Suspense, useRef, useState } from "react";
 import SixBoxCodeInput, { toCodeString } from "@/components/SixBoxCodeInput";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CheckCircle2, Lock, Mail, RefreshCw } from "lucide-react";
+import { ArrowRight, CheckCircle2, Lock, Mail, RefreshCw, Eye, EyeOff } from "lucide-react";
+import AuthShell from "@/components/auth/AuthShell";
 
 function MasukContent() {
   const router = useRouter();
@@ -16,6 +16,7 @@ function MasukContent() {
   const wargaRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [umumEmail, setUmumEmail] = useState("");
   const [umumPassword, setUmumPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,14 +78,8 @@ function MasukContent() {
   }
 
   return (
-    <main className="workbook-auth min-h-screen px-4 py-10 sm:px-6">
-      <div className="auth-page-layout w-full max-w-6xl">
-      <div className="auth-form-column">
-        <div className="mb-8 text-center">
-          <Image src="/sapen-english-village-logo.jpg" alt="Sapen English Village" width={651} height={453} priority className="mx-auto h-auto w-48" />
-          <h1 className="workbook-auth-heading mt-4">Masuk ke ruang belajar</h1>
-        </div>
-
+    <AuthShell image="/images/community/percakapan-jogja.webp" imageAlt="Peserta belajar bahasa Inggris melalui percakapan bersama di Yogyakarta" imageTitle="Belajar dari lingkunganmu." imageDescription="Pilih jalur belajar untuk peserta umum atau masuk dengan kode warga dari pengelola.">
+      <h1 className="workbook-auth-heading">Masuk ke ruang belajar</h1>
         <section className="workbook-auth-card max-w-none">
           {searchParams.get("registered") === "1" && mode === "umum" && (
             <p role="status" className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-800">Akun berhasil dibuat, silahkan masuk</p>
@@ -95,7 +90,7 @@ function MasukContent() {
             <form onSubmit={handleUmumSubmit} className="space-y-4">
               <p className="text-sm font-semibold text-body">Peserta Umum atau Tutor</p>
               <label className="block text-xs font-bold text-body">Email<span className="relative mt-1.5 block"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"/><input type="email" required autoComplete="email" value={umumEmail} onChange={(event) => setUmumEmail(event.target.value)} placeholder="nama@email.com" className="min-h-12 w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none" /></span></label>
-              <label className="block text-xs font-bold text-body">Password<span className="relative mt-1.5 block"><Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"/><input type="password" required autoComplete="current-password" value={umumPassword} onChange={(event) => setUmumPassword(event.target.value)} placeholder="Password" className="min-h-12 w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none" /></span></label>
+              <label className="block text-xs font-bold text-body">Password<span className="auth-password-field relative mt-1.5 block"><Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"/><input type={showPassword ? "text" : "password"} required autoComplete="current-password" value={umumPassword} onChange={(event) => setUmumPassword(event.target.value)} placeholder="Password" className="min-h-12 w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-24 text-sm text-ink focus:border-leaf focus:outline-none" /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((show) => !show)}>{showPassword ? <><EyeOff className="mr-1 inline h-4 w-4"/>Sembunyikan</> : <><Eye className="mr-1 inline h-4 w-4"/>Tampilkan</>}</button></span></label>
               <button type="submit" disabled={loading} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-earth py-3.5 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:opacity-60">{loading ? "Memeriksa akun..." : "Masuk"}<ArrowRight className="h-4 w-4" /></button>
               <p className="text-right text-sm"><Link href="/lupa-password" className="font-bold text-leaf underline underline-offset-4">Lupa Password?</Link></p>
               <p className="border-t border-rule pt-4 text-center text-xs text-muted">Belum punya akun? <Link href="/daftar" className="font-bold text-leaf underline underline-offset-4">Daftar di sini</Link></p>
@@ -114,14 +109,8 @@ function MasukContent() {
             </form>
           )}
         </section>
-        <footer className="mt-5 border-t border-rule pt-3 text-center"><Link href="/admin/masuk" className="text-xs text-muted underline underline-offset-4 hover:text-leaf">Khusus pengurus</Link></footer>
-      </div>
-      <figure className="auth-illustration-panel illustration-frame relative overflow-hidden">
-        <Image src="/images/community/percakapan-jogja.webp" alt="Peserta belajar bahasa Inggris melalui percakapan bersama di Yogyakarta" fill sizes="(max-width: 767px) 100vw, 45vw" className="object-cover" />
-        <figcaption className="auth-illustration-copy"><h2 className="text-2xl font-bold">Belajar dari lingkunganmu.</h2><p className="mt-2">Pilih jalur belajar untuk peserta umum atau masuk dengan kode warga dari pengelola.</p></figcaption>
-      </figure>
-      </div>
-    </main>
+        <footer className="mt-4 border-t border-rule pt-3 text-center"><Link href="/admin/masuk" className="text-xs text-muted underline underline-offset-4 hover:text-leaf">Khusus pengurus</Link></footer>
+    </AuthShell>
   );
 }
 

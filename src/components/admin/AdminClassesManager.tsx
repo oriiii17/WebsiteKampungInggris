@@ -24,6 +24,8 @@ import {
 import { ClassItem, ClassModule } from "@/lib/types";
 import { useAppDialog } from "@/components/AppDialogProvider";
 import type { GameBlueprint } from "@/lib/game-blueprint";
+import CurrencyInput from "@/components/ui/CurrencyInput";
+import { formatIDR, MAX_PRICE_IDR } from "@/lib/currency";
 
 interface Props {
   modules?: any[]; // legacy prop (unused in new flow)
@@ -50,6 +52,7 @@ export default function AdminClassesManager({ notify }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<ClassItem>(emptyClass());
+  const [priceInputValid, setPriceInputValid] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formStep, setFormStep] = useState(0);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
@@ -88,12 +91,14 @@ export default function AdminClassesManager({ notify }: Props) {
     setEditingId(c.id);
     setFormStep(0);
     setForm({ ...c, modules: [...(c.modules || [])].sort((a,b)=>a.urutan-b.urutan) });
+    setPriceInputValid(Number.isSafeInteger(c.priceIdr) && c.priceIdr >= 0 && c.priceIdr <= MAX_PRICE_IDR);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function resetForm() {
     setEditingId(null);
     setFormStep(0);
     setForm(emptyClass());
+    setPriceInputValid(true);
   }
 
   function addModule() {
@@ -117,6 +122,7 @@ export default function AdminClassesManager({ notify }: Props) {
   }
 
   async function saveDraftSnapshot(): Promise<boolean> {
+    if (!priceInputValid || !Number.isSafeInteger(form.priceIdr) || form.priceIdr < 0 || form.priceIdr > MAX_PRICE_IDR) { notify(`Harga harus berupa bilangan bulat dari Rp 0 sampai ${formatIDR(MAX_PRICE_IDR)}.`); return false; }
     if (!form.title.trim()) { notify("Isi nama kelas sebelum mengunggah materi."); return false; }
     try {
       const payload = { ...form, status: editingId ? form.status : "draft", isPublished: editingId ? form.isPublished : false, modules: (form.modules || []).map((m, i) => ({ ...m, urutan: i + 1, kelasId: form.id })) };
@@ -151,6 +157,7 @@ export default function AdminClassesManager({ notify }: Props) {
   }
 
   async function handleSave(publish: boolean) {
+    if (!priceInputValid || !Number.isSafeInteger(form.priceIdr) || form.priceIdr < 0 || form.priceIdr > MAX_PRICE_IDR) { notify(`Harga harus berupa bilangan bulat dari Rp 0 sampai ${formatIDR(MAX_PRICE_IDR)}.`); setFormStep(0); return; }
     if (!form.title.trim()) { notify("Gagal: Nama kelas wajib diisi."); return; }
     if (publish && !(await dialog.confirm("Publikasikan kelas ini sekarang? Kelas akan tampil di katalog dan dapat diakses peserta.", "Publikasikan kelas?"))) return;
     setSaving(true);
@@ -252,7 +259,7 @@ export default function AdminClassesManager({ notify }: Props) {
             <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75 sm:col-span-2">Nama Kelas *<input required value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] px-3.5 py-2.5 text-sm font-normal" placeholder="Contoh: Kelas Grammar Basic" /></label>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75 sm:col-span-2">Deskripsi<textarea rows={3} value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3.5 py-2.5 text-sm font-normal" placeholder="Deskripsi singkat kelas..." /></label>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Tingkat<select value={form.tingkat||"Pemula"} onChange={(e)=>setForm({...form,tingkat:e.target.value as any})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm font-normal"><option>Pemula</option><option>Menengah</option><option>Lanjutan</option></select></label>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Harga (Rp)<input type="number" min={0} step={1000} value={form.priceIdr} onChange={(e)=>setForm({...form,priceIdr:Number(e.target.value)})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] px-3.5 py-2.5 text-sm font-normal" /><span className="mt-0.5 block text-[10px] font-normal normal-case text-[#1A2E1A]/55">0 = gratis</span></label>
+            <CurrencyInput label="Harga kelas" value={form.priceIdr} onChange={(priceIdr) => setForm((current) => ({ ...current, priceIdr }))} onValidityChange={setPriceInputValid} />
             <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Game untuk kelas ini</legend><p className="mt-1 text-xs font-normal normal-case text-muted">Peserta sesi akan menemukan game terpilih di halaman kelas.</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{publishedGames.length ? publishedGames.map((game) => <label key={game.id} className="flex min-h-11 items-center gap-3 rounded-lg border border-rule px-3 text-sm font-semibold normal-case"><input type="checkbox" checked={(form.gameBlueprintIds || []).includes(game.id)} onChange={(event) => setForm((current) => ({ ...current, gameBlueprintIds: event.target.checked ? [...new Set([...(current.gameBlueprintIds || []), game.id])] : (current.gameBlueprintIds || []).filter((id) => id !== game.id) }))} className="h-4 w-4 accent-[#244b3a]" />{game.title}<span className="ml-auto text-xs text-muted">{game.level}</span></label>) : <p className="text-sm font-normal normal-case text-muted">Belum ada game terbit untuk dipasang.</p>}</div></fieldset>
           </div>}
 
@@ -273,8 +280,8 @@ export default function AdminClassesManager({ notify }: Props) {
                       <button type="button" onClick={()=>removeModule(m.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[#7A1F1F]"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Judul Bab/Materi<input value={m.judulBebas} onChange={(e)=>updateModule(m.id,{judulBebas:e.target.value})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm font-normal" placeholder="Contoh: Bab 1 - Sapaan / Pertemuan 2: Speaking" /></label>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Deskripsi / Isi Singkat<textarea rows={2} value={m.deskripsi} onChange={(e)=>updateModule(m.id,{deskripsi:e.target.value})} className="mt-1 w-full rounded-md border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm font-normal" placeholder="Bab ini membahas apa / ringkasan materi" /></label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Judul bab atau materi<input value={m.judulBebas} onChange={(e)=>updateModule(m.id,{judulBebas:e.target.value})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm font-normal" placeholder="Contoh: Bab 1 — Sapaan" /></label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Ringkasan materi<textarea rows={2} value={m.deskripsi} onChange={(e)=>updateModule(m.id,{deskripsi:e.target.value})} className="mt-1 w-full rounded-md border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm font-normal" placeholder="Tuliskan ringkasan materi bab ini." /></label>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Upload Materi (PDF/PPT/PPTX/Flipbook)</label>
@@ -296,7 +303,7 @@ export default function AdminClassesManager({ notify }: Props) {
 
           {formStep === 2 && <div className="space-y-4 rounded-lg border border-rule bg-paper-light p-5">
             <h4 className="text-lg font-extrabold">Tinjau kelas</h4>
-            <div className="grid gap-3 text-sm sm:grid-cols-2"><p><span className="text-muted">Nama kelas</span><br/><strong>{form.title || "Belum diisi"}</strong></p><p><span className="text-muted">Tingkat</span><br/><strong>{form.tingkat}</strong></p><p><span className="text-muted">Harga</span><br/><strong>Rp {form.priceIdr.toLocaleString("id-ID")}</strong></p><p><span className="text-muted">Bab/materi</span><br/><strong>{(form.modules || []).length} bab</strong></p></div>
+            <div className="grid gap-3 text-sm sm:grid-cols-2"><p><span className="text-muted">Nama kelas</span><br/><strong>{form.title || "Belum diisi"}</strong></p><p><span className="text-muted">Tingkat</span><br/><strong>{form.tingkat}</strong></p><p><span className="text-muted">Harga</span><br/><strong>{formatIDR(form.priceIdr)}</strong></p><p><span className="text-muted">Bab/materi</span><br/><strong>{(form.modules || []).length} bab</strong></p></div>
           </div>}
 
           <div className="flex flex-wrap justify-between gap-2 border-t border-[#E5E7EB] pt-4">
@@ -330,7 +337,7 @@ export default function AdminClassesManager({ notify }: Props) {
                     <div className="min-w-0">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
                         <span className="rounded-md border border-[#E5E7EB] bg-[#FDFBF7] px-2 py-0.5 text-[11px] font-bold text-[#14532D]">{cls.status || "berjalan"}</span>
-                        <span className="rounded-md border border-[#E5E7EB] bg-white px-2 py-0.5 text-[11px] font-bold text-[#1A2E1A]">Rp {cls.priceIdr.toLocaleString("id-ID")}</span>
+                        <span className="rounded-md border border-[#E5E7EB] bg-white px-2 py-0.5 text-[11px] font-bold text-[#1A2E1A]">{formatIDR(cls.priceIdr)}</span>
                         <span className="text-[11px] font-bold text-[#1A2E1A]/60">{cls.isPublished ? "Tayang di katalog" : "Belum dipublikasikan"}</span>
                       </div>
                       <h4 className="text-base font-extrabold text-[#1A2E1A]">{cls.title}</h4>

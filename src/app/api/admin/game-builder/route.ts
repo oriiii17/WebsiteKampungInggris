@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getServerSession, isAdminSession } from "@/lib/auth";
 import { readLocalDb, writeLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
-import { GAME_TEMPLATES, validateGameBlueprint, type GameBlueprint } from "@/lib/game-blueprint";
+import { GAME_TEMPLATES, getGameBlueprintPublishIssue, normalizeGameBlueprint, validateGameBlueprint, type GameBlueprint } from "@/lib/game-blueprint";
 
 function toRow(game: GameBlueprint) {
   return {
@@ -29,11 +29,11 @@ function fromRow(row: any): GameBlueprint {
     const match = value.match(/(?:\/uploads\/games\/|\/storage\/v1\/object\/public\/game-media\/builder\/|\/api\/game-media\/)([^/?#]+\.(?:jpg|png|webp))/i);
     return match ? `/api/game-media/${match[1]}` : value;
   };
-  return {
+  return normalizeGameBlueprint({
     id: row.id, title: row.title, template: row.template, level: row.level, topic: row.topic,
     language: row.language, coverImage: normalizeMedia(row.cover_image), status: row.status, plays: row.play_count || 0,
     settings: row.settings, items: Array.isArray(row.items) ? row.items.map((item: any) => ({ ...item, mediaUrl: normalizeMedia(item.mediaUrl) })) : row.items, createdAt: row.created_at, updatedAt: row.updated_at,
-  };
+  });
 }
 
 export async function GET() {
@@ -47,7 +47,7 @@ export async function GET() {
     return NextResponse.json({ games: (data || []).map(fromRow) }, { headers });
   }
   const db = await readLocalDb();
-  return NextResponse.json({ games: db.gameBlueprints || [] }, { headers });
+  return NextResponse.json({ games: (db.gameBlueprints || []).map(normalizeGameBlueprint) }, { headers });
 }
 
 export async function POST(request: Request) {
@@ -55,12 +55,20 @@ export async function POST(request: Request) {
   if (!isAdminSession(session)) return NextResponse.json({ error: "Akses khusus pengurus." }, { status: 403 });
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Isi game tidak valid.", code: "INVALID_GAME" }, { status: 400 });
-  const isPublished = (body as Record<string, unknown>).status === "published";
+  const normalized = normalizeGameBlueprint(body);
+  const isPublished = normalized.status === "published";
   if (isPublished) {
-    const result = validateGameBlueprint(body);
-    if (!result.valid) return NextResponse.json({ error: "Periksa kembali data game.", details: result.errors, code: "GAME_VALIDATION_FAILED" }, { status: 400 });
+    const title = typeof normalized.title === "string" ? normalized.title.trim() : "";
+    if (!title || title.toLocaleLowerCase("id-ID") === "game baru") {
+      return NextResponse.json({ error: "Beri game ini judul yang jelas sebelum diterbitkan.", code: "GAME_TITLE_REQUIRED" }, { status: 400 });
+    }
+    const result = validateGameBlueprint(normalized);
+    if (!result.valid) {
+      const issue = getGameBlueprintPublishIssue(normalized);
+      return NextResponse.json({ error: issue?.message || "Periksa kembali informasi dan isi game sebelum diterbitkan.", code: "GAME_VALIDATION_FAILED", field: issue?.field, itemIndex: issue?.itemIndex }, { status: 400 });
+    }
   } else {
-    const value = body as Record<string, any>;
+    const value = normalized as Record<string, any>;
     const validTemplate = GAME_TEMPLATES.some((template) => template.id === value.template);
     const settings = value.settings;
     const validSettings = settings && Number.isInteger(settings.hearts) && settings.hearts >= 1 && settings.hearts <= 10
@@ -72,7 +80,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Data dasar draf game tidak valid.", code: "INVALID_DRAFT" }, { status: 400 });
     }
   }
-  const game: GameBlueprint = { ...body, id: typeof body.id === "string" && body.id.trim() ? body.id : randomUUID(), status: isPublished ? "published" : "draft", createdAt: body.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
+  const game: GameBlueprint = { ...normalized, id: typeof normalized.id === "string" && normalized.id.trim() ? normalized.id : randomUUID(), status: isPublished ? "published" : "draft", createdAt: normalized.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
   const supabase = await getSupabaseServerClient();
   if (supabase) {
     const { data, error } = await supabase.from("game_blueprints").upsert(toRow(game), { onConflict: "id" }).select("*").single();

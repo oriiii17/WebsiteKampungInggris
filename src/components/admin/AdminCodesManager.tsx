@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppDialog } from "@/components/AppDialogProvider";
-import { RefreshCw, Search, UserCheck } from "lucide-react";
+import { RefreshCw, Search, UserCheck, Users } from "lucide-react";
 
 type Participant = {
   key: string;
@@ -11,6 +11,17 @@ type Participant = {
   email: string;
   rw?: string;
   blocked?: boolean;
+};
+
+type GuestParticipant = {
+  id: string;
+  name: string;
+  whatsapp: string;
+  status: "pending" | "approved" | "rejected" | string;
+  registeredAt: string;
+  sessionTitle: string;
+  sessionCode: string;
+  classTitle: string;
 };
 
 interface Props {
@@ -25,6 +36,28 @@ export default function AdminCodesManager(props: Props) {
   const [query, setQuery] = useState("");
   const [grantClassId, setGrantClassId] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [activeList, setActiveList] = useState<"users" | "guests">("users");
+  const [guestRows, setGuestRows] = useState<GuestParticipant[]>([]);
+  const [guestQuery, setGuestQuery] = useState("");
+  const [guestLoading, setGuestLoading] = useState(false);
+  const [guestError, setGuestError] = useState("");
+
+  const loadGuestParticipants = useCallback(async () => {
+    setGuestLoading(true);
+    setGuestError("");
+    try {
+      const response = await fetch("/api/admin/session-guests", { cache: "no-store" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Daftar Guest belum dapat dimuat.");
+      setGuestRows(Array.isArray(result.guests) ? result.guests : []);
+    } catch (error) {
+      setGuestError(error instanceof Error ? error.message : "Daftar Guest belum dapat dimuat.");
+    } finally {
+      setGuestLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadGuestParticipants(); }, [loadGuestParticipants]);
 
   const classes = (data.classes || []) as any[];
   const enrollments = (data.enrollments || []) as any[];
@@ -58,6 +91,10 @@ export default function AdminCodesManager(props: Props) {
     const q = query.trim().toLowerCase();
     if (!q) return true;
     return p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || (p.rw||"").toLowerCase().includes(q);
+  });
+  const filteredGuests = guestRows.filter((guest) => {
+    const q = guestQuery.trim().toLocaleLowerCase();
+    return !q || [guest.name, guest.whatsapp, guest.sessionTitle, guest.sessionCode, guest.classTitle].some((value) => value.toLocaleLowerCase().includes(q));
   });
 
   function statusFor(p: Participant) {
@@ -99,15 +136,21 @@ export default function AdminCodesManager(props: Props) {
 
   return (
     <div className="mt-6 space-y-8">
-      <section className="rounded-xl border border-[#E5E7EB] bg-white p-5 sm:p-6">
+      <section className="rounded-xl border border-[#d8d0c2] bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2"><UserCheck className="h-5 w-5 text-[#14532D]" /> Kelola Akses Peserta</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Cari peserta, lihat status akses kelas, ubah pendaftaran kelas, serta buat & bagikan kode.</p>
+            <h2 className="flex items-center gap-2 text-lg font-extrabold text-[#183b2d]"><UserCheck className="h-5 w-5 text-[#244b3a]" /> Peserta &amp; Akses Kelas</h2>
+            <p className="mt-1 text-sm leading-5 text-[#625f54]">Kelola user reguler dan lihat peserta yang bergabung lewat sesi tatap muka secara terpisah.</p>
           </div>
-          <button type="button" onClick={onRefresh} className="inline-flex items-center gap-2 rounded-lg border border-[#E5E7EB] px-3 py-2 text-xs font-bold hover:bg-[#FDFBF7]"><RefreshCw className="h-4 w-4" />Segarkan</button>
+          <button type="button" onClick={() => { onRefresh(); if (activeList === "guests") void loadGuestParticipants(); }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#c9bda7] px-3 py-2 text-sm font-bold text-[#244b3a] transition hover:bg-[#f8f3e9]"><RefreshCw className="h-4 w-4" />Segarkan</button>
         </div>
 
+        <div role="group" aria-label="Jenis peserta" className="mt-5 flex gap-2 overflow-x-auto border-b border-[#e5dfd3] pb-px">
+          <button type="button" aria-pressed={activeList === "users"} onClick={() => setActiveList("users")} className={`inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-bold transition ${activeList === "users" ? "border-[#244b3a] text-[#183b2d]" : "border-transparent text-[#625f54] hover:text-[#183b2d]"}`}><UserCheck className="h-4 w-4" />User reguler</button>
+          <button type="button" aria-pressed={activeList === "guests"} onClick={() => setActiveList("guests")} className={`inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-bold transition ${activeList === "guests" ? "border-[#244b3a] text-[#183b2d]" : "border-transparent text-[#625f54] hover:text-[#183b2d]"}`}><Users className="h-4 w-4" />Peserta Guest<span className="rounded-full bg-[#e8eee5] px-2 py-0.5 text-xs text-[#244b3a]">{guestRows.length}</span></button>
+        </div>
+
+        {activeList === "users" && <div id="admin-participants-panel-users">
         <div className="mt-4 grid gap-3 sm:grid-cols-12">
           <div className="relative sm:col-span-5"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Cari peserta by nama/email/RW..." className="w-full rounded-lg border border-[#E5E7EB] py-2.5 pl-9 pr-3 text-sm focus:border-[#14532D] focus:outline-none" /></div>
           <div className="sm:col-span-4"><select value={grantClassId} onChange={(e)=>setGrantClassId(e.target.value)} className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm"><option value="">Pilih kelas untuk beri/ubah akses…</option>{classes.map((c:any)=> <option key={c.id} value={c.id}>{c.title}</option>)}</select></div>
@@ -147,6 +190,27 @@ export default function AdminCodesManager(props: Props) {
             </tbody>
           </table>
         </div>
+        </div>}
+
+        {activeList === "guests" && <div id="admin-participants-panel-guests" className="mt-4 space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><h3 className="flex items-center gap-2 font-bold text-[#183b2d]"><Users className="h-4 w-4" />Peserta sesi tatap muka</h3><p className="mt-1 text-sm text-[#625f54]">Nama, kontak, dan sesi yang mereka ikuti.</p></div>
+            <label className="relative block w-full sm:max-w-xs"><span className="sr-only">Cari peserta Guest</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#625f54]" /><input value={guestQuery} onChange={(event) => setGuestQuery(event.target.value)} placeholder="Cari nama, nomor, atau sesi" className="min-h-11 w-full rounded-lg border border-[#c9bda7] bg-[#fdf9f0] py-2.5 pl-9 pr-3 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20" /></label>
+          </div>
+          {guestError && <p role="alert" className="rounded-lg border border-[#943520]/30 bg-[#fff5f0] p-3 text-sm text-[#7c2d1c]">{guestError}</p>}
+          <div className="overflow-x-auto rounded-xl border border-[#e5dfd3]">
+            <table className="w-full min-w-[700px] text-left text-sm text-[#34362f]">
+              <thead className="border-b border-[#e5dfd3] bg-[#f8f3e9] text-xs font-bold uppercase tracking-wide text-[#514b3e]"><tr><th scope="col" className="px-4 py-3">Nama lengkap</th><th scope="col" className="px-4 py-3">WhatsApp / telepon</th><th scope="col" className="px-4 py-3">Sesi dan kelas</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Terdaftar</th></tr></thead>
+              <tbody className="divide-y divide-[#eee8dc] bg-white">
+                {guestLoading ? <tr><td colSpan={5} className="px-4 py-8 text-center text-[#625f54]">Memuat peserta Guest…</td></tr> : filteredGuests.length === 0 ? <tr><td colSpan={5} className="px-4 py-8 text-center text-[#625f54]">{guestRows.length ? "Tidak ada peserta Guest yang cocok dengan pencarian." : "Belum ada peserta Guest yang mendaftar melalui sesi."}</td></tr> : filteredGuests.map((guest) => {
+                  const status = guest.status === "approved" ? { label: "Disetujui", tone: "bg-emerald-50 text-emerald-800" } : guest.status === "rejected" ? { label: "Ditolak", tone: "bg-rose-50 text-rose-800" } : { label: "Menunggu", tone: "bg-amber-50 text-amber-900" };
+                  const phone = String(guest.whatsapp || "");
+                  return <tr key={guest.id} className="align-top hover:bg-[#fbf8f1]"><td className="px-4 py-3 font-bold text-[#20251f]">{guest.name || "(tanpa nama)"}</td><td className="px-4 py-3"><a href={`tel:${phone.replace(/[^+\d]/g, "")}`} className="font-semibold text-[#244b3a] underline decoration-[#c9bda7] underline-offset-2">{phone || "—"}</a></td><td className="px-4 py-3"><p className="font-semibold text-[#20251f]">{guest.sessionTitle} <span className="font-normal text-[#625f54]">· {guest.sessionCode}</span></p><p className="mt-1 text-xs text-[#625f54]">{guest.classTitle}</p></td><td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${status.tone}`}>{status.label}</span></td><td className="whitespace-nowrap px-4 py-3 text-xs text-[#625f54]">{new Date(guest.registeredAt).toLocaleString("id-ID")}</td></tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>}
       </section>
 
     </div>

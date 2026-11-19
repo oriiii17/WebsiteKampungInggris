@@ -1,11 +1,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowRight, BookOpen, CheckCircle2, Clock, Gamepad2, Info } from "lucide-react";
-import { getClasses, getModules } from "@/lib/db";
+import { getClasses, getModules, getClassByIdOrSlug, readLocalDb } from "@/lib/db";
 import AddToCartButton from "@/components/AddToCartButton";
 import type { Metadata } from "next";
 import { canonicalUrl } from "@/lib/seo";
+import { formatIDR } from "@/lib/currency";
+import { getSessionWithGuestContext } from "@/lib/auth";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Daftar Kelas Bahasa Inggris | Kampung Inggris Sapen",
@@ -23,6 +26,41 @@ async function KelasIndexContent({
   searchParams?: Promise<{ from?: string }>;
 }) {
   const sp = (await searchParams) || {};
+  const session = await getSessionWithGuestContext();
+  if (session?.role === "guest") {
+    let classId: string | null = null;
+    let sessionCode: string | null = null;
+    let isApproved = false;
+    if (session.guestSessionId && session.guestRegistrationId) {
+      const supabase = await getSupabaseServerClient();
+      if (supabase) {
+        const [{ data: classSession }, { data: registration }] = await Promise.all([
+          supabase.from("class_sessions").select("id,code,class_id").eq("id", session.guestSessionId).maybeSingle(),
+          supabase.from("class_session_guests").select("session_id,status").eq("id", session.guestRegistrationId).maybeSingle(),
+        ]);
+        if (classSession && registration?.session_id === classSession.id) {
+          classId = classSession.class_id;
+          sessionCode = classSession.code;
+          isApproved = registration.status === "approved";
+        }
+      } else {
+        const db = await readLocalDb();
+        const classSession = db.classSessions?.find((item) => item.id === session.guestSessionId);
+        const registration = db.classSessionGuests?.find((item) => item.id === session.guestRegistrationId && item.sessionId === session.guestSessionId);
+        if (classSession && registration) {
+          classId = classSession.classId;
+          sessionCode = classSession.code;
+          isApproved = registration.status === "approved";
+        }
+      }
+    }
+    if (classId && isApproved) {
+      const guestClass = await getClassByIdOrSlug(classId);
+      if (guestClass) redirect(`/kelas/${encodeURIComponent(guestClass.slug || guestClass.id)}`);
+    }
+    if (sessionCode) redirect(`/sesi/${encodeURIComponent(sessionCode)}`);
+    redirect("/");
+  }
   const [classes, modules] = await Promise.all([getClasses(false), getModules(false)]);
   const moduleMap = new Map(modules.map((m) => [m.id, m]));
 
@@ -48,7 +86,7 @@ async function KelasIndexContent({
         </div>
 
         <div className="grid min-w-0 grid-cols-1 gap-6">
-          <div className="grid gap-6">
+          <div className="grid gap-5">
             {classes.length > 0 ? classes.map((cls, index) => {
               const modCount = cls.modules?.filter((module) => module.status === "terbit").length || cls.moduleIds?.length || 0;
               const gameCount = cls.gameTemplateIds?.length || 0;
@@ -57,24 +95,21 @@ async function KelasIndexContent({
                 : cls.moduleIds?.map((id) => moduleMap.get(id)).filter(Boolean).length || modCount;
               const moduleLabel = `${associatedModules} modul`;
               return (
-                <article key={cls.id} className="grid min-w-0 gap-4 rounded-2xl border border-rule bg-white p-4 shadow-card sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-5 sm:p-5 lg:grid-cols-[11rem_minmax(0,1fr)_15rem] lg:items-start lg:gap-6">
-                  <div className="illustration-frame relative aspect-[16/10] min-w-0 self-start sm:row-span-1 sm:aspect-square lg:aspect-[4/5]">
-                    <Image src={["/images/community/kelas-interior-card.webp", "/images/community/diskusi-warga-card.webp", "/images/community/belajar-kawasan-card.webp"][index % 3]} alt={`Suasana belajar bersama untuk kelas ${cls.title}`} fill priority={index === 0} fetchPriority={index === 0 ? "high" : "auto"} sizes="(max-width: 639px) 100vw, (max-width: 1023px) 144px, 176px" className="object-cover" />
-                  </div>
+                <article key={cls.id} className="grid min-w-0 gap-5 rounded-2xl border border-rule bg-white p-5 shadow-card sm:grid-cols-[minmax(0,1fr)_15rem] sm:gap-6 sm:p-6 lg:items-center">
                   <div className="min-w-0">
                     <p className="mb-2 text-xs font-bold text-earth">LEMBAR {String(index + 1).padStart(2, "0")}</p>
                     <h2 className="break-words text-2xl leading-tight sm:text-3xl">{cls.title}</h2>
                     {cls.subtitle && <p className="mt-1 break-words text-sm font-bold text-leaf">{cls.subtitle}</p>}
                     <p className="mt-3 max-w-2xl break-words text-sm leading-6 text-body">{cls.description}</p>
                   </div>
-                  <div className="col-span-full flex min-w-0 flex-col items-stretch gap-4 border-t border-rule pt-4 sm:col-span-2 lg:col-span-1 lg:row-span-2 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+                  <div className="flex min-w-0 flex-col items-stretch gap-4 border-t border-rule pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
                     <div className="grid gap-2 text-sm text-body">
                       <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-leaf" />Akses selamanya</span>
                       <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 shrink-0 text-leaf" />{moduleLabel}</span>
                       <span className="flex items-center gap-2"><Gamepad2 className="h-4 w-4 shrink-0 text-earth" />{gameCount > 0 ? `${gameCount} sesi` : "Game kelas"}</span>
                     </div>
                     <div className="grid gap-3 border-t border-rule pt-4">
-                      <div><span className="block text-xs font-semibold text-muted">Investasi belajar</span><strong className="font-display text-2xl">Rp {cls.priceIdr.toLocaleString("id-ID")}</strong></div>
+                      <div><span className="block text-xs font-semibold text-muted">Investasi belajar</span><strong className="font-display text-2xl">{formatIDR(cls.priceIdr)}</strong></div>
                       <div className="flex min-w-0 flex-col items-stretch gap-3">
                         <Link href={`/kelas/${cls.slug}`} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-earth px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-earth-dark">Detail kelas <ArrowRight className="h-4 w-4" /></Link>
                         <AddToCartButton classId={cls.id} compact />
@@ -116,9 +151,8 @@ function KelasLoadingState() {
         <div className="grid min-w-0 grid-cols-1 gap-6">
           <div className="grid gap-6">
             {[0, 1].map((item) => (
-              <div key={item} aria-hidden="true" className="min-h-[30rem] rounded-2xl border border-rule bg-white p-4 shadow-card sm:min-h-[23rem] sm:p-5">
-                <div className="aspect-[16/10] rounded-xl bg-paper-light sm:float-left sm:mr-5 sm:aspect-square sm:w-36 lg:w-44" />
-                <div className="mt-4 h-5 w-2/3 rounded bg-paper-light sm:mt-0" />
+                <div key={item} aria-hidden="true" className="min-h-64 rounded-2xl border border-rule bg-white p-5 shadow-card sm:p-6">
+                <div className="h-5 w-2/3 rounded bg-paper-light" />
                 <div className="mt-4 h-3 w-full rounded bg-paper-light" />
                 <div className="mt-2 h-3 w-5/6 rounded bg-paper-light" />
                 <div className="mt-8 h-24 rounded bg-paper-light" />

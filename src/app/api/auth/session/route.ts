@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import {
   encodeSessionToken,
+  GUEST_SESSION_COOKIE_NAME,
   getServerSession,
   SESSION_COOKIE_NAME,
 } from "@/lib/auth";
@@ -111,6 +112,11 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   const res = NextResponse.json({ ok: true });
+  if (new URL(req.url).searchParams.get("scope") === "guest") {
+    res.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 0, expires: new Date(0) });
+    res.cookies.delete(GUEST_SESSION_COOKIE_NAME);
+    return res;
+  }
   res.cookies.set(SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 0, expires: new Date(0) });
   res.cookies.delete(SESSION_COOKIE_NAME);
   res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, "", { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 0, expires: new Date(0) });

@@ -1,6 +1,6 @@
 import React from "react";
 import { notFound } from "next/navigation";
-import { getServerSession, isAdminSession } from "@/lib/auth";
+import { getSessionWithGuestContext, isAdminSession } from "@/lib/auth";
 import { getClassByIdOrSlug, getUserEnrollments } from "@/lib/db";
 import ModuleViewClient from "./ModuleViewClient";
 import { readLocalDb } from "@/lib/db";
@@ -12,7 +12,7 @@ export default async function ClassModulePage({
   params: Promise<{ slug: string; moduleId: string }>;
 }) {
   const { slug, moduleId } = await params;
-  const [session, cls] = await Promise.all([getServerSession(), getClassByIdOrSlug(slug)]);
+  const [session, cls] = await Promise.all([getSessionWithGuestContext(), getClassByIdOrSlug(slug)]);
   if (!cls) notFound();
   if (!cls.isPublished && !isAdminSession(session)) notFound();
   const mod = (cls.modules || []).find((m) => m.id === moduleId);

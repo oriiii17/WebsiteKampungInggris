@@ -3,9 +3,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 import PublicChrome from "@/components/PublicChrome";
 import PublicFooter from "@/components/PublicFooter";
-import { getServerSession } from "@/lib/auth";
+import { getGuestServerSession, getServerSession } from "@/lib/auth";
 import { SITE_CONFIG } from "@/config/site";
 import AppDialogProvider from "@/components/AppDialogProvider";
+import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
 
 export const metadata: Metadata = {
   title: `${SITE_CONFIG.name} | ${SITE_CONFIG.tagline}`,
@@ -42,8 +43,8 @@ const organizationSchema = {
 };
 
 async function NavbarWithSession() {
-  const session = await getServerSession();
-  return <PublicChrome session={session} />;
+  const [session, guestSession] = await Promise.all([getServerSession(), getGuestServerSession()]);
+  return <PublicChrome session={session} guestSession={guestSession} />;
 }
 
 export default function RootLayout({
@@ -63,6 +64,7 @@ export default function RootLayout({
       </head>
       <body className="flex min-h-dvh flex-col font-sans">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, "\\u003c") }} />
+        <ConfirmDialogProvider>
         <AppDialogProvider>
         <a href="#main-content" className="skip-link">Lewati ke konten utama</a>
         <Suspense fallback={null}>
@@ -71,6 +73,7 @@ export default function RootLayout({
         <main id="main-content" tabIndex={-1} className="flex-1">{children}</main>
         <Suspense fallback={null}><PublicFooter /></Suspense>
         </AppDialogProvider>
+        </ConfirmDialogProvider>
       </body>
     </html>
   );

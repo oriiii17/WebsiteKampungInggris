@@ -38,16 +38,27 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
 
   const join = async (event?: React.FormEvent) => {
     event?.preventDefault(); setSubmitting(true); setError(""); setNotice("");
+    let apiResponseDetails: { status: number; body: unknown } | undefined;
     try {
       const consent = document.querySelector<HTMLInputElement>('input[name="session-consent"]')?.checked === true;
       if (!session?.canAttendAsMember && !consent) throw new Error("Centang persetujuan sebelum melanjutkan.");
-      const response = await fetch(`/api/class-sessions/${encodeURIComponent(code)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, whatsapp, consent }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Presensi belum berhasil.");
+      const cleanName = name.trim().replace(/\s+/g, " ");
+      const cleanWhatsapp = whatsapp.trim().replace(/[\s().-]/g, "");
+      if (!session?.canAttendAsMember && (cleanName.length < 2 || cleanName.length > 80)) throw new Error("Nama harus berisi 2–80 karakter.");
+      if (!session?.canAttendAsMember && !/^(?:0[0-9]{8,14}|62[0-9]{7,13}|\+62[0-9]{7,13})$/.test(cleanWhatsapp)) throw new Error("Periksa nomor WhatsApp. Gunakan format 08…, 628…, atau +628… dengan nomor aktif.");
+      const payload = { name: cleanName, whatsapp: cleanWhatsapp, code, consent };
+      const response = await fetch(`/api/class-sessions/${encodeURIComponent(code)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await response.json().catch(() => ({}));
+      apiResponseDetails = { status: response.status, body: data };
+      if (!response.ok) throw new Error(response.status >= 500 ? "Server sedang mengalami kendala. Data belum berhasil disimpan; coba beberapa saat lagi." : data.error || "Pendaftaran belum berhasil. Periksa data lalu coba lagi.");
+      if (data.ok !== true || !["approved", "pending"].includes(data.status)) throw new Error("Respons pendaftaran belum dapat dikonfirmasi. Periksa status sesi sebelum mencoba lagi.");
+      setSession((current) => current ? { ...current, registrationStatus: data.status, canAttendAsMember: false } : current);
       if (data.status === "pending") setNotice("Pendaftaran diterima. Tutor akan memeriksa permintaanmu sebelum akses sesi dibuka.");
       else setNotice("Presensi berhasil dicatat. Selamat belajar!");
-      await refresh();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Presensi belum berhasil."); }
+    } catch (reason) {
+      console.error("Pendaftaran sesi tamu gagal", { code, apiResponse: apiResponseDetails, error: reason });
+      setError(reason instanceof Error ? reason.message : "Pendaftaran belum berhasil. Periksa koneksi lalu coba lagi.");
+    }
     finally { setSubmitting(false); }
   };
 

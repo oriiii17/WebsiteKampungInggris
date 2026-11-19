@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession, SESSION_COOKIE_NAME, encodeSessionToken } from "@/lib/auth";
+import { getGuestServerSession, getServerSession, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, encodeSessionToken } from "@/lib/auth";
 import { readLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type { SessionPayload } from "@/lib/types";
@@ -10,7 +10,7 @@ import { resolveGuestEntry } from "@/lib/class-session";
 async function getPublicSession(request: NextRequest, context: { params: Promise<{ code: string }> }) {
   const { code: rawCode } = await context.params;
   const code = rawCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const session = await getServerSession();
+  const session = (await getGuestServerSession()) || await getServerSession();
   const supabase = await getSupabaseServerClient();
   if (supabase) {
     const registrationId = session?.role === "guest" && session.guestSessionId && session.guestRegistrationId ? session.guestRegistrationId : null;
@@ -87,22 +87,57 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
   if (!limit.allowed) return NextResponse.json({ error: "Terlalu banyak percobaan mendaftar. Coba lagi beberapa menit." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
   const { validateGuestRegistration } = await import("@/lib/class-session");
   const body = await request.json().catch(() => ({}));
+  const payloadCode = String(body.code ?? code).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (payloadCode !== code) return NextResponse.json({ ok: false, error: "Kode sesi pada formulir tidak sesuai dengan halaman ini." }, { status: 400 });
   if (body.consent !== true) return NextResponse.json({ error: "Setujui penggunaan data untuk pendaftaran dan presensi terlebih dahulu." }, { status: 400 });
   const guest = validateGuestRegistration(body.name, body.whatsapp);
   if (!guest) return NextResponse.json({ error: "Periksa nama (2–80 karakter) dan nomor WhatsApp (9–15 digit)." }, { status: 400 });
   let result: { registrationId: string; sessionId: string; title: string; status: "pending" | "approved" | "rejected" } | null = null;
   if (supabase) {
     const { data, error } = await supabase.rpc("register_class_session_guest", { p_code: code, p_name: guest.name, p_whatsapp: guest.whatsapp });
-    const row = Array.isArray(data) ? data[0] : data;
-    if (error || !row) {
-      const message = error?.message || "";
+    let row = Array.isArray(data) ? data[0] : data;
+    let rpcError = error;
+    if (error?.code === "42702") {
+      console.warn("[class-session guest registration] RPC ambiguity; using direct Supabase fallback", { sessionCode: code, rpcCode: error.code });
+      const { data: target, error: targetError } = await supabase
+        .from("class_sessions")
+        .select("id, code, title, status, starts_at, require_approval")
+        .eq("code", code)
+        .maybeSingle();
+      if (targetError) throw new Error(`Tidak dapat memeriksa sesi untuk fallback: ${targetError.message}`);
+      if (!target || target.status !== "open") return NextResponse.json({ ok: false, error: "Sesi sudah ditutup atau kode tidak ditemukan." }, { status: 410 });
+      if (target.starts_at && new Date(target.starts_at).getTime() > Date.now()) return NextResponse.json({ ok: false, error: "Sesi belum dibuka sesuai jadwal." }, { status: 425 });
+
+      const fallbackStatus = target.require_approval ? "pending" : "approved";
+      const { data: savedGuest, error: guestError } = await supabase
+        .from("class_session_guests")
+        .upsert({ session_id: target.id, full_name: guest.name, whatsapp: guest.whatsapp, status: fallbackStatus }, { onConflict: "session_id,whatsapp" })
+        .select("id, status")
+        .single();
+      if (guestError || !savedGuest) throw new Error(`Pendaftaran tamu belum tersimpan: ${guestError?.message || "data peserta tidak dikembalikan"}`);
+
+      if (savedGuest.status === "approved") {
+        const { error: attendanceError } = await supabase
+          .from("class_session_attendance")
+          .upsert({ session_id: target.id, participant_key: `guest:${savedGuest.id}`, participant_name: guest.name, participant_type: "guest", guest_registration_id: savedGuest.id }, { onConflict: "session_id,participant_key" });
+        if (attendanceError) throw new Error(`Pendaftaran tersimpan tetapi presensi belum tercatat: ${attendanceError.message}`);
+      }
+      row = { registration_id: savedGuest.id, session_id: target.id, session_title: target.title, registration_status: savedGuest.status };
+      rpcError = null;
+    }
+    if (rpcError || !row) {
+      const message = rpcError?.message || "";
+      const diagnostic = rpcError ? { code: rpcError.code, message: rpcError.message, details: rpcError.details, hint: rpcError.hint } : { message: "RPC pendaftaran tidak mengembalikan data." };
+      console.error("[class-session guest registration] Supabase RPC failed", { sessionCode: code, ...diagnostic });
       const friendly = message.includes("SESSION_CLOSED") ? "Sesi sudah ditutup. Pendaftaran tidak lagi tersedia."
         : message.includes("SESSION_NOT_FOUND") ? "Kode sesi tidak ditemukan. Periksa kembali kode dari tutor."
+          : message.includes("SESSION_FULL") ? "Kuota peserta sesi ini sudah penuh."
           : message.toLowerCase().includes("whatsapp") ? "Nomor WhatsApp belum dapat digunakan. Periksa kembali nomornya."
-            : "Pendaftaran belum berhasil. Periksa data yang diisi lalu coba lagi.";
-      return NextResponse.json({ error: friendly }, { status: 400 });
+            : "Pendaftaran belum tersimpan karena kendala server. Coba lagi beberapa saat atau hubungi pengurus.";
+      return NextResponse.json({ error: friendly, ...(process.env.NODE_ENV !== "production" ? { diagnostic } : {}) }, { status: rpcError ? 500 : 502 });
+    } else {
+      result = { registrationId: row.registration_id, sessionId: row.session_id, title: row.session_title, status: row.registration_status };
     }
-    result = { registrationId: row.registration_id, sessionId: row.session_id, title: row.session_title, status: row.registration_status };
   } else {
     const db = await readLocalDb(); const local = db.classSessions?.find((item) => item.code === code && item.status === "open");
     if (!local) return NextResponse.json({ error: "Sesi sudah ditutup atau kode tidak ditemukan." }, { status: 400 });
@@ -118,12 +153,12 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
     result = { registrationId: existing.id, sessionId: local.id, title: local.title, status: existing.status };
   }
   const guestSession: SessionPayload = { id: result.registrationId, name: guest.name, role: "guest", origin: "guest", guestRegistrationId: result.registrationId, guestSessionId: result.sessionId, expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(), watermarkText: guest.name };
-  const response = NextResponse.json({ ok: true, title: result.title, status: result.status, sessionId: result.sessionId });
-  response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(guestSession), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) });
+  const response = NextResponse.json({ ok: true, title: result.title, status: result.status, sessionId: result.sessionId }, { status: 200 });
+  response.cookies.set(GUEST_SESSION_COOKIE_NAME, encodeSessionToken(guestSession), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) });
   return response;
 }
 
-import { GET as getTutorSession, PATCH as updateTutorSession } from "./admin-route";
+import { DELETE as deleteTutorSession, GET as getTutorSession, PATCH as updateTutorSession } from "./admin-route";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ sessionKey: string }> }) {
   const { sessionKey } = await context.params;
@@ -134,10 +169,22 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ses
 export async function POST(request: Request, context: { params: Promise<{ sessionKey: string }> }) {
   const { sessionKey } = await context.params;
   if (!/^[A-Z0-9]{6}$/i.test(sessionKey)) return NextResponse.json({ error: "Kode sesi tidak valid." }, { status: 404 });
-  return joinPublicSession(request, { params: Promise.resolve({ code: sessionKey }) });
+  try {
+    return await joinPublicSession(request, { params: Promise.resolve({ code: sessionKey.toUpperCase() }) });
+  } catch (reason) {
+    const diagnostic = reason instanceof Error ? { name: reason.name, message: reason.message } : { message: String(reason) };
+    console.error("[class-session guest registration] Request failed", { sessionCode: sessionKey.toUpperCase(), ...diagnostic });
+    return NextResponse.json({ ok: false, error: "Server belum dapat menyimpan pendaftaran. Coba lagi beberapa saat.", ...(process.env.NODE_ENV !== "production" ? { diagnostic } : {}) }, { status: 500 });
+  }
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ sessionKey: string }> }) {
   const { sessionKey } = await context.params;
   return updateTutorSession(request, { params: Promise.resolve({ id: sessionKey }) });
+}
+
+export async function DELETE(request: Request, context: { params: Promise<{ sessionKey: string }> }) {
+  const { sessionKey } = await context.params;
+  if (/^[A-Z0-9]{6}$/i.test(sessionKey)) return NextResponse.json({ error: "Kode sesi tidak valid untuk penghapusan." }, { status: 400 });
+  return deleteTutorSession(request, { params: Promise.resolve({ id: sessionKey }) });
 }

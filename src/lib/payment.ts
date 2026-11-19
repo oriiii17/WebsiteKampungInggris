@@ -4,6 +4,7 @@
  */
 
 import { SITE_CONFIG } from "@/config/site";
+import { formatIDR } from "@/lib/currency";
 
 export interface PaketProduk {
   id: string;
@@ -99,7 +100,7 @@ export class BankTransferPaymentProvider implements PaymentProvider {
     const primaryBank = SITE_CONFIG.bankAccounts[0];
     return {
       paymentId: `bank-${order.id}-${Date.now()}`,
-      instructions: `Silakan transfer tepat sebesar Rp ${order.totalIdr.toLocaleString("id-ID")} ke rekening tertera.`,
+      instructions: `Silakan transfer tepat sebesar ${formatIDR(order.totalIdr)} ke rekening tertera.`,
       bankDetails: primaryBank,
     };
   }

@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, ArrowUpRight, ShoppingBag, Trash2 } from "lucide-react";
 import type { ClassItem } from "@/lib/types";
+import { formatIDR } from "@/lib/currency";
 
 const KEY = "sapen_class_cart";
-const classPhotos = ["/images/community/kelas-interior-card.webp", "/images/community/belajar-taman-card.webp", "/images/community/kampung-sapen-belajar-card.webp", "/images/community/diskusi-warga-card.webp"];
 function readCartIds(): string[] {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(KEY) || "[]");
@@ -41,12 +41,11 @@ export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
           <Image src="/images/empty-cart.svg" alt="Ilustrasi keranjang kelas kosong" width={360} height={260} className="mx-auto h-auto w-full max-w-xs" />
         </section>
       : <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-          <ul className="space-y-4">{items.map((item, index) => <li key={item.id} className="grid min-w-0 gap-4 rounded-xl border border-rule bg-white p-4 sm:grid-cols-[9rem_minmax(0,1fr)_auto] sm:items-center sm:p-5">
-            <div className="illustration-frame relative aspect-[4/3] overflow-hidden rounded-lg"><Image src={classPhotos[index % classPhotos.length]} alt={`Suasana belajar peserta kelas ${item.title}`} fill sizes="(max-width: 639px) 100vw, 144px" className="object-cover" /></div>
-            <div className="min-w-0"><p className="workbook-print-note">Kelas pilihan</p><h2 className="mt-1 break-words text-2xl">{item.title}</h2><p className="mt-2 text-sm leading-6 text-body">{item.subtitle || item.description}</p><p className="mt-3 text-sm font-bold text-ink">Rp {item.priceIdr.toLocaleString("id-ID")}</p></div>
+          <ul className="space-y-4">{items.map((item) => <li key={item.id} className="grid min-w-0 gap-4 rounded-xl border border-rule bg-white p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5">
+            <div className="min-w-0"><p className="workbook-print-note">Kelas pilihan</p><h2 className="mt-1 break-words text-2xl">{item.title}</h2><p className="mt-2 text-sm leading-6 text-body">{item.subtitle || item.description}</p><p className="mt-3 text-sm font-bold text-ink">{formatIDR(item.priceIdr)}</p></div>
             <button type="button" onClick={() => remove(item.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-rule px-3 text-sm font-bold text-body transition hover:border-red-300 hover:text-red-700 sm:self-start" aria-label={`Hapus ${item.title} dari keranjang`}><Trash2 className="h-4 w-4" /><span className="sm:sr-only">Hapus</span></button>
           </li>)}</ul>
-          <aside className="rounded-xl border border-rule bg-white p-5 sm:p-6"><p className="workbook-print-note">Ringkasan</p><h2 className="mt-2 text-2xl">Pilihan kelas</h2><div className="mt-4 space-y-3">{items.map((item) => <div key={item.id} className="flex justify-between gap-3 text-sm"><span className="min-w-0 break-words">{item.title}</span><strong className="shrink-0">Rp {item.priceIdr.toLocaleString("id-ID")}</strong></div>)}</div><div className="my-4 border-t border-rule" /><p className="flex justify-between gap-3"><strong>Total</strong><strong>Rp {total.toLocaleString("id-ID")}</strong></p><p className="mt-4 rounded-lg border border-rule bg-paper px-3 py-3 text-xs leading-5 text-body">Checkout belum tersedia saat ini. Pilihan kelas Anda tetap tersimpan; belum ada transaksi yang dibuat.</p><Link href="/checkout" className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-leaf px-4 py-3 text-sm font-bold text-white transition hover:bg-leaf-dark">Lihat checkout <ArrowRight className="h-4 w-4" /></Link></aside>
+          <aside className="rounded-xl border border-rule bg-white p-5 sm:p-6"><p className="workbook-print-note">Ringkasan</p><h2 className="mt-2 text-2xl">Pilihan kelas</h2><div className="mt-4 space-y-3">{items.map((item) => <div key={item.id} className="flex justify-between gap-3 text-sm"><span className="min-w-0 break-words">{item.title}</span><strong className="shrink-0">{formatIDR(item.priceIdr)}</strong></div>)}</div><div className="my-4 border-t border-rule" /><p className="flex justify-between gap-3"><strong>Total</strong><strong>{formatIDR(total)}</strong></p><p className="mt-4 rounded-lg border border-rule bg-paper px-3 py-3 text-xs leading-5 text-body">Checkout belum tersedia saat ini. Pilihan kelas Anda tetap tersimpan; belum ada transaksi yang dibuat.</p><Link href="/checkout" className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-leaf px-4 py-3 text-sm font-bold text-white transition hover:bg-leaf-dark">Lihat checkout <ArrowRight className="h-4 w-4" /></Link></aside>
         </div>}
     </div>
   </main>;

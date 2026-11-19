@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession, isTutorSession } from "@/lib/auth";
+import { canManageSessions, getServerSession } from "@/lib/auth";
 import { readLocalDb, writeLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
-  if (!isTutorSession(session)) return NextResponse.json({ error: "Akses khusus tutor." }, { status: 403 });
+  if (!canManageSessions(session)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
   const { id } = await context.params;
   const supabase = await getSupabaseServerClient();
   if (supabase) {
@@ -26,7 +26,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
-  if (!isTutorSession(session)) return NextResponse.json({ error: "Akses khusus tutor." }, { status: 403 });
+  if (!canManageSessions(session)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
   const { id } = await context.params; const body = await request.json().catch(() => ({}));
   const supabase = await getSupabaseServerClient();
   if (supabase) {
@@ -69,4 +69,32 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     await writeLocalDb(db); return NextResponse.json({ ok: true });
   }
   return NextResponse.json({ error: "Aksi tidak dikenal." }, { status: 400 });
+}
+
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession();
+  if (!canManageSessions(session)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
+  const { id } = await context.params;
+  const supabase = await getSupabaseServerClient();
+  if (supabase) {
+    let query = supabase.from("class_sessions").select("id,status").eq("id", id);
+    if (session?.role === "tutor") query = query.eq("teacher_id", session.id);
+    const { data: owned, error: lookupError } = await query.maybeSingle();
+    if (lookupError) return NextResponse.json({ error: "Status sesi belum dapat diperiksa. Coba lagi." }, { status: 503 });
+    if (!owned) return NextResponse.json({ error: "Sesi tidak ditemukan atau bukan sesi yang dapat Anda kelola." }, { status: 404 });
+    if (owned.status === "open") return NextResponse.json({ error: "Sesi masih terbuka. Tutup sesi terlebih dahulu sebelum menghapusnya." }, { status: 409 });
+    const { data: deleted, error } = await supabase.from("class_sessions").delete().eq("id", id).eq("status", "closed").select("id");
+    if (error) return NextResponse.json({ error: "Sesi belum dapat dihapus. Coba lagi." }, { status: 503 });
+    if (!deleted?.length) return NextResponse.json({ error: "Status sesi berubah. Muat ulang riwayat sebelum menghapus." }, { status: 409 });
+    return NextResponse.json({ ok: true });
+  }
+  const db = await readLocalDb();
+  const index = (db.classSessions || []).findIndex((item) => item.id === id && (session?.role !== "tutor" || item.teacherId === session.id));
+  if (index < 0) return NextResponse.json({ error: "Sesi tidak ditemukan atau bukan sesi yang dapat Anda kelola." }, { status: 404 });
+  if (db.classSessions![index].status === "open") return NextResponse.json({ error: "Sesi masih terbuka. Tutup sesi terlebih dahulu sebelum menghapusnya." }, { status: 409 });
+  db.classSessions!.splice(index, 1);
+  db.classSessionGuests = (db.classSessionGuests || []).filter((item) => item.sessionId !== id);
+  db.classSessionAttendance = (db.classSessionAttendance || []).filter((item) => item.sessionId !== id);
+  await writeLocalDb(db);
+  return NextResponse.json({ ok: true });
 }

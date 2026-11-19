@@ -112,7 +112,7 @@ export default function AdminTestimoniManager({
                 required
                 value={nama}
                 onChange={(e) => setNama(e.target.value)}
-                placeholder="Pak Budi / Ibu Ratna"
+                placeholder="Contoh: Pak Budi"
                 className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs text-[#1A2E1A] focus:border-[#14532D] focus:outline-none"
               />
             </div>

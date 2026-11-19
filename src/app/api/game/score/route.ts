@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "@/lib/auth";
+import { getSessionWithGuestContext } from "@/lib/auth";
 import { saveGameScore } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getSessionWithGuestContext();
     const body = await req.json();
     const { gameId, gameTitle, score } = body;
 

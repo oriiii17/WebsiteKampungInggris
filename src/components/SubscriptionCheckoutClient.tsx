@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { SessionPayload, SubscriptionPlan, SubscriptionRecord } from "@/lib/types";
+import { formatIDR } from "@/lib/currency";
 
 interface Props {
   plans: SubscriptionPlan[];
@@ -137,7 +138,7 @@ export default function SubscriptionCheckoutClient({ plans, session }: Props) {
 
               <div className="mt-3 flex items-baseline gap-1.5">
                 <span className="text-3xl font-extrabold text-gray-900">
-                  Rp {plan.priceIdr.toLocaleString("id-ID")}
+                  {formatIDR(plan.priceIdr)}
                 </span>
                 <span className="text-xs text-gray-500">
                   / {plan.durationDays} hari aktif
@@ -209,7 +210,7 @@ export default function SubscriptionCheckoutClient({ plans, session }: Props) {
           <div>
             <p className="text-xs text-gray-500">Total Pembayaran:</p>
             <p className="text-2xl font-extrabold text-gray-900">
-              Rp {selectedPlan?.priceIdr.toLocaleString("id-ID")}
+              {selectedPlan ? formatIDR(selectedPlan.priceIdr) : ""}
             </p>
           </div>
 
@@ -258,7 +259,7 @@ export default function SubscriptionCheckoutClient({ plans, session }: Props) {
                 Order ID: <span className="font-mono">{activeOrder.orderId}</span>
               </p>
               <p className="mt-1 text-2xl font-extrabold text-gray-900">
-                Rp {activeOrder.amountIdr.toLocaleString("id-ID")}
+                {formatIDR(activeOrder.amountIdr)}
               </p>
               <span className="mt-2 inline-block rounded bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
                 Metode: {paymentMethod}

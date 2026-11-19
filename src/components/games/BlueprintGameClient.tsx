@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Heart, Loader2, RotateCcw, Volume2, X } from "lucide-react";
 import { GAME_TEMPLATES, type GameBlueprint, type GameBlueprintItem } from "@/lib/game-blueprint";
 import { evaluateBlueprintAnswer, initialGameProgress, submitBlueprintAnswer, type GameProgress } from "@/lib/game-engine";
+import TagInput from "@/components/ui/TagInput";
 
 function shuffled<T>(values: T[]): T[] { return [...values].sort(() => Math.random() - 0.5); }
 
@@ -19,7 +20,7 @@ export default function BlueprintGameClient({ gameId }: { gameId: string }) {
   const [finished, setFinished] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [sentenceWords, setSentenceWords] = useState<string[]>([]);
-  const [wordGuess, setWordGuess] = useState("");
+  const [wordGuess, setWordGuess] = useState<string[]>([]);
   const [bankIndex, setBankIndex] = useState(0);
   const item = game?.items[itemIndex];
   const options = useMemo(() => item?.options ? game?.settings.randomizeOptions ? shuffled(item.options) : item.options : [], [game?.settings.randomizeOptions, item]);
@@ -64,7 +65,7 @@ export default function BlueprintGameClient({ gameId }: { gameId: string }) {
     if (!game || !item || !progress) return;
     let normalizedAnswer = answer;
     if (game.template === "sentence-builder") normalizedAnswer = sentenceWords;
-    if (game.template === "word-search") normalizedAnswer = wordGuess.split(",").map((word) => word.trim().toUpperCase()).filter(Boolean);
+    if (game.template === "word-search") normalizedAnswer = wordGuess;
     const correct = evaluateBlueprintAnswer(game, item, normalizedAnswer);
     setOutcome(correct);
     const result = submitBlueprintAnswer(game, progress, correct);
@@ -85,11 +86,11 @@ export default function BlueprintGameClient({ gameId }: { gameId: string }) {
 
   function advance() {
     if (finished || !game || itemIndex >= game.items.length - 1) { setFinished(true); setOutcome(null); return; }
-    setItemIndex((index) => index + 1); setAnswer(null); setOutcome(null); setSentenceWords([]); setWordGuess(""); setBankIndex(0); setTimeLeft(game.settings.timeLimitSec || null);
+    setItemIndex((index) => index + 1); setAnswer(null); setOutcome(null); setSentenceWords([]); setWordGuess([]); setBankIndex(0); setTimeLeft(game.settings.timeLimitSec || null);
   }
   function startAgain() {
     if (!game) return;
-    setItemIndex(0); setProgress(initialGameProgress(game)); setAnswer(null); setOutcome(null); setFinished(false); setSentenceWords([]); setWordGuess(""); setBankIndex(0); setTimeLeft(game.settings.timeLimitSec || null);
+    setItemIndex(0); setProgress(initialGameProgress(game)); setAnswer(null); setOutcome(null); setFinished(false); setSentenceWords([]); setWordGuess([]); setBankIndex(0); setTimeLeft(game.settings.timeLimitSec || null);
   }
   function chooseOption(index: number) { setAnswer(index); }
 
@@ -121,7 +122,7 @@ export default function BlueprintGameClient({ gameId }: { gameId: string }) {
 
       {game.template === "word-bank" && <div className="mt-7 space-y-3">{(() => { const entry = item.vocabulary?.[Math.min(bankIndex, (item.vocabulary?.length || 1) - 1)]; return entry ? <article className="rounded-lg border border-[#d2c5ad] bg-white p-5"><p className="text-xs font-bold text-[#625f54]">Kartu {bankIndex + 1} dari {item.vocabulary?.length}</p><h3 className="mt-2 text-2xl font-bold text-[#183b2d]">{entry.term}</h3><p className="mt-1 text-base text-[#3d4038]">{entry.translation}</p>{entry.example && <p className="mt-3 text-sm italic text-[#625f54]">{entry.example}</p>}<button type="button" onClick={() => speak(entry.pronunciation || entry.term)} className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm font-bold text-[#244b3a]"><Volume2 className="h-4 w-4" />Dengarkan</button></article> : null; })()}<button type="button" disabled={outcome !== null} onClick={() => { if (bankIndex + 1 < (item.vocabulary?.length || 1)) setBankIndex(bankIndex + 1); else setAnswer("reviewed"); }} className="min-h-11 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white disabled:opacity-45">{bankIndex + 1 < (item.vocabulary?.length || 1) ? "Kosakata berikutnya" : "Selesai mempelajari"}</button></div>}
 
-      {game.template === "word-search" && <div className="mt-7 space-y-3"><div className="inline-grid gap-1 rounded-lg border border-[#d2c5ad] bg-white p-3 font-bold text-[#183b2d]">{item.grid?.map((row, index) => <div key={index} className="tracking-[0.35em]">{row.split("").join(" ")}</div>)}</div><p className="text-sm text-[#3d4038]">Cari: {item.words?.join(" · ")}</p><label className="block text-sm font-bold">Kata yang ditemukan<input className="mt-1 min-h-11 w-full rounded-lg border border-[#b8aa8e] bg-white px-3 text-sm" placeholder="Pisahkan dengan koma" value={wordGuess} onChange={(event) => setWordGuess(event.target.value)} /></label></div>}
+      {game.template === "word-search" && <div className="mt-7 space-y-3"><div className="inline-grid gap-1 rounded-lg border border-[#d2c5ad] bg-white p-3 font-bold text-[#183b2d]">{item.grid?.map((row, index) => <div key={index} className="tracking-[0.35em]">{row.split("").join(" ")}</div>)}</div><p className="text-sm text-[#3d4038]">Cari: {item.words?.join(" · ")}</p><TagInput label="Kata yang ditemukan" values={wordGuess} onChange={setWordGuess} uppercase placeholder="Tulis kata, lalu tekan Enter" /></div>}
 
       {outcome !== null && <div role="status" className={`mt-6 flex items-start gap-3 rounded-lg p-4 text-sm ${outcome ? "bg-[#e6eadf] text-[#183b2d]" : "bg-[#ba472f]/10 text-[#943520]"}`}>{outcome ? <Check className="h-5 w-5 shrink-0" /> : <X className="h-5 w-5 shrink-0" />}<div><strong>{outcome ? "Jawaban benar!" : "Belum tepat."}</strong>{item.explanation && <p className="mt-1 leading-6">{item.explanation}</p>}</div></div>}
       <div className="mt-7 flex flex-wrap justify-end gap-3">{outcome === null ? <button type="button" disabled={answer === null && game.template !== "word-bank" && game.template !== "word-search"} onClick={submit} className="min-h-12 rounded-lg bg-[#ba472f] px-6 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">Periksa jawaban</button> : <button type="button" onClick={advance} className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#244b3a] px-6 text-sm font-bold text-white">{finished || itemIndex === game.items.length - 1 ? "Lihat hasil" : "Lanjut"}<ArrowRight className="h-4 w-4" /></button>}</div>

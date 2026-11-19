@@ -10,7 +10,7 @@
   --nav-rule: #d2c5ad;
 
   position: sticky;
-  z-index: 40;
+  z-index: 100;
   top: 0;
   color: var(--nav-ink);
   background: var(--nav-page);
@@ -19,7 +19,7 @@
 }
 
 .navbarScrolled {
-  background: rgba(253, 249, 240, .97);
+  background: #fdf9f0;
   box-shadow: 0 8px 22px rgba(32, 37, 31, .07);
 }
 

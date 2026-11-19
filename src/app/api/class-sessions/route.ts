@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { getServerSession, isTutorSession } from "@/lib/auth";
+import { canManageSessions, getServerSession } from "@/lib/auth";
 import { getClasses, readLocalDb, writeLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type { StoredClassSession } from "@/lib/class-session";
@@ -14,7 +14,7 @@ function fromRow(row: any): StoredClassSession {
 
 export async function GET() {
   const session = await getServerSession();
-  if (!isTutorSession(session)) return NextResponse.json({ error: "Akses khusus tutor." }, { status: 403 });
+  if (!canManageSessions(session)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
   const supabase = await getSupabaseServerClient();
   if (supabase) {
     let query = supabase.from("class_sessions").select("*").order("created_at", { ascending: false });
@@ -35,7 +35,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await getServerSession();
-  if (!isTutorSession(session)) return NextResponse.json({ error: "Akses khusus tutor." }, { status: 403 });
+  if (!canManageSessions(session)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
   const body = await request.json().catch(() => ({}));
   const title = String(body.title || "").trim().replace(/\s+/g, " ");
   if (title.length < 3 || title.length > 100) return NextResponse.json({ error: "Nama sesi harus berisi 3–100 karakter." }, { status: 400 });

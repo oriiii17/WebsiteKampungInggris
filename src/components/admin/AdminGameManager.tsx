@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Save, ImagePlus, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import TagInput from "@/components/ui/TagInput";
 import type { GameKind, GameQuestion, GameRecord } from "@/lib/types";
 import { emptyQuestion } from "@/lib/builtin-games";
 
@@ -256,9 +257,11 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
                       <div key={oi} className="flex items-center gap-2">
                         <input type="radio" name={`correct-answer-${q.id}`} checked={((q as any).correctIndexes||[0])[0]===oi} onChange={()=>updateQuestion(qq=>({...qq, correctIndexes:[oi], choiceMode:"single"}))} aria-label={`Tandai pilihan ${String.fromCharCode(65+oi)} sebagai jawaban benar`} className="h-4 w-4"/>
                         <span className="w-5 text-xs font-bold text-gray-500">{String.fromCharCode(65+oi)}.</span>
-                        <input value={opt} onChange={e=>{ const ops=((q as any).options||["","","",""]).slice(); ops[oi]=e.target.value; updateQuestion(qq=>({...qq,options:ops})); }} placeholder={`Pilihan ${String.fromCharCode(65+oi)}`} className="flex-1 rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/>
+                        <input value={opt} onChange={e=>{ const ops=((q as any).options||["","","",""]).slice(); ops[oi]=e.target.value; updateQuestion(qq=>({...qq,options:ops})); }} placeholder={`Pilihan ${String.fromCharCode(65+oi)}`} className="min-h-11 flex-1 rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/>
+                        {((q as any).options||["","","",""]).length > 2 && <button type="button" onClick={()=>updateQuestion(qq=>{ const old=(qq as any).options||["","","",""]; const correct=((qq as any).correctIndexes||[0])[0]||0; const options=old.filter((_:string,index:number)=>index!==oi); const nextCorrect=correct===oi?Math.min(oi,options.length-1):correct>oi?correct-1:correct; return {...qq,options,correctIndexes:[nextCorrect]}; })} aria-label={`Hapus pilihan ${oi+1}`} className="grid min-h-11 min-w-11 place-items-center rounded-md text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4"/></button>}
                       </div>
                     ))}
+                    <button type="button" disabled={((q as any).options||["","","",""]).length>=6} onClick={()=>updateQuestion(qq=>({...qq,options:[...((qq as any).options||["","","",""]),""]}))} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[#d2c5ad] px-3 text-sm font-bold text-[#14532D] disabled:opacity-50"><Plus className="h-4 w-4"/>Tambah pilihan</button>
                   </div>
                 )}
                 {selected.kind === "tebak_kata" && (
@@ -283,8 +286,9 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
                 )}
                 {selected.kind === "susun_kalimat" && (
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold">Kalimat benar (urutan kata dipisah spasi)<input value={(q as any).sentence|| ((q as any).words||[]).join(" ")} onChange={e=>updateQuestion(qq=>({...qq,sentence:e.target.value, words:e.target.value.split(/\s+/).filter(Boolean)}))} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/></label>
-                    <p className="text-[11px] text-gray-500">Kata akan diacak saat dimainkan: {((q as any).words||[]).join(" · ")}</p>
+                    <label className="block text-xs font-bold">Kalimat benar<input value={(q as any).sentence|| ((q as any).words||[]).join(" ")} onChange={e=>updateQuestion(qq=>({...qq,sentence:e.target.value, words:e.target.value.trim().split(/\s+/).filter(Boolean)}))} placeholder="Contoh: I learn English every day" className="mt-1 min-h-11 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/></label>
+                    <p className="text-[11px] text-gray-500">Pratinjau kartu kata · geser atau gunakan tombol urut</p>
+                    <div className="flex flex-wrap gap-2">{((q as any).words||String((q as any).sentence||"").trim().split(/\s+/).filter(Boolean)).map((word:string,wi:number,words:string[])=> <div key={`${word}-${wi}`} draggable onDragStart={e=>e.dataTransfer.setData("text/plain",String(wi))} onDragOver={e=>e.preventDefault()} onDrop={e=>{ const from=Number(e.dataTransfer.getData("text/plain")); const next=[...words]; const [moved]=next.splice(from,1); next.splice(wi,0,moved); updateQuestion(qq=>({...qq,words:next,sentence:next.join(" ")})); }} className="inline-flex items-center gap-1 rounded-md border border-[#d2c5ad] bg-white px-2"><span className="px-1 text-sm font-semibold text-[#14532D]">{word}</span><button type="button" disabled={wi===0} aria-label={`Pindahkan kata ${word} ke kiri`} onClick={()=>{const next=[...words];[next[wi-1],next[wi]]=[next[wi],next[wi-1]];updateQuestion(qq=>({...qq,words:next,sentence:next.join(" ")}));}} className="min-h-11 min-w-11 rounded text-[#14532D] disabled:opacity-35"><ChevronUp className="h-4 w-4"/></button><button type="button" disabled={wi===words.length-1} aria-label={`Pindahkan kata ${word} ke kanan`} onClick={()=>{const next=[...words];[next[wi],next[wi+1]]=[next[wi+1],next[wi]];updateQuestion(qq=>({...qq,words:next,sentence:next.join(" ")}));}} className="min-h-11 min-w-11 rounded text-[#14532D] disabled:opacity-35"><ChevronDown className="h-4 w-4"/></button></div>)}</div>
                   </div>
                 )}
                 {selected.kind === "tebak_gambar" && (
@@ -292,8 +296,9 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
                     <label className="block text-xs font-bold">Jawaban Benar<input value={(q as any).answer||""} onChange={e=>updateQuestion(qq=>({...qq,answer:e.target.value}))} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/></label>
                     <p className="text-xs font-bold">Pilihan jawaban (opsional, tandai jawaban benar)</p>
                     {((q as any).options||["","","",""]).map((opt:string, oi:number)=> (
-                      <div key={oi} className="flex items-center gap-2">{q.choiceMode === "multiple" ? <input type="checkbox" checked={((q as any).correctIndexes||[0]).includes(oi)} onChange={e=>updateQuestion(qq=>{ const current:number[]=(qq as any).correctIndexes||[0]; const next=e.target.checked?Array.from(new Set([...current,oi])):current.filter((index:number)=>index!==oi); return {...qq,correctIndexes:next.length?next:current}; })} aria-label={`Tandai opsi ${oi+1} sebagai jawaban benar`} className="h-4 w-4"/> : <input type="radio" name={`image-answer-${q.id}`} checked={((q as any).correctIndexes||[0])[0]===oi} onChange={()=>updateQuestion(qq=>({...qq,correctIndexes:[oi],choiceMode:"single"}))} aria-label={`Tandai opsi ${oi+1} sebagai jawaban benar`} className="h-4 w-4"/>}<input value={opt} onChange={e=>{ const ops=((q as any).options||["","","",""]).slice(); ops[oi]=e.target.value; updateQuestion(qq=>({...qq,options:ops})); }} placeholder={`Pilihan ${oi+1}`} className="mb-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/></div>
+                      <div key={oi} className="flex items-center gap-2">{q.choiceMode === "multiple" ? <input type="checkbox" checked={((q as any).correctIndexes||[0]).includes(oi)} onChange={e=>updateQuestion(qq=>{ const current:number[]=(qq as any).correctIndexes||[0]; const next=e.target.checked?Array.from(new Set([...current,oi])):current.filter((index:number)=>index!==oi); return {...qq,correctIndexes:next.length?next:current}; })} aria-label={`Tandai opsi ${oi+1} sebagai jawaban benar`} className="h-4 w-4"/> : <input type="radio" name={`image-answer-${q.id}`} checked={((q as any).correctIndexes||[0])[0]===oi} onChange={()=>updateQuestion(qq=>({...qq,correctIndexes:[oi],choiceMode:"single"}))} aria-label={`Tandai opsi ${oi+1} sebagai jawaban benar`} className="h-4 w-4"/>}<input value={opt} onChange={e=>{ const ops=((q as any).options||["","","",""]).slice(); ops[oi]=e.target.value; updateQuestion(qq=>({...qq,options:ops})); }} placeholder={`Pilihan ${oi+1}`} className="mb-1 min-h-11 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/>{((q as any).options||["","","",""]).length>2 && <button type="button" onClick={()=>updateQuestion(qq=>{const old=(qq as any).options||["","","",""];const correct:number[]=((qq as any).correctIndexes||[0]).filter((index:number)=>index!==oi).map((index:number)=>index>oi?index-1:index);return {...qq,options:old.filter((_:string,index:number)=>index!==oi),correctIndexes:correct.length?correct:[Math.min(oi,old.length-2)]};})} aria-label={`Hapus pilihan ${oi+1}`} className="grid min-h-11 min-w-11 place-items-center rounded-md text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4"/></button>}</div>
                     ))}
+                    <button type="button" disabled={((q as any).options||[]).length>=6} onClick={()=>updateQuestion(qq=>({...qq,options:[...((qq as any).options||[]),""]}))} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[#d2c5ad] px-3 text-sm font-bold text-[#14532D] disabled:opacity-50"><Plus className="h-4 w-4"/>Tambah pilihan</button>
                   </div>
                 )}
                 {selected.kind === "kata_hilang" && (
@@ -309,6 +314,7 @@ export default function AdminGameManager({ notify }: { notify: (m:string)=>void 
                     <label className="text-xs font-bold">Jawaban Cepat (benar)<input value={(q as any).answer||""} onChange={e=>updateQuestion(qq=>({...qq,answer:e.target.value}))} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3 py-2 text-sm"/></label>
                   </div>
                 )}
+                {["tebak_kata","tebak_gambar","kata_hilang","duel_kata_cepat"].includes(selected.kind) && <TagInput label="Jawaban alternatif (opsional)" values={Array.isArray((q as any).acceptAlternatives) ? (q as any).acceptAlternatives : String((q as any).acceptAlternatives || "").split(/[,;\/\n]+/).map((value:string)=>value.trim()).filter(Boolean)} onChange={(acceptAlternatives)=>updateQuestion(qq=>({...qq,acceptAlternatives}))} placeholder="Tambahkan ejaan atau jawaban lain"/>}
               </div>
 
               {/* Kanan: properti */}

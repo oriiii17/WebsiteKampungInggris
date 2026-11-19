@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -21,6 +21,7 @@ import {
   Users,
   Radio,
 } from "lucide-react";
+import { formatIDR } from "@/lib/currency";
 import {
   ModuleItem,
   SubscriptionRecord,
@@ -368,7 +369,7 @@ export default function AdminDashboardClient() {
                   <StatCard label="Modul Aktif" value={`${data.stats.totalModules}`} subValue="Flipbook terbit" icon={<BookOpen className="h-4 w-4" />} />
                   <StatCard label="Kode Akses" value={`${data.stats.totalCodes}`} subValue="Kode aktif" icon={<KeyRound className="h-4 w-4" />} />
                   <StatCard label="Soal & Kosakata" value={`${data.stats.totalQuizQuestions + data.stats.totalFlashcards}`} subValue="Item latihan" icon={<Gamepad2 className="h-4 w-4" />} />
-                  <StatCard label="Pendapatan" value={`Rp ${data.stats.totalRevenueIdr.toLocaleString("id-ID")}`} subValue="Langganan umum" icon={<CreditCard className="h-4 w-4" />} />
+                  <StatCard label="Pendapatan" value={`${formatIDR(data.stats.totalRevenueIdr)}`} subValue="Langganan umum" icon={<CreditCard className="h-4 w-4" />} />
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">

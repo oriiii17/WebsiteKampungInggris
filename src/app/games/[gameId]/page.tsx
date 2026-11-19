@@ -1,12 +1,12 @@
 import BlueprintGameClient from "@/components/games/BlueprintGameClient";
 import { notFound } from "next/navigation";
-import { getServerSession } from "@/lib/auth";
+import { getSessionWithGuestContext } from "@/lib/auth";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { readLocalDb } from "@/lib/db";
 
 export default async function BlueprintGamePage({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = await params;
-  const session = await getServerSession();
+  const session = await getSessionWithGuestContext();
   if (session?.role === "guest") {
     let allowed = false;
     if (session.guestSessionId && session.guestRegistrationId) {

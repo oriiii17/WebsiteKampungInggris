@@ -3,6 +3,7 @@ import { getServerSession, isAdminSession } from "@/lib/auth";
 import { getClasses, getClassByIdOrSlug, upsertClass, deleteClass } from "@/lib/db";
 import { ClassItem, ClassModule, ClassQuiz } from "@/lib/types";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { formatIDR, MAX_PRICE_IDR } from "@/lib/currency";
 
 async function withInstalledGames(items: ClassItem[]) {
   const supabase = await getSupabaseServerClient();
@@ -31,6 +32,11 @@ async function saveInstalledGames(classId: string, ids: unknown) {
 
 function slugify(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function hasValidPrice(value: unknown): boolean {
+  const price = Number(value ?? 0);
+  return Number.isSafeInteger(price) && price >= 0 && price <= MAX_PRICE_IDR;
 }
 
 function normalizeQuiz(input: any, kelasId: string, moduleId: string): ClassQuiz | null {
@@ -144,6 +150,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     if (!String(body.title || "").trim()) return NextResponse.json({ ok: false, error: "Judul kelas wajib diisi." }, { status: 400 });
+    if (!hasValidPrice(body.priceIdr)) return NextResponse.json({ ok: false, error: `Harga harus berupa bilangan bulat dari Rp 0 sampai ${formatIDR(MAX_PRICE_IDR)}.` }, { status: 400 });
     const toSave = buildClass(body);
     await upsertClass(toSave);
     await saveInstalledGames(toSave.id, toSave.gameBlueprintIds);
@@ -172,6 +179,7 @@ export async function PATCH(req: NextRequest) {
     const all = await getClasses(true);
     const existing = all.find((c) => c.id === body.id);
     if (!existing) return NextResponse.json({ ok: false, error: `Kelas dengan ID ${body.id} tidak ditemukan di database.` }, { status: 404 });
+    if (!hasValidPrice(body.priceIdr ?? existing.priceIdr)) return NextResponse.json({ ok: false, error: `Harga harus berupa bilangan bulat dari Rp 0 sampai ${formatIDR(MAX_PRICE_IDR)}.` }, { status: 400 });
     const toSave = buildClass(body, existing);
     await upsertClass(toSave);
     await saveInstalledGames(toSave.id, toSave.gameBlueprintIds);

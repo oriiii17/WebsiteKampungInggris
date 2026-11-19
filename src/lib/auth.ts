@@ -1,8 +1,11 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 import { SessionPayload } from "./types";
 
 const SESSION_COOKIE_NAME = "sapen_session";
+const SUPABASE_ACCESS_TOKEN_COOKIE = "sapen_supabase_access";
+export const GUEST_SESSION_COOKIE_NAME = "sapen_guest_session";
 let ephemeralSessionSecret: string | null = null;
 
 function getSecret(): string {
@@ -44,13 +47,51 @@ export async function getServerSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const raw = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const session = decodeSessionToken(raw);
-  if (!session) return null;
-  if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) return null;
-  const hasSupabaseUserId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(session.id);
-  if ((session.origin === "admin" || session.origin === "tutor" || session.origin === "luar_belum_aktif" || session.origin === "luar_langganan") && !hasSupabaseUserId) {
+  if (session && !(session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now())) {
+    const hasSupabaseUserId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(session.id);
+    if (!(session.origin === "admin" || session.origin === "tutor" || session.origin === "luar_belum_aktif" || session.origin === "luar_langganan") || hasSupabaseUserId) return session;
+  }
+  return getVerifiedSupabaseSession(cookieStore.get(SUPABASE_ACCESS_TOKEN_COOKIE)?.value);
+}
+
+/** Rebuilds the app session from Supabase's verified access token when the app cookie is stale. */
+async function getVerifiedSupabaseSession(accessToken?: string): Promise<SessionPayload | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!accessToken || !url || !anonKey) return null;
+  try {
+    const supabase = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+    if (error || !user) return null;
+    const { data: profile } = await supabase.from("profiles").select("role,full_name").eq("id", user.id).maybeSingle();
+    const role = profile?.role || user.app_metadata?.role;
+    if (role !== "pengurus" && role !== "developer" && role !== "tutor") return null;
+    const name = profile?.full_name || user.user_metadata?.full_name || (role === "developer" ? "Developer Sistem Sapen" : role === "tutor" ? "Tutor Sapen" : "Pengurus Kampung Sapen");
+    return {
+      id: user.id,
+      name,
+      email: user.email || undefined,
+      role,
+      origin: role === "tutor" ? "tutor" : "admin",
+      watermarkText: `PREVIEW ADMIN • ${name.toUpperCase()}`,
+    };
+  } catch {
     return null;
   }
+}
+
+/** Guest attendance is scoped separately so it cannot replace an account session in another tab. */
+export async function getGuestServerSession(): Promise<SessionPayload | null> {
+  const cookieStore = await cookies();
+  const session = decodeSessionToken(cookieStore.get(GUEST_SESSION_COOKIE_NAME)?.value);
+  if (!session || session.role !== "guest" || session.origin !== "guest") return null;
+  if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) return null;
   return session;
+}
+
+/** Prefer guest identity on public learning routes while preserving the account cookie for admin tabs. */
+export async function getSessionWithGuestContext(): Promise<SessionPayload | null> {
+  return (await getGuestServerSession()) || await getServerSession();
 }
 
 export function hasActiveMaterialAccess(session: SessionPayload | null): boolean {
@@ -69,7 +110,13 @@ export function isAdminSession(session: SessionPayload | null): boolean {
 }
 
 export function isTutorSession(session: SessionPayload | null): boolean {
-  return Boolean(session && (isAdminSession(session) || session.role === "tutor"));
+  return canManageSessions(session);
+}
+
+const SESSION_MANAGER_ROLES = new Set<string>(["admin", "pengurus", "developer", "tutor"]);
+
+export function canManageSessions(session: SessionPayload | null): boolean {
+  return Boolean(session && SESSION_MANAGER_ROLES.has(session.role));
 }
 
 /**
