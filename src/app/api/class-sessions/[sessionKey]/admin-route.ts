@@ -13,15 +13,20 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     if (session?.role === "tutor") query = query.eq("teacher_id", session.id);
     const { data: row, error } = await query.maybeSingle();
     if (error || !row) return NextResponse.json({ error: "Sesi tidak ditemukan." }, { status: 404 });
-    const [{ data: attendees }, { data: guests }] = await Promise.all([
+    const [{ data: attendees }, { data: guests }, { data: gameLinks }] = await Promise.all([
       supabase.from("class_session_attendance").select("id,participant_name,participant_type,attended_at").eq("session_id", id).order("attended_at", { ascending: true }),
       supabase.from("class_session_guests").select("id,full_name,whatsapp,status,registered_at").eq("session_id", id).order("registered_at", { ascending: false }),
+      supabase.from("class_session_games").select("game_id").eq("session_id", id),
     ]);
-    return NextResponse.json({ session: row, attendees: attendees || [], guests: guests || [] });
+    const gameIds = (gameLinks || []).map((link) => link.game_id);
+    const { data: gameRows } = gameIds.length ? await supabase.from("game_blueprints").select("id,title,template,level").in("id", gameIds).eq("status", "session") : { data: [] };
+    return NextResponse.json({ session: row, attendees: attendees || [], guests: guests || [], games: gameRows || [] });
   }
   const db = await readLocalDb(); const local = db.classSessions?.find((item) => item.id === id && (session?.role !== "tutor" || item.teacherId === session.id));
   if (!local) return NextResponse.json({ error: "Sesi tidak ditemukan." }, { status: 404 });
-  return NextResponse.json({ session: local, attendees: db.classSessionAttendance?.filter((item) => item.sessionId === id) || [], guests: db.classSessionGuests?.filter((item) => item.sessionId === id) || [] });
+  const gameIds = (db.classSessionGames || []).filter((item) => item.sessionId === id).map((item) => item.gameId);
+  const games = (db.gameBlueprints || []).filter((game) => gameIds.includes(game.id) && game.status === "session").map(({ id: gameId, title, template, level }) => ({ id: gameId, title, template, level }));
+  return NextResponse.json({ session: local, attendees: db.classSessionAttendance?.filter((item) => item.sessionId === id) || [], guests: db.classSessionGuests?.filter((item) => item.sessionId === id) || [], games });
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -30,10 +35,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { id } = await context.params; const body = await request.json().catch(() => ({}));
   const supabase = await getSupabaseServerClient();
   if (supabase) {
-    let query = supabase.from("class_sessions").select("id,teacher_id").eq("id", id);
+    let query = supabase.from("class_sessions").select("id,teacher_id,status").eq("id", id);
     if (session?.role === "tutor") query = query.eq("teacher_id", session.id);
     const { data: owner } = await query.maybeSingle();
     if (!owner) return NextResponse.json({ error: "Sesi tidak ditemukan." }, { status: 404 });
+    if (body.action === "set-games") {
+      if (owner.status !== "open") return NextResponse.json({ error: "Game hanya dapat diatur pada sesi yang masih aktif." }, { status: 409 });
+      const gameIds = Array.isArray(body.gameIds) ? [...new Set(body.gameIds.filter((value: unknown): value is string => typeof value === "string" && value.length <= 100))].slice(0, 30) : [];
+      const { error } = await supabase.rpc("set_class_session_games", { p_session_id: id, p_game_ids: gameIds });
+      if (error) {
+        const migrationMissing = ["42883", "42P01", "PGRST202", "PGRST205"].includes(error.code || "");
+        return NextResponse.json({ error: migrationMissing ? "Penyimpanan game sesi belum tersedia. Terapkan migrasi game sesi terlebih dahulu." : "Game sesi belum dapat disimpan. Periksa kembali pilihan game lalu coba lagi." }, { status: 503 });
+      }
+      return NextResponse.json({ ok: true, gameIds });
+    }
     if (body.action === "close") {
       const { error } = await supabase.from("class_sessions").update({ status: "closed", closed_at: new Date().toISOString() }).eq("id", id);
       if (error) return NextResponse.json({ error: "Sesi belum dapat ditutup." }, { status: 503 });
@@ -53,6 +68,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
   const db = await readLocalDb(); const local = db.classSessions?.find((item) => item.id === id && (session?.role !== "tutor" || item.teacherId === session.id));
   if (!local) return NextResponse.json({ error: "Sesi tidak ditemukan." }, { status: 404 });
+  if (body.action === "set-games") {
+    if (local.status !== "open") return NextResponse.json({ error: "Game hanya dapat diatur pada sesi yang masih aktif." }, { status: 409 });
+    const gameIds = Array.isArray(body.gameIds) ? [...new Set(body.gameIds.filter((value: unknown): value is string => typeof value === "string" && value.length <= 100))].slice(0, 30) : [];
+    const availableIds = new Set((db.gameBlueprints || []).filter((game) => game.status === "session").map((game) => game.id));
+    if (gameIds.some((gameId) => !availableIds.has(gameId))) return NextResponse.json({ error: "Pilih hanya game yang berstatus Sesi." }, { status: 400 });
+    db.classSessionGames = (db.classSessionGames || []).filter((item) => item.sessionId !== id);
+    db.classSessionGames.push(...gameIds.map((gameId) => ({ sessionId: id, gameId })));
+    await writeLocalDb(db);
+    return NextResponse.json({ ok: true, gameIds });
+  }
   if (body.action === "close") { local.status = "closed"; local.closedAt = new Date().toISOString(); await writeLocalDb(db); return NextResponse.json({ ok: true }); }
   if (body.action === "approve" && typeof body.registrationId === "string") {
     const guest = db.classSessionGuests?.find((item) => item.id === body.registrationId && item.sessionId === id);

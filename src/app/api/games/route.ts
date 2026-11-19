@@ -25,14 +25,22 @@ export async function GET() {
       if (supabase) {
         const { data: guest } = await supabase.from("class_session_guests").select("session_id,status").eq("id", session.guestRegistrationId).maybeSingle();
         if (guest?.status === "approved" && guest.session_id === session.guestSessionId) {
-          const { data: links } = await supabase.from("class_games").select("game_id").eq("class_id", (await supabase.from("class_sessions").select("class_id").eq("id", session.guestSessionId).maybeSingle()).data?.class_id || "");
-          allowedGuestGameIds = (links || []).map((link) => link.game_id);
+          const classId = (await supabase.from("class_sessions").select("class_id").eq("id", session.guestSessionId).maybeSingle()).data?.class_id || "";
+          const [{ data: classLinks }, { data: sessionLinks }] = await Promise.all([
+            supabase.from("class_games").select("game_id").eq("class_id", classId),
+            supabase.from("class_session_games").select("game_id").eq("session_id", session.guestSessionId),
+          ]);
+          allowedGuestGameIds = [...new Set([...(classLinks || []), ...(sessionLinks || [])].map((link) => link.game_id))];
         }
       } else {
         const db = await readLocalDb();
         const guest = db.classSessionGuests?.find((entry) => entry.id === session.guestRegistrationId && entry.sessionId === session.guestSessionId && entry.status === "approved");
         const parent = db.classSessions?.find((entry) => entry.id === session.guestSessionId);
-        if (guest && parent) allowedGuestGameIds = parent ? db.classes?.find((item) => item.id === parent.classId)?.gameBlueprintIds || [] : [];
+        if (guest && parent) {
+          const classGameIds = db.classes?.find((item) => item.id === parent.classId)?.gameBlueprintIds || [];
+          const sessionGameIds = (db.classSessionGames || []).filter((item) => item.sessionId === session.guestSessionId).map((item) => item.gameId);
+          allowedGuestGameIds = [...new Set([...classGameIds, ...sessionGameIds])];
+        }
       }
     }
   }

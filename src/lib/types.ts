@@ -438,4 +438,5 @@ export interface DatabaseSchema {
   classSessions?: import("./class-session").StoredClassSession[];
   classSessionGuests?: import("./class-session").StoredClassSessionGuest[];
   classSessionAttendance?: import("./class-session").ClassSessionAttendance[];
+  classSessionGames?: { sessionId: string; gameId: string }[];
 }

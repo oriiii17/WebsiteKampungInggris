@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Check, Clipboard, Download, Loader2, Plus, QrCode, X, Maximize2, MessageCircle } from "lucide-react";
+import { Check, Clipboard, Download, Gamepad2, Loader2, Plus, QrCode, X, Maximize2, MessageCircle } from "lucide-react";
 import QRCode from "qrcode";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { classSessionJoinUrl, type StoredClassSession } from "@/lib/class-session";
@@ -12,6 +12,7 @@ import type { ClassItem } from "@/lib/types";
 
 type AttendanceRow = { id: string; participant_name: string; participant_type: string; attended_at: string };
 type GuestRow = { id: string; full_name: string; whatsapp: string; status: string; registered_at: string };
+type SessionGame = { id: string; title: string; template: string; level: string };
 type SessionDetail = StoredClassSession & { classTitle: string; classSlug?: string | null; attendeeCount: number; pendingCount: number };
 const inputClass = "mt-1.5 min-h-11 w-full rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] px-3 py-2 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20";
 const dateInputValue = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
@@ -38,7 +39,13 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
   const confirm = useConfirm();
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
-  const [detail, setDetail] = useState<{ attendees: AttendanceRow[]; guests: GuestRow[] } | null>(null);
+  const [detail, setDetail] = useState<{ attendees: AttendanceRow[]; guests: GuestRow[]; games: SessionGame[] } | null>(null);
+  const [sessionGameCatalog, setSessionGameCatalog] = useState<SessionGame[]>([]);
+  const [sessionGameIdsDraft, setSessionGameIdsDraft] = useState<string[]>([]);
+  const [sessionGamePickerOpen, setSessionGamePickerOpen] = useState(false);
+  const [sessionGamesLoading, setSessionGamesLoading] = useState(false);
+  const [sessionGamesSaving, setSessionGamesSaving] = useState(false);
+  const [sessionGamesError, setSessionGamesError] = useState("");
   const [selected, setSelected] = useState<SessionDetail | null>(null);
   const [title, setTitle] = useState("");
   const [classId, setClassId] = useState("");
@@ -113,7 +120,7 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
       const response = await fetch(`/api/class-sessions/${session.id}`, { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Daftar peserta belum dapat dimuat.");
-      setDetail({ attendees: data.attendees || [], guests: data.guests || [] });
+      setDetail({ attendees: data.attendees || [], guests: data.guests || [], games: data.games || [] });
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Daftar peserta belum dapat dimuat."); }
   };
 
@@ -130,7 +137,7 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
       }
       if (detailResponse?.ok) {
         const data = await detailResponse.json();
-        setDetail({ attendees: data.attendees || [], guests: data.guests || [] });
+        setDetail({ attendees: data.attendees || [], guests: data.guests || [], games: data.games || [] });
       }
     }, 5000);
     return () => window.clearInterval(timer);
@@ -147,7 +154,7 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
       setTitle(""); setStartDate(""); setStartsImmediately(false);
       await loadSessions();
       const session = { ...data.session, attendeeCount: 0, pendingCount: 0 } as SessionDetail;
-      setSelected(session); setDetail({ attendees: [], guests: [] });
+      setSelected(session); setDetail({ attendees: [], guests: [], games: [] });
       setCreateStep(0);
       changeView("aktif");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Sesi belum dapat dibuat."); }
@@ -161,6 +168,63 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
     if (!response.ok) { setError(data.error || "Perubahan belum tersimpan."); return; }
     await loadSessions(); await loadDetail(selected);
   };
+
+  const openSessionGamePicker = async () => {
+    if (!selected) return;
+    setSessionGameIdsDraft((detail?.games || []).map((game) => game.id));
+    setSessionGamesError("");
+    setSessionGamePickerOpen(true);
+    setSessionGamesLoading(true);
+    try {
+      const response = await fetch("/api/class-sessions/games", { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Game Sesi belum dapat dimuat.");
+      setSessionGameCatalog(Array.isArray(data.games) ? data.games : []);
+    } catch (reason) {
+      setSessionGamesError(reason instanceof Error ? reason.message : "Game Sesi belum dapat dimuat.");
+    } finally {
+      setSessionGamesLoading(false);
+    }
+  };
+
+  const saveSessionGames = async () => {
+    if (!selected || sessionGamesSaving) return;
+    setSessionGamesSaving(true);
+    setSessionGamesError("");
+    try {
+      const response = await fetch(`/api/class-sessions/${selected.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set-games", gameIds: sessionGameIdsDraft }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Game sesi belum dapat disimpan.");
+      const chosen = sessionGameCatalog.filter((game) => data.gameIds?.includes(game.id));
+      setDetail((current) => current ? { ...current, games: chosen } : current);
+      setToast(`${chosen.length} game disimpan untuk sesi ini.`);
+      setSessionGamePickerOpen(false);
+    } catch (reason) {
+      setSessionGamesError(reason instanceof Error ? reason.message : "Game sesi belum dapat disimpan.");
+    } finally {
+      setSessionGamesSaving(false);
+    }
+  };
+
+  const toggleSessionGame = (gameId: string) => {
+    setSessionGameIdsDraft((current) => current.includes(gameId)
+      ? current.filter((id) => id !== gameId)
+      : current.length < 30 ? [...current, gameId] : current);
+  };
+
+  useEffect(() => {
+    if (!sessionGamePickerOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !sessionGamesSaving) setSessionGamePickerOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [sessionGamePickerOpen, sessionGamesSaving]);
 
   const closeSelectedSession = async () => {
     if (!selected || operationLock.current) return;
@@ -276,10 +340,11 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
 
     {view === "aktif" && <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(18rem,.72fr)_minmax(0,1.28fr)]">
       <section className="min-w-0"><h2 className="text-lg font-bold text-[#183b2d]">Sesi berlangsung dan akan datang</h2><p className="mt-1 text-sm text-[#625f54]">{activeSessions.length} sesi aktif</p>{activeSessions.length ? <div className="mt-3 space-y-2">{[...ongoing, ...upcoming].map((session) => <button key={session.id} type="button" onClick={() => void loadDetail(session)} aria-pressed={selected?.id === session.id} className={`w-full rounded-xl border p-4 text-left transition hover:border-[#244b3a] ${selected?.id === session.id ? "border-[#244b3a] bg-[#e6eadf]" : "border-[#d2c5ad] bg-[#fdf9f0]"}`}><div className="flex items-start justify-between gap-2"><strong>{session.title}</strong><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${session.startsAt && new Date(session.startsAt).getTime() > Date.now() ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}`}>{session.startsAt && new Date(session.startsAt).getTime() > Date.now() ? "Akan datang" : "Berlangsung"}</span></div><p className="mt-1 text-sm text-[#625f54]">{session.classTitle} · {session.attendeeCount} hadir</p>{session.pendingCount > 0 && <span className="mt-2 inline-flex rounded-full bg-[#ba472f] px-2.5 py-1 text-xs font-bold text-white">{session.pendingCount} menunggu persetujuan</span>}<p className="mt-2 text-xs font-bold tracking-wider">Kode {session.code}</p></button>)}</div> : <div className="mt-4 rounded-xl bg-[#fdf9f0] p-5 text-sm"><p className="font-bold text-[#183b2d]">Belum ada sesi aktif.</p><p className="mt-1 text-[#625f54]">Buat sesi baru untuk membagikan kode presensi.</p><button type="button" onClick={() => updateDraft("buat")} className="mt-3 min-h-11 rounded-lg bg-[#244b3a] px-4 font-bold text-white">Buat sesi</button></div>}</section>
-      {selected ? <section className="min-w-0 space-y-5 rounded-2xl border border-[#d2c5ad] bg-[#fdf9f0] p-4 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold text-[#183b2d]">{selected.title}</h2><p className="mt-2 text-sm text-[#625f54]">Kode sesi</p><p className="font-display text-5xl font-bold tracking-[.12em] text-[#244b3a] sm:text-6xl">{selected.code}</p><p className="mt-2 text-sm font-bold">{selected.attendeeCount} peserta hadir</p></div>{qr && <div className="rounded-lg border border-[#d2c5ad] bg-white p-2"><Image src={qr} alt={`QR code sesi ${selected.code}`} width={150} height={150} unoptimized /><button type="button" onClick={() => setQrFullscreen(true)} className="mt-1 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#b8aa8e] text-sm font-bold text-[#244b3a]"><Maximize2 className="h-4 w-4" />Layar penuh</button></div>}</div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void copyJoinLink()} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a] transition-all duration-150 hover:-translate-y-px hover:border-[#244b3a] hover:bg-[#e8eee5] hover:shadow-sm active:scale-[.97]">{copied === "link" ? <><Check aria-hidden="true" className="h-4 w-4" />✓ Tersalin</> : <><Clipboard aria-hidden="true" className="h-4 w-4" />Salin tautan</>}</button><button type="button" onClick={() => void copySessionCode()} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a] transition-all duration-150 hover:-translate-y-px hover:border-[#244b3a] hover:bg-[#e8eee5] hover:shadow-sm active:scale-[.97]">{copied === "code" ? <><Check aria-hidden="true" className="h-4 w-4" />✓ Tersalin</> : <><Clipboard aria-hidden="true" className="h-4 w-4" />Salin kode</>}</button><a target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`Gabung sesi ${selected.title}: ${classSessionJoinUrl(window.location.origin, selected.code)}`)}`} className="inline-flex min-h-11 items-center rounded-lg bg-[#244b3a] px-3 text-sm font-bold text-white"><MessageCircle className="mr-2 h-4 w-4" />Bagikan WhatsApp</a><a href={`/api/class-sessions/${selected.id}/export`} className="inline-flex min-h-11 items-center rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold"><Download className="mr-2 h-4 w-4" />Ekspor CSV</a>{selected.status === "open" && <button type="button" disabled={busyAction === selected.id} onClick={() => void closeSelectedSession()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#943520] px-3 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{busyAction === selected.id && <Loader2 className="h-4 w-4 animate-spin" />}{busyAction === selected.id ? "Menutup…" : "Tutup sesi"}</button>}</div><section><h3 className="border-b border-[#d2c5ad] pb-2 font-bold">Daftar hadir ({detail?.attendees.length || 0})</h3>{detail?.attendees.length ? detail.attendees.map((row) => <div key={row.id} className="flex flex-wrap justify-between gap-2 border-b border-[#e6ddcd] py-3 text-sm"><strong>{row.participant_name}</strong><span className="text-[#625f54]">{row.participant_type === "guest" ? "Tamu" : "Warga"} · {new Date(row.attended_at).toLocaleString("id-ID")}</span></div>) : <p className="py-3 text-sm text-[#625f54]">Presensi peserta akan muncul di sini.</p>}</section><section><h3 className="border-b border-[#d2c5ad] pb-2 font-bold">Antrean persetujuan tamu</h3>{detail?.guests.filter((g) => g.status === "pending").length ? detail.guests.filter((g) => g.status === "pending").map((guest) => <div key={guest.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e6ddcd] py-3"><div><strong>{guest.full_name}</strong><p className="text-sm text-[#625f54]">{guest.whatsapp}</p></div><div className="flex gap-2"><button type="button" onClick={() => void sessionAction("approve", guest.id)} className="min-h-11 rounded-lg bg-[#244b3a] px-3 text-sm font-bold text-white">Setujui</button><button type="button" onClick={() => void sessionAction("reject", guest.id)} className="min-h-11 rounded-lg border border-[#943520] px-3 text-sm font-bold text-[#943520]">Tolak</button></div></div>) : <p className="py-3 text-sm text-[#625f54]">Tidak ada tamu yang menunggu persetujuan.</p>}</section></section> : <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed border-[#b8aa8e] bg-[#fdf9f0] p-6 text-center text-sm text-[#625f54]">Pilih sesi di daftar untuk melihat kode, QR, dan presensinya.</div>}
+      {selected ? <section className="min-w-0 space-y-5 rounded-2xl border border-[#d2c5ad] bg-[#fdf9f0] p-4 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold text-[#183b2d]">{selected.title}</h2><p className="mt-2 text-sm text-[#625f54]">Kode sesi</p><p className="font-display text-5xl font-bold tracking-[.12em] text-[#244b3a] sm:text-6xl">{selected.code}</p><p className="mt-2 text-sm font-bold">{selected.attendeeCount} peserta hadir</p></div>{qr && <div className="rounded-lg border border-[#d2c5ad] bg-white p-2"><Image src={qr} alt={`QR code sesi ${selected.code}`} width={150} height={150} unoptimized /><button type="button" onClick={() => setQrFullscreen(true)} className="mt-1 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#b8aa8e] text-sm font-bold text-[#244b3a]"><Maximize2 className="h-4 w-4" />Layar penuh</button></div>}</div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void copyJoinLink()} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a] transition-all duration-150 hover:-translate-y-px hover:border-[#244b3a] hover:bg-[#e8eee5] hover:shadow-sm active:scale-[.97]">{copied === "link" ? <><Check aria-hidden="true" className="h-4 w-4" />✓ Tersalin</> : <><Clipboard aria-hidden="true" className="h-4 w-4" />Salin tautan</>}</button><button type="button" onClick={() => void copySessionCode()} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a] transition-all duration-150 hover:-translate-y-px hover:border-[#244b3a] hover:bg-[#e8eee5] hover:shadow-sm active:scale-[.97]">{copied === "code" ? <><Check aria-hidden="true" className="h-4 w-4" />✓ Tersalin</> : <><Clipboard aria-hidden="true" className="h-4 w-4" />Salin kode</>}</button><a target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`Gabung sesi ${selected.title}: ${classSessionJoinUrl(window.location.origin, selected.code)}`)}`} className="inline-flex min-h-11 items-center rounded-lg bg-[#244b3a] px-3 text-sm font-bold text-white"><MessageCircle className="mr-2 h-4 w-4" />Bagikan WhatsApp</a><a href={`/api/class-sessions/${selected.id}/export`} className="inline-flex min-h-11 items-center rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold"><Download className="mr-2 h-4 w-4" />Ekspor CSV</a>{selected.status === "open" && <button type="button" disabled={busyAction === selected.id} onClick={() => void closeSelectedSession()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#943520] px-3 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{busyAction === selected.id && <Loader2 className="h-4 w-4 animate-spin" />}{busyAction === selected.id ? "Menutup…" : "Tutup sesi"}</button>}</div><section className="rounded-xl border border-[#d2c5ad] bg-white/70 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-[#183b2d]">Game untuk sesi</h3><p className="mt-1 text-sm text-[#625f54]">Pilih beberapa game berstatus Sesi untuk peserta sesi ini.</p></div><button type="button" onClick={() => void openSessionGamePicker()} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white transition hover:bg-[#183b2d] active:scale-[.98]"><Gamepad2 className="h-4 w-4" />Pilih game</button></div>{detail?.games.length ? <div className="mt-3 flex flex-wrap gap-2">{detail.games.map((game) => <Link key={game.id} href={`/games/${game.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] px-3 text-sm font-semibold text-[#244b3a] transition hover:border-[#244b3a] hover:bg-[#e8eee5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#244b3a]"><Gamepad2 className="h-4 w-4" />{game.title}</Link>)}</div> : <p className="mt-3 rounded-lg bg-[#f3e9d5] p-3 text-sm text-[#625f54]">Belum ada game. Pilih game Sesi untuk menampilkannya bagi peserta di sesi ini.</p>}</section><section><h3 className="border-b border-[#d2c5ad] pb-2 font-bold">Daftar hadir ({detail?.attendees.length || 0})</h3>{detail?.attendees.length ? detail.attendees.map((row) => <div key={row.id} className="flex flex-wrap justify-between gap-2 border-b border-[#e6ddcd] py-3 text-sm"><strong>{row.participant_name}</strong><span className="text-[#625f54]">{row.participant_type === "guest" ? "Tamu" : "Warga"} · {new Date(row.attended_at).toLocaleString("id-ID")}</span></div>) : <p className="py-3 text-sm text-[#625f54]">Presensi peserta akan muncul di sini.</p>}</section><section><h3 className="border-b border-[#d2c5ad] pb-2 font-bold">Antrean persetujuan tamu</h3>{detail?.guests.filter((g) => g.status === "pending").length ? detail.guests.filter((g) => g.status === "pending").map((guest) => <div key={guest.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e6ddcd] py-3"><div><strong>{guest.full_name}</strong><p className="text-sm text-[#625f54]">{guest.whatsapp}</p></div><div className="flex gap-2"><button type="button" onClick={() => void sessionAction("approve", guest.id)} className="min-h-11 rounded-lg bg-[#244b3a] px-3 text-sm font-bold text-white">Setujui</button><button type="button" onClick={() => void sessionAction("reject", guest.id)} className="min-h-11 rounded-lg border border-[#943520] px-3 text-sm font-bold text-[#943520]">Tolak</button></div></div>) : <p className="py-3 text-sm text-[#625f54]">Tidak ada tamu yang menunggu persetujuan.</p>}</section></section> : <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed border-[#b8aa8e] bg-[#fdf9f0] p-6 text-center text-sm text-[#625f54]">Pilih sesi di daftar untuk melihat kode, QR, dan presensinya.</div>}
     </div>}
 
     {view === "riwayat" && <section className="w-full space-y-4"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-bold text-[#183b2d]">Riwayat sesi</h2><p className="mt-1 text-sm text-[#625f54]">{historySessions.length} sesi selesai · {historySessions.reduce((sum, s) => sum + s.attendeeCount, 0)} total kehadiran</p></div><input aria-label="Cari riwayat sesi" value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Cari judul, kelas, atau kode" className={`${inputClass} max-w-sm`} /></div>{historySessions.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{historySessions.map((session) => <article key={session.id} className="flex flex-col rounded-xl border border-[#d2c5ad] bg-[#fdf9f0] p-4"><h3 className="font-bold text-[#183b2d]">{session.title}</h3><p className="mt-1 text-sm text-[#625f54]">{session.classTitle}</p><p className="mt-3 text-sm">{session.attendeeCount} peserta hadir</p><p className="mt-1 text-xs text-[#625f54]">Kode {session.code}</p><div className="mt-3 flex flex-wrap gap-2 border-t border-[#e6ddcd] pt-3"><a href={`/api/class-sessions/${session.id}/export`} className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 font-bold text-[#244b3a] underline underline-offset-4"><Download className="h-4 w-4" />Ekspor CSV</a><button type="button" disabled={busyAction === session.id} onClick={() => void deleteHistoricalSession(session)} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#943520]/40 px-3 text-sm font-bold text-[#943520] hover:bg-[#ba472f]/5 disabled:cursor-wait disabled:opacity-60">{busyAction === session.id && <Loader2 className="h-4 w-4 animate-spin" />}Hapus</button></div></article>)}</div> : <div className="rounded-xl bg-[#fdf9f0] p-6 text-sm text-[#625f54]">{sessions.some((session) => session.status === "closed") ? "Tidak ada sesi riwayat yang cocok dengan pencarian ini." : "Riwayat sesi masih kosong. Sesi akan muncul di sini setelah ditutup."}</div>}</section>}
+    {sessionGamePickerOpen && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !sessionGamesSaving) setSessionGamePickerOpen(false); }} className="fixed inset-0 z-[90] grid place-items-center bg-[#13271f]/55 p-3 sm:p-6"><section role="dialog" aria-modal="true" aria-labelledby="session-game-picker-title" className="flex max-h-[min(88dvh,760px)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[#d2c5ad] bg-[#fdf9f0] shadow-2xl"><header className="flex items-start justify-between gap-4 border-b border-[#e6ddcd] p-5"><div><h2 id="session-game-picker-title" className="text-xl font-bold text-[#183b2d]">Pilih game untuk sesi</h2><p className="mt-1 text-sm leading-5 text-[#625f54]">Pilih satu atau beberapa game kategori Sesi. Pilihan ini hanya berlaku untuk sesi “{selected?.title}”.</p></div><button type="button" aria-label="Tutup" disabled={sessionGamesSaving} onClick={() => setSessionGamePickerOpen(false)} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg border border-[#b8aa8e] text-[#244b3a] hover:bg-[#e8eee5] disabled:opacity-50"><X className="h-4 w-4" /></button></header><div className="min-h-0 flex-1 overflow-y-auto p-5">{sessionGamesError && <p role="alert" className="mb-3 rounded-lg border border-[#ba472f]/30 bg-[#ba472f]/10 p-3 text-sm text-[#7b2c1d]">{sessionGamesError}</p>}{sessionGamesLoading ? <div className="flex min-h-36 items-center justify-center gap-2 text-sm text-[#625f54]"><Loader2 className="h-5 w-5 animate-spin" />Memuat game kategori Sesi…</div> : sessionGameCatalog.length ? <div className="space-y-2">{sessionGameCatalog.map((game) => { const checked = sessionGameIdsDraft.includes(game.id); return <button key={game.id} type="button" role="checkbox" aria-checked={checked} onClick={() => toggleSessionGame(game.id)} className={`flex min-h-16 w-full items-center gap-3 rounded-xl border p-3 text-left transition ${checked ? "border-[#244b3a] bg-[#e8eee5]" : "border-[#d2c5ad] bg-white hover:border-[#244b3a]"}`}><span aria-hidden="true" className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${checked ? "border-[#244b3a] bg-[#244b3a] text-white" : "border-[#b8aa8e] bg-[#fdf9f0] text-transparent"}`}><Check className="h-4 w-4" /></span><span className="min-w-0 flex-1"><strong className="block truncate text-sm text-[#183b2d]">{game.title}</strong><span className="mt-1 block text-xs text-[#625f54]">{game.template} · Level {game.level}</span></span><Gamepad2 aria-hidden="true" className="h-5 w-5 shrink-0 text-[#8a5135]" /></button>; })}<p className="pt-2 text-xs text-[#625f54]">Dipilih {sessionGameIdsDraft.length} dari maksimal 30 game.</p></div> : <div className="grid min-h-40 place-items-center rounded-xl border border-dashed border-[#b8aa8e] p-5 text-center"><div><Gamepad2 className="mx-auto h-7 w-7 text-[#8a5135]" /><p className="mt-2 font-bold text-[#183b2d]">Belum ada game kategori Sesi</p><p className="mt-1 text-sm text-[#625f54]">Ubah status game menjadi “Sesi” di menu Kelola Game, lalu pilih kembali.</p></div></div>}</div><footer className="flex flex-col-reverse gap-2 border-t border-[#e6ddcd] bg-white/50 p-4 sm:flex-row sm:justify-between"><button type="button" disabled={sessionGamesSaving} onClick={() => setSessionGamePickerOpen(false)} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#b8aa8e] px-4 text-sm font-bold text-[#244b3a] disabled:opacity-50">Batal</button><button type="button" disabled={sessionGamesLoading || sessionGamesSaving || Boolean(sessionGamesError)} onClick={() => void saveSessionGames()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-5 text-sm font-bold text-white transition hover:bg-[#183b2d] active:scale-[.98] disabled:cursor-wait disabled:opacity-60">{sessionGamesSaving && <Loader2 className="h-4 w-4 animate-spin" />} {sessionGamesSaving ? "Menyimpan…" : "Selesai"}</button></footer></section></div>}
     {qrFullscreen && qr && <div role="presentation" className="fixed inset-0 z-[100] grid place-items-center bg-[#fdf9f0] p-5"><section role="dialog" aria-modal="true" aria-label={`QR sesi ${selected?.code}`} className="grid h-full w-full place-content-center text-center"><p className="font-display text-5xl font-bold tracking-[.15em] text-[#183b2d]">{selected?.code}</p><Image src={qr} alt={`QR code sesi ${selected?.code}`} width={560} height={560} unoptimized className="mx-auto mt-5 h-auto w-[min(70vw,70vh)]" /><p className="mt-4 text-xl font-bold text-[#244b3a]">Pindai untuk mencatat kehadiran</p><button type="button" onClick={() => setQrFullscreen(false)} className="mx-auto mt-6 inline-flex min-h-12 items-center rounded-lg border border-[#b8aa8e] px-5 font-bold text-[#244b3a]">Tutup layar penuh</button></section></div>}
   </div>;
 }
