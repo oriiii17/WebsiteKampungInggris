@@ -40,7 +40,6 @@ import AdminWargaManager from "@/components/admin/AdminWargaManager";
 import AdminTestimoniManager from "@/components/admin/AdminTestimoniManager";
 import AdminClassesManager from "@/components/admin/AdminClassesManager";
 import AdminHostGameTab from "@/components/admin/AdminHostGameTab";
-import AdminGameManager from "@/components/admin/AdminGameManager";
 import GameBuilderClient from "@/components/admin/GameBuilderClient";
 import ClassSessionManager from "@/components/admin/ClassSessionManager";
 import AdminCodesManager from "@/components/admin/AdminCodesManager";
@@ -433,13 +432,7 @@ export default function AdminDashboardClient() {
       )}
 
       {tab === "game-builder" && (
-        <div className="space-y-6">
-          <GameBuilderClient notify={notify} />
-          <details className="border-t border-rule pt-4">
-            <summary className="cursor-pointer text-sm font-bold text-leaf">Kelola game klasik</summary>
-            <div className="mt-4"><AdminGameManager notify={notify} /></div>
-          </details>
-        </div>
+        <GameBuilderClient notify={notify} />
       )}
 
       {tab === "sessions" && <ClassSessionManager />}

@@ -38,10 +38,13 @@ export async function GET() {
   }
   const supabase = await getSupabaseServerClient();
   if (supabase) {
-    const { data, error } = await supabase.from("game_blueprints").select("*").eq("status", "published").order("updated_at", { ascending: false });
+    const gamesQuery = supabase.from("game_blueprints").select("*").order("updated_at", { ascending: false });
+    const { data, error } = allowedGuestGameIds === null
+      ? await gamesQuery.eq("status", "published")
+      : await gamesQuery.in("status", ["published", "session"]);
     if (error) return NextResponse.json({ error: "Katalog game belum tersedia." }, { status: 503 });
     return NextResponse.json({ games: (data || []).map(fromRow).filter((game) => game.title?.trim() && game.title.trim().toLocaleLowerCase() !== "game baru" && (allowedGuestGameIds === null || allowedGuestGameIds.includes(game.id))) });
   }
   const db = await readLocalDb();
-  return NextResponse.json({ games: (db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => game.status === "published" && game.title?.trim() && game.title.trim().toLocaleLowerCase() !== "game baru" && (allowedGuestGameIds === null || allowedGuestGameIds.includes(game.id))) });
+  return NextResponse.json({ games: (db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => (game.status === "published" || (allowedGuestGameIds !== null && game.status === "session")) && game.title?.trim() && game.title.trim().toLocaleLowerCase() !== "game baru" && (allowedGuestGameIds === null || allowedGuestGameIds.includes(game.id))) });
 }

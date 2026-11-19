@@ -4,6 +4,7 @@ import "./globals.css";
 import PublicChrome from "@/components/PublicChrome";
 import PublicFooter from "@/components/PublicFooter";
 import { getGuestServerSession, getServerSession } from "@/lib/auth";
+import { getGuestSessionDestination } from "@/lib/guest-session-destination";
 import { SITE_CONFIG } from "@/config/site";
 import AppDialogProvider from "@/components/AppDialogProvider";
 import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
@@ -44,7 +45,8 @@ const organizationSchema = {
 
 async function NavbarWithSession() {
   const [session, guestSession] = await Promise.all([getServerSession(), getGuestServerSession()]);
-  return <PublicChrome session={session} guestSession={guestSession} />;
+  const guestClassHref = guestSession ? await getGuestSessionDestination(guestSession) : undefined;
+  return <PublicChrome session={session} guestSession={guestSession} guestClassHref={guestClassHref} />;
 }
 
 export default function RootLayout({

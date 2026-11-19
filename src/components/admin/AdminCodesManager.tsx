@@ -16,13 +16,34 @@ type Participant = {
 type GuestParticipant = {
   id: string;
   name: string;
-  whatsapp: string;
+  whatsapp: string | null;
   status: "pending" | "approved" | "rejected" | string;
   registeredAt: string;
+  sessionDate: string;
   sessionTitle: string;
   sessionCode: string;
   classTitle: string;
 };
+
+const guestCountries = [
+  { name: "Indonesia", dial: "62" }, { name: "Malaysia", dial: "60" }, { name: "Singapura", dial: "65" },
+  { name: "Brunei", dial: "673" }, { name: "Thailand", dial: "66" }, { name: "Filipina", dial: "63" },
+  { name: "Vietnam", dial: "84" }, { name: "Timor-Leste", dial: "670" }, { name: "Australia", dial: "61" },
+  { name: "Selandia Baru", dial: "64" }, { name: "Jepang", dial: "81" }, { name: "Korea Selatan", dial: "82" },
+  { name: "Tiongkok", dial: "86" }, { name: "India", dial: "91" }, { name: "Arab Saudi", dial: "966" },
+  { name: "Uni Emirat Arab", dial: "971" }, { name: "Britania Raya", dial: "44" }, { name: "Jerman", dial: "49" },
+  { name: "Prancis", dial: "33" }, { name: "Belanda", dial: "31" }, { name: "Amerika Serikat/Kanada", dial: "1" },
+];
+
+function phoneCountryPrefix(phone: string | null | undefined) {
+  let digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.startsWith("0")) digits = `62${digits.slice(1)}`;
+  return [...guestCountries].sort((a, b) => b.dial.length - a.dial.length).find((country) => digits.startsWith(country.dial))?.dial || "other";
+}
+
+const guestSelectClass = "min-h-11 w-full rounded-lg border border-[#c9bda7] bg-[#fffdf8] px-3 text-sm text-[#20251f] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20";
 
 interface Props {
   data: any;
@@ -39,6 +60,11 @@ export default function AdminCodesManager(props: Props) {
   const [activeList, setActiveList] = useState<"users" | "guests">("users");
   const [guestRows, setGuestRows] = useState<GuestParticipant[]>([]);
   const [guestQuery, setGuestQuery] = useState("");
+  const [guestCountry, setGuestCountry] = useState("all");
+  const [guestSession, setGuestSession] = useState("all");
+  const [guestDay, setGuestDay] = useState("all");
+  const [guestMonth, setGuestMonth] = useState("all");
+  const [guestYear, setGuestYear] = useState("all");
   const [guestLoading, setGuestLoading] = useState(false);
   const [guestError, setGuestError] = useState("");
 
@@ -92,9 +118,17 @@ export default function AdminCodesManager(props: Props) {
     if (!q) return true;
     return p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || (p.rw||"").toLowerCase().includes(q);
   });
+  const guestSessionOptions = [...new Set(guestRows.map((guest) => guest.sessionTitle).filter(Boolean))].sort((a, b) => a.localeCompare(b, "id"));
+  const guestYears = [...new Set(guestRows.map((guest) => guest.sessionDate ? new Date(guest.sessionDate).getFullYear() : NaN).filter(Number.isFinite))].sort((a, b) => b - a);
   const filteredGuests = guestRows.filter((guest) => {
     const q = guestQuery.trim().toLocaleLowerCase();
-    return !q || [guest.name, guest.whatsapp, guest.sessionTitle, guest.sessionCode, guest.classTitle].some((value) => value.toLocaleLowerCase().includes(q));
+    const sessionDate = guest.sessionDate ? new Date(guest.sessionDate) : null;
+    return (!q || [guest.name, guest.whatsapp || "", guest.sessionTitle, guest.sessionCode, guest.classTitle].some((value) => value.toLocaleLowerCase().includes(q)))
+      && (guestCountry === "all" || (guestCountry === "other" ? phoneCountryPrefix(guest.whatsapp) === "other" : phoneCountryPrefix(guest.whatsapp) === guestCountry))
+      && (guestSession === "all" || guest.sessionTitle === guestSession)
+      && (guestDay === "all" || sessionDate?.getDate() === Number(guestDay))
+      && (guestMonth === "all" || sessionDate && sessionDate.getMonth() + 1 === Number(guestMonth))
+      && (guestYear === "all" || sessionDate?.getFullYear() === Number(guestYear));
   });
 
   function statusFor(p: Participant) {
@@ -193,19 +227,30 @@ export default function AdminCodesManager(props: Props) {
         </div>}
 
         {activeList === "guests" && <div id="admin-participants-panel-guests" className="mt-4 space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div><h3 className="flex items-center gap-2 font-bold text-[#183b2d]"><Users className="h-4 w-4" />Peserta sesi tatap muka</h3><p className="mt-1 text-sm text-[#625f54]">Nama, kontak, dan sesi yang mereka ikuti.</p></div>
-            <label className="relative block w-full sm:max-w-xs"><span className="sr-only">Cari peserta Guest</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#625f54]" /><input value={guestQuery} onChange={(event) => setGuestQuery(event.target.value)} placeholder="Cari nama, nomor, atau sesi" className="min-h-11 w-full rounded-lg border border-[#c9bda7] bg-[#fdf9f0] py-2.5 pl-9 pr-3 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20" /></label>
+          <div className="flex flex-col gap-3 border-b border-[#e5dfd3] pb-4 sm:flex-row sm:items-end sm:justify-between">
+            <div><h3 className="flex items-center gap-2 font-bold text-[#183b2d]"><Users className="h-4 w-4" />Peserta Guest · {filteredGuests.length} orang</h3><p className="mt-1 text-sm text-[#625f54]">Daftar ini hanya berisi peserta sesi; user reguler ada di tab terpisah.</p></div>
+            <label className="relative block w-full sm:max-w-xs"><span className="sr-only">Cari peserta Guest</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#625f54]" /><input value={guestQuery} onChange={(event) => setGuestQuery(event.target.value)} placeholder="Cari nama, nomor, atau sesi" className="min-h-11 w-full rounded-lg border border-[#c9bda7] bg-[#fffdf8] py-2.5 pl-9 pr-3 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20" /></label>
+          </div>
+          <div className="grid gap-3 rounded-xl border border-[#e5dfd3] bg-[#faf7ef] p-3 sm:grid-cols-2 xl:grid-cols-5 xl:p-4">
+            <label className="space-y-1 text-xs font-bold text-[#514b3e]"><span>Negara</span><select value={guestCountry} onChange={(event) => setGuestCountry(event.target.value)} className={guestSelectClass}><option value="all">Semua negara</option>{guestCountries.map((country) => <option key={country.dial} value={country.dial}>{country.name} (+{country.dial})</option>)}<option value="other">Prefiks lainnya</option></select></label>
+            <label className="space-y-1 text-xs font-bold text-[#514b3e]"><span>Nama sesi</span><select value={guestSession} onChange={(event) => setGuestSession(event.target.value)} className={guestSelectClass}><option value="all">Semua sesi</option>{guestSessionOptions.map((title) => <option key={title} value={title}>{title}</option>)}</select></label>
+            <label className="space-y-1 text-xs font-bold text-[#514b3e]"><span>Hari sesi</span><select value={guestDay} onChange={(event) => setGuestDay(event.target.value)} className={guestSelectClass}><option value="all">Semua hari</option>{Array.from({ length: 31 }, (_, index) => index + 1).map((day) => <option key={day} value={day}>{day}</option>)}</select></label>
+            <label className="space-y-1 text-xs font-bold text-[#514b3e]"><span>Bulan sesi</span><select value={guestMonth} onChange={(event) => setGuestMonth(event.target.value)} className={guestSelectClass}><option value="all">Semua bulan</option>{Array.from({ length: 12 }, (_, index) => index + 1).map((month) => <option key={month} value={month}>{new Date(2000, month - 1, 1).toLocaleString("id-ID", { month: "long" })}</option>)}</select></label>
+            <label className="space-y-1 text-xs font-bold text-[#514b3e]"><span>Tahun sesi</span><select value={guestYear} onChange={(event) => setGuestYear(event.target.value)} className={guestSelectClass}><option value="all">Semua tahun</option>{guestYears.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
+            {(guestCountry !== "all" || guestSession !== "all" || guestDay !== "all" || guestMonth !== "all" || guestYear !== "all" || guestQuery) && <button type="button" onClick={() => { setGuestQuery(""); setGuestCountry("all"); setGuestSession("all"); setGuestDay("all"); setGuestMonth("all"); setGuestYear("all"); }} className="min-h-11 justify-self-start rounded-lg px-3 text-sm font-bold text-[#244b3a] underline decoration-[#b8aa8e] underline-offset-4 hover:bg-[#e8eee5] sm:col-span-2 xl:col-span-5">Hapus semua filter</button>}
           </div>
           {guestError && <p role="alert" className="rounded-lg border border-[#943520]/30 bg-[#fff5f0] p-3 text-sm text-[#7c2d1c]">{guestError}</p>}
           <div className="overflow-x-auto rounded-xl border border-[#e5dfd3]">
             <table className="w-full min-w-[700px] text-left text-sm text-[#34362f]">
-              <thead className="border-b border-[#e5dfd3] bg-[#f8f3e9] text-xs font-bold uppercase tracking-wide text-[#514b3e]"><tr><th scope="col" className="px-4 py-3">Nama lengkap</th><th scope="col" className="px-4 py-3">WhatsApp / telepon</th><th scope="col" className="px-4 py-3">Sesi dan kelas</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Terdaftar</th></tr></thead>
+              <thead className="border-b border-[#e5dfd3] bg-[#f8f3e9] text-xs font-bold uppercase tracking-wide text-[#514b3e]"><tr><th scope="col" className="px-4 py-3">Nama lengkap</th><th scope="col" className="px-4 py-3">WhatsApp / telepon</th><th scope="col" className="px-4 py-3">Sesi dan kelas</th><th scope="col" className="px-4 py-3">Tanggal sesi</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Terdaftar</th></tr></thead>
               <tbody className="divide-y divide-[#eee8dc] bg-white">
-                {guestLoading ? <tr><td colSpan={5} className="px-4 py-8 text-center text-[#625f54]">Memuat peserta Guest…</td></tr> : filteredGuests.length === 0 ? <tr><td colSpan={5} className="px-4 py-8 text-center text-[#625f54]">{guestRows.length ? "Tidak ada peserta Guest yang cocok dengan pencarian." : "Belum ada peserta Guest yang mendaftar melalui sesi."}</td></tr> : filteredGuests.map((guest) => {
+                {guestLoading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-[#625f54]">Memuat peserta Guest…</td></tr> : filteredGuests.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-[#625f54]">{guestRows.length ? "Tidak ada peserta Guest yang cocok dengan filter." : "Belum ada peserta Guest yang mendaftar melalui sesi."}</td></tr> : filteredGuests.map((guest) => {
                   const status = guest.status === "approved" ? { label: "Disetujui", tone: "bg-emerald-50 text-emerald-800" } : guest.status === "rejected" ? { label: "Ditolak", tone: "bg-rose-50 text-rose-800" } : { label: "Menunggu", tone: "bg-amber-50 text-amber-900" };
                   const phone = String(guest.whatsapp || "");
-                  return <tr key={guest.id} className="align-top hover:bg-[#fbf8f1]"><td className="px-4 py-3 font-bold text-[#20251f]">{guest.name || "(tanpa nama)"}</td><td className="px-4 py-3"><a href={`tel:${phone.replace(/[^+\d]/g, "")}`} className="font-semibold text-[#244b3a] underline decoration-[#c9bda7] underline-offset-2">{phone || "—"}</a></td><td className="px-4 py-3"><p className="font-semibold text-[#20251f]">{guest.sessionTitle} <span className="font-normal text-[#625f54]">· {guest.sessionCode}</span></p><p className="mt-1 text-xs text-[#625f54]">{guest.classTitle}</p></td><td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${status.tone}`}>{status.label}</span></td><td className="whitespace-nowrap px-4 py-3 text-xs text-[#625f54]">{new Date(guest.registeredAt).toLocaleString("id-ID")}</td></tr>;
+                  const sessionDate = guest.sessionDate ? new Date(guest.sessionDate) : null;
+                  const prefix = phone ? phoneCountryPrefix(phone) : "";
+                  const country = guestCountries.find((item) => item.dial === prefix);
+                  return <tr key={guest.id} className="align-top transition-colors hover:bg-[#fbf8f1]"><td className="px-4 py-4"><p className="font-bold text-[#20251f]">{guest.name || "(tanpa nama)"}</p><p className="mt-1 text-xs text-[#625f54]">Peserta Guest</p></td><td className="px-4 py-4">{phone ? <><a href={`tel:${phone.replace(/[^+\d]/g, "")}`} className="font-semibold text-[#244b3a] underline decoration-[#c9bda7] underline-offset-2">{phone}</a><p className="mt-1 text-xs text-[#625f54]">{country ? `${country.name} · +${country.dial}` : prefix === "other" ? "Prefiks negara lainnya" : "Indonesia · +62"}</p></> : <span className="text-[#625f54]">Tidak dicantumkan</span>}</td><td className="px-4 py-4"><p className="font-semibold text-[#20251f]">{guest.sessionTitle} <span className="font-normal text-[#625f54]">· {guest.sessionCode}</span></p><p className="mt-1 text-xs text-[#625f54]">{guest.classTitle}</p></td><td className="whitespace-nowrap px-4 py-4 text-sm text-[#34362f]">{sessionDate && !Number.isNaN(sessionDate.getTime()) ? sessionDate.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "Jadwal belum ditentukan"}</td><td className="px-4 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${status.tone}`}>{status.label}</span></td><td className="whitespace-nowrap px-4 py-4 text-xs text-[#625f54]">{new Date(guest.registeredAt).toLocaleString("id-ID")}</td></tr>;
                 })}
               </tbody>
             </table>

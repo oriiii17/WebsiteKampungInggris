@@ -11,35 +11,36 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
   const { code: rawCode } = await context.params;
   const code = rawCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const session = (await getGuestServerSession()) || await getServerSession();
+  const viewerType = session?.role === "guest" ? "guest" : session ? "regular" : "visitor";
   const supabase = await getSupabaseServerClient();
   if (supabase) {
     const registrationId = session?.role === "guest" && session.guestSessionId && session.guestRegistrationId ? session.guestRegistrationId : null;
     if (registrationId) {
       const { data, error } = await supabase.rpc("get_guest_class_session", { p_code: code, p_registration_id: registrationId });
       const guestData = Array.isArray(data) ? data[0] : data;
-      if (!error && guestData) return NextResponse.json({ session: { id: guestData.id, code: guestData.code, title: guestData.title, status: guestData.status, registrationStatus: guestData.registration_status, classId: guestData.class_id, classTitle: guestData.class_title, classSlug: guestData.class_slug, startsAt: guestData.starts_at } });
+      if (!error && guestData) return NextResponse.json({ session: { id: guestData.id, code: guestData.code, title: guestData.title, status: guestData.status, registrationStatus: guestData.registration_status, classId: guestData.class_id, classTitle: guestData.class_title, classSlug: guestData.class_slug, startsAt: guestData.starts_at, viewerType: "guest" } });
     }
     if ((session?.role === "member" || session?.origin === "warga_kode") && session.guestSessionId) {
       const { data, error } = await supabase.rpc("get_member_class_session", { p_code: code, p_participant_key: `${session.origin}:${session.id}` });
       const memberData = Array.isArray(data) ? data[0] : data;
-      if (!error && memberData?.id === session.guestSessionId) return NextResponse.json({ session: { ...memberData, registrationStatus: "approved" } });
+      if (!error && memberData?.id === session.guestSessionId) return NextResponse.json({ session: { ...memberData, registrationStatus: "approved", viewerType: "regular" } });
     }
     const { data, error } = await supabase.rpc("get_class_session_info", { p_code: code });
     const row = Array.isArray(data) ? data[0] : data;
     if (error || !row) return NextResponse.json({ error: "Kode sesi tidak ditemukan." }, { status: 404 });
-    return NextResponse.json({ session: { id: row.id, code: row.code, title: row.title, status: row.status, requireApproval: row.require_approval, attendeeCount: row.attendee_count, classId: row.class_id, classTitle: row.class_title, classSlug: row.class_slug, startsAt: row.starts_at, canAttendAsMember: session?.role === "member" || session?.origin === "warga_kode" } });
+    return NextResponse.json({ session: { id: row.id, code: row.code, title: row.title, status: row.status, requireApproval: row.require_approval, attendeeCount: row.attendee_count, classId: row.class_id, classTitle: row.class_title, classSlug: row.class_slug, startsAt: row.starts_at, canAttendAsMember: session?.role === "member" || session?.origin === "warga_kode", viewerType } });
   }
   const db = await readLocalDb();
   const local = db.classSessions?.find((item) => item.code === code);
   if (!local) return NextResponse.json({ error: "Kode sesi tidak ditemukan." }, { status: 404 });
   if (session?.role === "guest" && session.guestSessionId === local.id && session.guestRegistrationId) {
     const guest = db.classSessionGuests?.find((item) => item.id === session.guestRegistrationId && item.sessionId === local.id);
-    if (guest) return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: guest.status, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug } });
+    if (guest) return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: guest.status, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, viewerType: "guest" } });
   }
   if ((session?.role === "member" || session?.origin === "warga_kode") && session.guestSessionId === local.id && db.classSessionAttendance?.some((item) => item.sessionId === local.id && item.participantKey === `${session.origin}:${session.id}`)) {
-    return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: "approved", classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug } });
+    return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: "approved", classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, viewerType: "regular" } });
   }
-  return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, requireApproval: local.requireApproval, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, canAttendAsMember: session?.role === "member" || session?.origin === "warga_kode" } });
+  return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, requireApproval: local.requireApproval, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, canAttendAsMember: session?.role === "member" || session?.origin === "warga_kode", viewerType } });
 }
 
 async function joinPublicSession(request: Request, context: { params: Promise<{ code: string }> }) {
@@ -91,7 +92,7 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
   if (payloadCode !== code) return NextResponse.json({ ok: false, error: "Kode sesi pada formulir tidak sesuai dengan halaman ini." }, { status: 400 });
   if (body.consent !== true) return NextResponse.json({ error: "Setujui penggunaan data untuk pendaftaran dan presensi terlebih dahulu." }, { status: 400 });
   const guest = validateGuestRegistration(body.name, body.whatsapp);
-  if (!guest) return NextResponse.json({ error: "Periksa nama (2–80 karakter) dan nomor WhatsApp (9–15 digit)." }, { status: 400 });
+  if (!guest) return NextResponse.json({ error: "Periksa nama (2–80 karakter) dan pastikan nomor WhatsApp berisi 9–15 digit jika diisi." }, { status: 400 });
   let result: { registrationId: string; sessionId: string; title: string; status: "pending" | "approved" | "rejected" } | null = null;
   if (supabase) {
     const { data, error } = await supabase.rpc("register_class_session_guest", { p_code: code, p_name: guest.name, p_whatsapp: guest.whatsapp });
@@ -111,7 +112,7 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
       const fallbackStatus = target.require_approval ? "pending" : "approved";
       const { data: savedGuest, error: guestError } = await supabase
         .from("class_session_guests")
-        .upsert({ session_id: target.id, full_name: guest.name, whatsapp: guest.whatsapp, status: fallbackStatus }, { onConflict: "session_id,whatsapp" })
+      .upsert({ session_id: target.id, full_name: guest.name, whatsapp: guest.whatsapp || null, status: fallbackStatus }, { onConflict: "session_id,whatsapp" })
         .select("id, status")
         .single();
       if (guestError || !savedGuest) throw new Error(`Pendaftaran tamu belum tersimpan: ${guestError?.message || "data peserta tidak dikembalikan"}`);
@@ -145,7 +146,7 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
     const entryState = resolveGuestEntry(local.status, local.requireApproval);
     if (entryState === "closed") return NextResponse.json({ error: "Sesi sudah ditutup." }, { status: 400 });
     const status = entryState;
-    let existing = guests.find((item) => item.sessionId === local.id && item.whatsapp === guest.whatsapp);
+    let existing = guest.whatsapp ? guests.find((item) => item.sessionId === local.id && item.whatsapp === guest.whatsapp) : undefined;
     if (!existing) { existing = { id: crypto.randomUUID(), sessionId: local.id, name: guest.name, whatsapp: guest.whatsapp, status, registeredAt: new Date().toISOString() }; guests.push(existing); }
     else { existing.name = guest.name; }
     if (existing.status === "approved" && !attendance.some((item) => item.guestRegistrationId === existing?.id)) attendance.push({ id: crypto.randomUUID(), sessionId: local.id, participantKey: `guest:${existing.id}`, participantName: existing.name, participantType: "guest", guestRegistrationId: existing.id, whatsapp: existing.whatsapp, attendedAt: new Date().toISOString() });

@@ -9,7 +9,7 @@ export async function GET() {
 
   const supabase = await getSupabaseServerClient();
   if (supabase) {
-    let sessionsQuery = supabase.from("class_sessions").select("id,title,code,class_id,teacher_id");
+    let sessionsQuery = supabase.from("class_sessions").select("id,title,code,class_id,teacher_id,starts_at");
     if (user?.role === "tutor") sessionsQuery = sessionsQuery.eq("teacher_id", user.id);
     const { data: sessions, error: sessionsError } = await sessionsQuery;
     if (sessionsError) return NextResponse.json({ error: "Daftar sesi peserta belum dapat dimuat." }, { status: 503 });
@@ -23,7 +23,7 @@ export async function GET() {
     const classById = new Map(classes.map((item) => [item.id, item.title]));
     return NextResponse.json({ guests: (guests || []).map((guest) => {
       const session = sessionById.get(guest.session_id);
-      return { id: guest.id, name: guest.full_name, whatsapp: guest.whatsapp, status: guest.status, registeredAt: guest.registered_at, sessionTitle: session?.title || "Sesi tanpa judul", sessionCode: session?.code || "—", classTitle: classById.get(session?.class_id) || "Kelas belum dipetakan" };
+      return { id: guest.id, name: guest.full_name, whatsapp: guest.whatsapp, status: guest.status, registeredAt: guest.registered_at, sessionDate: session?.starts_at || "", sessionTitle: session?.title || "Sesi tanpa judul", sessionCode: session?.code || "—", classTitle: classById.get(session?.class_id) || "Kelas belum dipetakan" };
     }) });
   }
 
@@ -33,7 +33,7 @@ export async function GET() {
   const classById = new Map((db.classes || []).map((item) => [item.id, item.title]));
   const guests = (db.classSessionGuests || []).filter((guest) => sessionById.has(guest.sessionId)).map((guest) => {
     const session = sessionById.get(guest.sessionId)!;
-    return { id: guest.id, name: guest.name, whatsapp: guest.whatsapp, status: guest.status, registeredAt: guest.registeredAt, sessionTitle: session.title, sessionCode: session.code, classTitle: classById.get(session.classId) || "Kelas belum dipetakan" };
+    return { id: guest.id, name: guest.name, whatsapp: guest.whatsapp, status: guest.status, registeredAt: guest.registeredAt, sessionDate: session.startsAt || "", sessionTitle: session.title, sessionCode: session.code, classTitle: classById.get(session.classId) || "Kelas belum dipetakan" };
   }).sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
   return NextResponse.json({ guests });
 }

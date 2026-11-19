@@ -43,7 +43,7 @@ export function validateGuestRegistration(name: unknown, whatsapp: unknown): { n
   const cleanName = String(name || "").trim().replace(/\s+/g, " ");
   const cleanWhatsapp = String(whatsapp || "").trim().replace(/[\s().-]/g, "");
   if (cleanName.length < 2 || cleanName.length > 80) return null;
-  if (!/^\+?[0-9]{9,15}$/.test(cleanWhatsapp)) return null;
+  if (cleanWhatsapp && !/^\+?[0-9]{9,15}$/.test(cleanWhatsapp)) return null;
   return { name: cleanName, whatsapp: cleanWhatsapp };
 }
 

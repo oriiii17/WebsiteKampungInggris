@@ -18,9 +18,9 @@ async function saveInstalledGames(classId: string, ids: unknown) {
   const supabase = await getSupabaseServerClient();
   if (!supabase) return;
   if (gameIds.length) {
-    const { data: published, error: validateError } = await supabase.from("game_blueprints").select("id").in("id", gameIds).eq("status", "published");
+    const { data: published, error: validateError } = await supabase.from("game_blueprints").select("id").in("id", gameIds).in("status", ["published", "session"]);
     if (validateError) throw new Error("Game terbit belum dapat diverifikasi.");
-    if ((published || []).length !== gameIds.length) throw new Error("Pilih hanya game yang sudah diterbitkan.");
+    if ((published || []).length !== gameIds.length) throw new Error("Pilih hanya game berstatus Publik atau Sesi.");
   }
   const { error: deleteError } = await supabase.from("class_games").delete().eq("class_id", classId);
   if (deleteError) throw new Error(`Relasi game kelas gagal diperbarui (${deleteError.code}).`);

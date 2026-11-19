@@ -13,7 +13,7 @@ export const GAME_TEMPLATES = [
 
 export type GameTemplateId = (typeof GAME_TEMPLATES)[number]["id"];
 export type GameLevel = "A1" | "A2" | "B1" | "B2";
-export type GameBlueprintStatus = "draft" | "published";
+export type GameBlueprintStatus = "draft" | "published" | "session";
 
 export interface GameBlueprintItem {
   id: string;

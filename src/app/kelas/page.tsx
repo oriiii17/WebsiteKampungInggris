@@ -1,14 +1,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight, BookOpen, CheckCircle2, Clock, Gamepad2, Info } from "lucide-react";
-import { getClasses, getModules, getClassByIdOrSlug, readLocalDb } from "@/lib/db";
+import { getClasses, getModules } from "@/lib/db";
 import AddToCartButton from "@/components/AddToCartButton";
 import type { Metadata } from "next";
 import { canonicalUrl } from "@/lib/seo";
 import { formatIDR } from "@/lib/currency";
 import { getSessionWithGuestContext } from "@/lib/auth";
-import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
+import { getGuestSessionDestination } from "@/lib/guest-session-destination";
 
 export const metadata: Metadata = {
   title: "Daftar Kelas Bahasa Inggris | Kampung Inggris Sapen",
@@ -27,40 +27,7 @@ async function KelasIndexContent({
 }) {
   const sp = (await searchParams) || {};
   const session = await getSessionWithGuestContext();
-  if (session?.role === "guest") {
-    let classId: string | null = null;
-    let sessionCode: string | null = null;
-    let isApproved = false;
-    if (session.guestSessionId && session.guestRegistrationId) {
-      const supabase = await getSupabaseServerClient();
-      if (supabase) {
-        const [{ data: classSession }, { data: registration }] = await Promise.all([
-          supabase.from("class_sessions").select("id,code,class_id").eq("id", session.guestSessionId).maybeSingle(),
-          supabase.from("class_session_guests").select("session_id,status").eq("id", session.guestRegistrationId).maybeSingle(),
-        ]);
-        if (classSession && registration?.session_id === classSession.id) {
-          classId = classSession.class_id;
-          sessionCode = classSession.code;
-          isApproved = registration.status === "approved";
-        }
-      } else {
-        const db = await readLocalDb();
-        const classSession = db.classSessions?.find((item) => item.id === session.guestSessionId);
-        const registration = db.classSessionGuests?.find((item) => item.id === session.guestRegistrationId && item.sessionId === session.guestSessionId);
-        if (classSession && registration) {
-          classId = classSession.classId;
-          sessionCode = classSession.code;
-          isApproved = registration.status === "approved";
-        }
-      }
-    }
-    if (classId && isApproved) {
-      const guestClass = await getClassByIdOrSlug(classId);
-      if (guestClass) redirect(`/kelas/${encodeURIComponent(guestClass.slug || guestClass.id)}`);
-    }
-    if (sessionCode) redirect(`/sesi/${encodeURIComponent(sessionCode)}`);
-    redirect("/");
-  }
+  if (session?.role === "guest") redirect(await getGuestSessionDestination(session));
   const [classes, modules] = await Promise.all([getClasses(false), getModules(false)]);
   const moduleMap = new Map(modules.map((m) => [m.id, m]));
 

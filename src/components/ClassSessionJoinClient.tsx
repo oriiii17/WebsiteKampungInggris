@@ -1,20 +1,38 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 
-type PublicSession = { id: string; code: string; title: string; status: string; requireApproval?: boolean; canAttendAsMember?: boolean; registrationStatus?: string; classId?: string; classTitle?: string; classSlug?: string; startsAt?: string };
+type PublicSession = { id: string; code: string; title: string; status: string; requireApproval?: boolean; canAttendAsMember?: boolean; registrationStatus?: string; viewerType?: "guest" | "regular" | "visitor"; classId?: string; classTitle?: string; classSlug?: string; startsAt?: string };
 const inputClass = "mt-1.5 min-h-12 w-full rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] px-3 py-2 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20";
+const countryDialCodes = [
+  { code: "ID", flag: "🇮🇩", name: "Indonesia", dial: "62" }, { code: "MY", flag: "🇲🇾", name: "Malaysia", dial: "60" },
+  { code: "SG", flag: "🇸🇬", name: "Singapura", dial: "65" }, { code: "BN", flag: "🇧🇳", name: "Brunei", dial: "673" },
+  { code: "TH", flag: "🇹🇭", name: "Thailand", dial: "66" }, { code: "PH", flag: "🇵🇭", name: "Filipina", dial: "63" },
+  { code: "VN", flag: "🇻🇳", name: "Vietnam", dial: "84" }, { code: "TL", flag: "🇹🇱", name: "Timor-Leste", dial: "670" },
+  { code: "AU", flag: "🇦🇺", name: "Australia", dial: "61" }, { code: "NZ", flag: "🇳🇿", name: "Selandia Baru", dial: "64" },
+  { code: "JP", flag: "🇯🇵", name: "Jepang", dial: "81" }, { code: "KR", flag: "🇰🇷", name: "Korea Selatan", dial: "82" },
+  { code: "CN", flag: "🇨🇳", name: "Tiongkok", dial: "86" }, { code: "IN", flag: "🇮🇳", name: "India", dial: "91" },
+  { code: "SA", flag: "🇸🇦", name: "Arab Saudi", dial: "966" }, { code: "AE", flag: "🇦🇪", name: "Uni Emirat Arab", dial: "971" },
+  { code: "GB", flag: "🇬🇧", name: "Britania Raya", dial: "44" }, { code: "DE", flag: "🇩🇪", name: "Jerman", dial: "49" },
+  { code: "FR", flag: "🇫🇷", name: "Prancis", dial: "33" }, { code: "NL", flag: "🇳🇱", name: "Belanda", dial: "31" },
+  { code: "US", flag: "🇺🇸", name: "Amerika Serikat", dial: "1" }, { code: "CA", flag: "🇨🇦", name: "Kanada", dial: "1" },
+];
 
 export default function ClassSessionJoinClient({ code }: { code: string }) {
+  const router = useRouter();
   const [session, setSession] = useState<PublicSession | null>(null);
   const [name, setName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [countryCode, setCountryCode] = useState("ID");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [leavingSession, setLeavingSession] = useState(false);
+  const [leaveError, setLeaveError] = useState("");
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
     try {
@@ -27,14 +45,31 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
   }, [code]);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
-    if (session?.registrationStatus !== "pending") return;
+    if (session?.status !== "open") return;
     const timer = window.setInterval(() => {
       fetch(`/api/class-sessions/${encodeURIComponent(code)}`, { cache: "no-store" }).then((response) => response.json()).then((data) => {
         if (data.session) setSession(data.session);
       }).catch(() => undefined);
     }, 5000);
     return () => window.clearInterval(timer);
-  }, [code, session?.registrationStatus]);
+  }, [code, session?.status]);
+
+  const acknowledgeEndedSession = async () => {
+    if (!session || leavingSession) return;
+    setLeavingSession(true);
+    setLeaveError("");
+    try {
+      if (session.viewerType === "guest") {
+        const response = await fetch("/api/auth/session?scope=guest", { method: "DELETE" });
+        if (!response.ok) throw new Error("Sesi tamu belum berhasil dibersihkan. Coba tekan OK lagi.");
+      }
+      router.replace("/");
+      router.refresh();
+    } catch (reason) {
+      setLeaveError(reason instanceof Error ? reason.message : "Belum dapat kembali ke beranda. Coba lagi.");
+      setLeavingSession(false);
+    }
+  };
 
   const join = async (event?: React.FormEvent) => {
     event?.preventDefault(); setSubmitting(true); setError(""); setNotice("");
@@ -43,9 +78,11 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       const consent = document.querySelector<HTMLInputElement>('input[name="session-consent"]')?.checked === true;
       if (!session?.canAttendAsMember && !consent) throw new Error("Centang persetujuan sebelum melanjutkan.");
       const cleanName = name.trim().replace(/\s+/g, " ");
-      const cleanWhatsapp = whatsapp.trim().replace(/[\s().-]/g, "");
+      const localNumber = whatsapp.replace(/\D/g, "");
+      const dialCode = countryDialCodes.find((country) => country.code === countryCode)?.dial || "62";
+      const cleanWhatsapp = localNumber ? `${dialCode}${localNumber}` : "";
       if (!session?.canAttendAsMember && (cleanName.length < 2 || cleanName.length > 80)) throw new Error("Nama harus berisi 2–80 karakter.");
-      if (!session?.canAttendAsMember && !/^(?:0[0-9]{8,14}|62[0-9]{7,13}|\+62[0-9]{7,13})$/.test(cleanWhatsapp)) throw new Error("Periksa nomor WhatsApp. Gunakan format 08…, 628…, atau +628… dengan nomor aktif.");
+      if (!session?.canAttendAsMember && cleanWhatsapp && !/^\+?[0-9]{9,15}$/.test(cleanWhatsapp)) throw new Error("Nomor WhatsApp harus berisi 9–15 digit, atau kosongkan jika tidak memilikinya.");
       const payload = { name: cleanName, whatsapp: cleanWhatsapp, code, consent };
       const response = await fetch(`/api/class-sessions/${encodeURIComponent(code)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await response.json().catch(() => ({}));
@@ -53,6 +90,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       if (!response.ok) throw new Error(response.status >= 500 ? "Server sedang mengalami kendala. Data belum berhasil disimpan; coba beberapa saat lagi." : data.error || "Pendaftaran belum berhasil. Periksa data lalu coba lagi.");
       if (data.ok !== true || !["approved", "pending"].includes(data.status)) throw new Error("Respons pendaftaran belum dapat dikonfirmasi. Periksa status sesi sebelum mencoba lagi.");
       setSession((current) => current ? { ...current, registrationStatus: data.status, canAttendAsMember: false } : current);
+      router.refresh();
       if (data.status === "pending") setNotice("Pendaftaran diterima. Tutor akan memeriksa permintaanmu sebelum akses sesi dibuka.");
       else setNotice("Presensi berhasil dicatat. Selamat belajar!");
     } catch (reason) {
@@ -76,8 +114,8 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       {isApproved && <section className="mt-6 space-y-4 rounded-xl border border-[#d2c5ad] bg-[#fdf9f0] p-5 sm:p-7"><div className="flex items-center gap-3 text-[#183b2d]"><CheckCircle2 className="h-6 w-6" /><h2 className="text-xl font-bold">Presensi tercatat</h2></div>{session.classSlug ? <Link href={`/kelas/${encodeURIComponent(session.classSlug)}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white">Buka kelas dan materi<ArrowRight className="h-4 w-4" /></Link> : <p className="text-sm text-[#943520]">Kelas induk sesi ini belum dapat dibuka.</p>}</section>}
       {isRejected && <p role="status" className="mt-6 rounded-lg border border-[#d2c5ad] bg-[#fdf9f0] p-4 text-sm text-[#3d4038]">Pendaftaran tamu ini belum disetujui. Hubungi pengurus sesi jika perlu bantuan.</p>}
       {isFuture && <p role="status" className="mt-6 rounded-lg border border-[#d2c5ad] bg-[#fdf9f0] p-4 text-sm text-[#3d4038]">Pendaftaran dibuka saat sesi dimulai.</p>}
-      {!isApproved && !isPending && !isRejected && !isFuture && session.status === "open" && <>{session.canAttendAsMember ? <section className="mt-6 rounded-xl border border-[#d2c5ad] bg-[#fdf9f0] p-5"><h2 className="text-lg font-bold text-[#183b2d]">Presensi sebagai warga</h2><p className="mt-2 text-sm leading-6 text-[#3d4038]">Akun warga memberi akses ke seluruh materi asinkron. Catat kehadiranmu untuk sesi ini.</p><button type="button" disabled={submitting} onClick={() => void join()} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#ba472f] px-4 text-sm font-bold text-white disabled:opacity-50">{submitting ? "Mencatat…" : "Catat kehadiran"}<ArrowRight className="h-4 w-4" /></button></section> : <form onSubmit={(event) => void join(event)} className="mt-6 space-y-4 rounded-xl border border-[#d2c5ad] bg-[#fdf9f0] p-5 sm:p-7"><div><h2 className="text-xl font-bold text-[#183b2d]">Daftar sebagai peserta tamu</h2><p className="mt-2 text-sm leading-6 text-[#3d4038]">Isi nama dan nomor WhatsApp untuk mencatat kehadiran. Nomor hanya digunakan untuk keperluan sesi ini.</p></div><label className="block text-sm font-bold">Nama<input required minLength={2} maxLength={80} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Nama lengkap" className={inputClass} /></label><label className="block text-sm font-bold">Nomor WhatsApp<input required type="tel" inputMode="tel" autoComplete="tel" maxLength={20} value={whatsapp} onChange={(event) => setWhatsapp(event.target.value)} placeholder="Contoh: 081234567890" className={inputClass} /><span className="mt-1 block text-xs font-normal text-[#625f54]">Gunakan nomor aktif dengan kode negara atau awalan 0.</span></label><label className="flex items-start gap-2 text-xs leading-5 text-[#625f54]"><input name="session-consent" type="checkbox" required className="mt-0.5 h-4 w-4 shrink-0 accent-[#244b3a]" />Saya setuju nama dan nomor ini digunakan untuk pendaftaran serta presensi sesi.</label>{error && <p role="alert" className="text-sm font-bold text-[#943520]">{error}</p>}<button type="submit" disabled={submitting} className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#ba472f] px-5 text-sm font-bold text-white disabled:opacity-50">{submitting ? "Mencatat presensi…" : "Daftar dan presensi"}<ArrowRight className="h-4 w-4" /></button></form>}</>}
+      {!isApproved && !isPending && !isRejected && !isFuture && session.status === "open" && <>{session.canAttendAsMember ? <section className="mt-6 rounded-xl border border-[#d2c5ad] bg-[#fdf9f0] p-5"><h2 className="text-lg font-bold text-[#183b2d]">Presensi sebagai warga</h2><p className="mt-2 text-sm leading-6 text-[#3d4038]">Akun warga memberi akses ke seluruh materi asinkron. Catat kehadiranmu untuk sesi ini.</p><button type="button" disabled={submitting} onClick={() => void join()} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#ba472f] px-4 text-sm font-bold text-white disabled:opacity-50">{submitting ? "Mencatat…" : "Catat kehadiran"}<ArrowRight className="h-4 w-4" /></button></section> : <form onSubmit={(event) => void join(event)} className="mt-6 space-y-4 rounded-xl border border-[#d2c5ad] bg-[#fdf9f0] p-5 sm:p-7"><div><h2 className="text-xl font-bold text-[#183b2d]">Daftar sebagai peserta tamu</h2><p className="mt-2 text-sm leading-6 text-[#3d4038]">Isi nama untuk mencatat kehadiran. Nomor WhatsApp boleh dikosongkan.</p></div><label className="block text-sm font-bold">Nama<input required minLength={2} maxLength={80} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Nama lengkap" className={inputClass} /></label><div className="space-y-2"><div className="flex flex-wrap items-baseline justify-between gap-1"><label htmlFor="guest-whatsapp" className="text-sm font-bold text-[#20251f]">Nomor WhatsApp <span className="font-normal text-[#625f54]">(opsional)</span></label><span className="text-xs text-[#625f54]">Boleh dikosongkan</span></div><div className="grid grid-cols-[minmax(8.5rem,.8fr)_minmax(0,1.2fr)] gap-2"><label className="sr-only" htmlFor="guest-country-code">Kode negara</label><select id="guest-country-code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} className="min-h-12 min-w-0 rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] px-2 text-sm text-[#20251f] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20">{countryDialCodes.map((country) => <option key={country.code} value={country.code}>{country.flag} {country.name} (+{country.dial})</option>)}</select><div className="flex min-w-0 items-center overflow-hidden rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] focus-within:border-[#244b3a] focus-within:ring-2 focus-within:ring-[#244b3a]/20"><span aria-hidden="true" className="shrink-0 border-r border-[#d8cdb9] px-3 py-3 text-sm font-bold text-[#244b3a]">+{countryDialCodes.find((country) => country.code === countryCode)?.dial}</span><input id="guest-whatsapp" type="tel" inputMode="numeric" autoComplete="tel-national" maxLength={15} value={whatsapp} onChange={(event) => setWhatsapp(event.target.value.replace(/\D/g, ""))} placeholder="822 1234 5678" className="min-h-12 min-w-0 w-full bg-transparent px-3 py-2 text-sm text-[#20251f] placeholder:text-[#625f54] focus:outline-none" /></div></div><p className="text-xs leading-5 text-[#514b3e]">Pilih kode negara, lalu masukkan nomor tanpa angka 0 di depan. Nomor hanya untuk keperluan sesi.</p></div><label className="flex items-start gap-2 text-xs leading-5 text-[#625f54]"><input name="session-consent" type="checkbox" required className="mt-0.5 h-4 w-4 shrink-0 accent-[#244b3a]" />Saya setuju nama dan nomor WhatsApp (jika diisi) digunakan untuk pendaftaran serta presensi sesi.</label>{error && <p role="alert" className="text-sm font-bold text-[#943520]">{error}</p>}<button type="submit" disabled={submitting} className="inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#ba472f] px-5 text-sm font-bold text-white disabled:opacity-50">{submitting ? "Mencatat presensi…" : "Daftar dan presensi"}<ArrowRight className="h-4 w-4" /></button></form>}</>}
       {session.status === "closed" && !isApproved && !isPending && <p role="status" className="mt-6 rounded-lg border border-[#d2c5ad] bg-[#fdf9f0] p-4 text-sm text-[#625f54]">Sesi sudah ditutup dan pendaftaran tidak lagi tersedia.</p>}
     </>}
-  </div></main>;
+  </div>{session?.status === "closed" && session.viewerType !== "visitor" && <div className="session-ended-backdrop" role="presentation"><section className="session-ended-panel" role="alertdialog" aria-modal="true" aria-labelledby="session-ended-title" aria-describedby="session-ended-description"><div className="session-ended-icon"><CheckCircle2 aria-hidden="true" /></div><h2 id="session-ended-title" className="session-ended-title">Sesi sudah berakhir</h2><p id="session-ended-description" className="session-ended-message">Admin telah menutup sesi ini. Tekan OK untuk kembali ke beranda.</p>{leaveError && <p role="alert" className="session-ended-error">{leaveError}</p>}<div className="session-ended-actions"><button type="button" autoFocus disabled={leavingSession} onClick={() => void acknowledgeEndedSession()}>{leavingSession ? <><Loader2 className="h-4 w-4 animate-spin" /> Menyiapkan…</> : "OK"}</button></div></section></div>}</main>;
 }

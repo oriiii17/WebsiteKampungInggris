@@ -22,6 +22,8 @@
   background: #fdf9f0;
   box-shadow: 0 8px 22px rgba(32, 37, 31, .07);
 }
+.navbarGuest .desktopNav { gap: .35rem; }
+.navbarGuest .navLink { min-width: 76px; justify-content: center; }
 
 .inner {
   display: flex;
@@ -54,6 +56,7 @@
   transition: color 150ms ease, background-color 150ms ease;
 }
 .navLink:hover { color: var(--nav-forest-deep); background: var(--nav-paper); }
+.navLink:active { transform: scale(.97); }
 .navLinkActive { color: var(--nav-forest-deep); background: #e6eadf; }
 .desktopActions { align-items: center; gap: .45rem; }
 .cartAction, .mobileCartAction {

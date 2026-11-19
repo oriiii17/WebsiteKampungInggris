@@ -67,8 +67,11 @@ export default function AdminClassesManager({ notify }: Props) {
         const data = await res.json();
         setClasses(data.classes || []);
       }
-      const gameResponse = await fetch("/api/games", { cache: "no-store" });
-      if (gameResponse.ok) setPublishedGames((await gameResponse.json()).games || []);
+      const gameResponse = await fetch("/api/admin/game-builder", { cache: "no-store" });
+      if (gameResponse.ok) {
+        const availableGames = (await gameResponse.json()).games || [];
+        setPublishedGames(availableGames.filter((game: GameBlueprint) => game.status === "published" || game.status === "session"));
+      }
     } catch {}
     finally { setLoading(false); }
   }
@@ -260,7 +263,7 @@ export default function AdminClassesManager({ notify }: Props) {
             <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75 sm:col-span-2">Deskripsi<textarea rows={3} value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3.5 py-2.5 text-sm font-normal" placeholder="Deskripsi singkat kelas..." /></label>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Tingkat<select value={form.tingkat||"Pemula"} onChange={(e)=>setForm({...form,tingkat:e.target.value as any})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm font-normal"><option>Pemula</option><option>Menengah</option><option>Lanjutan</option></select></label>
             <CurrencyInput label="Harga kelas" value={form.priceIdr} onChange={(priceIdr) => setForm((current) => ({ ...current, priceIdr }))} onValidityChange={setPriceInputValid} />
-            <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Game untuk kelas ini</legend><p className="mt-1 text-xs font-normal normal-case text-muted">Peserta sesi akan menemukan game terpilih di halaman kelas.</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{publishedGames.length ? publishedGames.map((game) => <label key={game.id} className="flex min-h-11 items-center gap-3 rounded-lg border border-rule px-3 text-sm font-semibold normal-case"><input type="checkbox" checked={(form.gameBlueprintIds || []).includes(game.id)} onChange={(event) => setForm((current) => ({ ...current, gameBlueprintIds: event.target.checked ? [...new Set([...(current.gameBlueprintIds || []), game.id])] : (current.gameBlueprintIds || []).filter((id) => id !== game.id) }))} className="h-4 w-4 accent-[#244b3a]" />{game.title}<span className="ml-auto text-xs text-muted">{game.level}</span></label>) : <p className="text-sm font-normal normal-case text-muted">Belum ada game terbit untuk dipasang.</p>}</div></fieldset>
+            <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Game untuk kelas ini</legend><p className="mt-1 text-xs font-normal normal-case text-muted">Peserta Guest yang disetujui akan menemukan game terpilih di halaman Games. Game Sesi disiapkan khusus untuk pertemuan tatap muka.</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{publishedGames.length ? publishedGames.map((game) => <label key={game.id} className="flex min-h-11 items-center gap-3 rounded-lg border border-rule px-3 text-sm font-semibold normal-case"><input type="checkbox" checked={(form.gameBlueprintIds || []).includes(game.id)} onChange={(event) => setForm((current) => ({ ...current, gameBlueprintIds: event.target.checked ? [...new Set([...(current.gameBlueprintIds || []), game.id])] : (current.gameBlueprintIds || []).filter((id) => id !== game.id) }))} className="h-4 w-4 accent-[#244b3a]" />{game.title}<span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-bold ${game.status === "session" ? "bg-[#f2e5bf] text-[#6d5411]" : "bg-[#e6eadf] text-[#244b3a]"}`}>{game.status === "session" ? "Sesi" : "Publik"}</span></label>) : <p className="text-sm font-normal normal-case text-muted">Belum ada game Publik atau Sesi untuk dipasang.</p>}</div></fieldset>
           </div>}
 
           {formStep === 1 && <div className="border-t border-[#E5E7EB] pt-4">

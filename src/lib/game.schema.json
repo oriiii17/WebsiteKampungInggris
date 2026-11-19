@@ -13,7 +13,7 @@
     "topic": { "type": "string", "minLength": 1, "maxLength": 80 },
     "language": { "enum": ["id", "en", "id-en"] },
     "coverImage": { "type": "string", "maxLength": 2048 },
-    "status": { "enum": ["draft", "published"] },
+    "status": { "enum": ["draft", "published", "session"] },
     "plays": { "type": "integer", "minimum": 0 },
     "createdAt": { "type": "string", "format": "date-time" },
     "updatedAt": { "type": "string", "format": "date-time" },

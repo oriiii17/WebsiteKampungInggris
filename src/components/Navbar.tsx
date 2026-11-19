@@ -11,9 +11,10 @@ import styles from "./Navbar.module.css";
 
 interface NavbarProps {
   session: SessionPayload | null;
+  guestClassHref?: string;
 }
 
-export default function Navbar({ session }: NavbarProps) {
+export default function Navbar({ session, guestClassHref }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = session?.role === "pengurus" || session?.role === "developer";
@@ -38,6 +39,8 @@ export default function Navbar({ session }: NavbarProps) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => { setOpen(false); }, [pathname, session?.id, session?.role]);
+
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
@@ -54,7 +57,7 @@ export default function Navbar({ session }: NavbarProps) {
   }
 
   const publicNavLinks = isGuest ? [
-    { href: "/kelas", label: "Kelas" },
+    { href: guestClassHref || "/kelas", label: "Kelas" },
     { href: "/games", label: "Games" },
   ] : [
     { href: "/", label: "Beranda" },
@@ -86,16 +89,16 @@ export default function Navbar({ session }: NavbarProps) {
   const initial = (displayName.trim()[0] || "U").toUpperCase();
 
   return (
-    <header className={`${styles.navbar} ${scrolled ? styles.navbarScrolled : ""}`}>
+    <header className={`${styles.navbar} ${isGuest ? styles.navbarGuest : ""} ${scrolled ? styles.navbarScrolled : ""}`}>
       <div className={styles.inner}>
-        <Link href="/" className={styles.brand}>
+        <Link href={isGuest ? guestClassHref || "/kelas" : "/"} className={styles.brand} aria-label={isGuest ? "Buka kelas sesi" : "Kembali ke beranda"}>
           <Image src="/sapen-english-village-logo.jpg" alt={`${SITE_CONFIG.name} — English Village`} width={651} height={453} priority className={styles.brandLogo} />
         </Link>
 
         <nav className={styles.desktopNav} aria-label="Navigasi utama">
           {publicNavLinks.map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}>{item.label}</Link>;
+            return <Link key={item.label} href={item.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}>{item.label}</Link>;
           })}
         </nav>
 
@@ -158,8 +161,8 @@ export default function Navbar({ session }: NavbarProps) {
 
       <nav className={styles.bottomNav} aria-label="Navigasi bawah">
         {!isGuest && <Link href="/" className={`${styles.bottomLink} ${pathname === "/" ? styles.bottomLinkActive : ""}`}><GraduationCap />Beranda</Link>}
-        <Link href="/kelas" className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen />Kelas</Link>
-        <Link href="/games" className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 />Games</Link>
+        <Link href={isGuest ? guestClassHref || "/kelas" : "/kelas"} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen />Kelas</Link>
+        <Link href="/games" onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 />Games</Link>
         {isGuest ? null : session ? (
           <Link href="/akun" className={`${styles.bottomLink} ${pathname.startsWith("/akun") ? styles.bottomLinkActive : ""}`}><User />Akun</Link>
         ) : (

@@ -120,6 +120,21 @@ button:disabled { cursor: not-allowed; }
 @keyframes app-dialog-enter { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .app-dialog-backdrop, .app-dialog-panel { animation-duration: 1ms; } }
 
+.session-ended-backdrop { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 1rem; background: rgba(15, 32, 25, .76); backdrop-filter: blur(4px); animation: app-dialog-fade 160ms ease-out both; }
+.session-ended-panel { width: min(100%, 26rem); border: 1px solid #d8c8aa; border-radius: 20px; padding: 1.5rem; color: #20251f; background: #fffaf0; box-shadow: 0 24px 70px rgba(8, 20, 15, .36); animation: app-dialog-enter 220ms cubic-bezier(.16, 1, .3, 1) both; }
+.session-ended-icon { display: grid; width: 3rem; height: 3rem; place-items: center; border-radius: 15px; color: #fffaf0; background: #244b3a; }
+.session-ended-icon svg { width: 1.5rem; height: 1.5rem; }
+.session-ended-title { margin-top: 1rem; color: #183b2d; font-family: var(--font-display, Georgia, serif); font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+.session-ended-message { margin-top: .5rem; color: #45483f; font-size: .95rem; line-height: 1.65; }
+.session-ended-error { margin-top: .75rem; color: #943520; font-size: .875rem; font-weight: 700; }
+.session-ended-actions { display: flex; justify-content: flex-end; margin-top: 1.5rem; }
+.session-ended-actions button { display: inline-flex; min-width: 6rem; min-height: 44px; align-items: center; justify-content: center; gap: .5rem; border: 1px solid #a73d28; border-radius: 10px; padding: .6rem 1.2rem; color: white; background: #ba472f; font-size: .9rem; font-weight: 700; cursor: pointer; transition: background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease; }
+.session-ended-actions button:hover:not(:disabled) { transform: translateY(-1px); background: #a83d28; box-shadow: 0 5px 14px rgba(95, 40, 27, .2); }
+.session-ended-actions button:active:not(:disabled) { transform: scale(.97); }
+.session-ended-actions button:focus-visible { outline: 3px solid #244b3a; outline-offset: 3px; }
+.session-ended-actions button:disabled { cursor: wait; opacity: .78; }
+@media (prefers-reduced-motion: reduce) { .session-ended-backdrop, .session-ended-panel { animation-duration: 1ms; } .session-ended-actions button { transition: none; } }
+
 @layer components {
   .btn-pill {
     display: inline-flex;

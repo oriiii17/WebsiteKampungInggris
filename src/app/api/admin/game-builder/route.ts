@@ -56,16 +56,16 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Isi game tidak valid.", code: "INVALID_GAME" }, { status: 400 });
   const normalized = normalizeGameBlueprint(body);
-  const isPublished = normalized.status === "published";
-  if (isPublished) {
+  const requiresCompleteGame = normalized.status === "published" || normalized.status === "session";
+  if (requiresCompleteGame) {
     const title = typeof normalized.title === "string" ? normalized.title.trim() : "";
     if (!title || title.toLocaleLowerCase("id-ID") === "game baru") {
-      return NextResponse.json({ error: "Beri game ini judul yang jelas sebelum diterbitkan.", code: "GAME_TITLE_REQUIRED" }, { status: 400 });
+      return NextResponse.json({ error: "Beri game ini judul yang jelas sebelum menyimpan status Publik atau Sesi.", code: "GAME_TITLE_REQUIRED" }, { status: 400 });
     }
     const result = validateGameBlueprint(normalized);
     if (!result.valid) {
       const issue = getGameBlueprintPublishIssue(normalized);
-      return NextResponse.json({ error: issue?.message || "Periksa kembali informasi dan isi game sebelum diterbitkan.", code: "GAME_VALIDATION_FAILED", field: issue?.field, itemIndex: issue?.itemIndex }, { status: 400 });
+      return NextResponse.json({ error: issue?.message || "Periksa kembali informasi dan isi game sebelum digunakan.", code: "GAME_VALIDATION_FAILED", field: issue?.field, itemIndex: issue?.itemIndex }, { status: 400 });
     }
   } else {
     const value = normalized as Record<string, any>;
@@ -76,11 +76,11 @@ export async function POST(request: Request) {
       && ["solo", "class", "both"].includes(settings.mode) && ["forest", "tomato", "saffron", "ocean"].includes(settings.theme)
       && typeof settings.randomizeQuestions === "boolean" && typeof settings.randomizeOptions === "boolean";
     const validItems = Array.isArray(value.items) && value.items.length <= 200 && value.items.every((item: unknown) => item && typeof item === "object" && !Array.isArray(item));
-    if (!validTemplate || !["A1", "A2", "B1", "B2"].includes(value.level) || typeof value.title !== "string" || value.title.length > 100 || typeof value.topic !== "string" || value.topic.length > 80 || !["id", "en", "id-en"].includes(value.language) || !validItems || !validSettings || !["draft", "published"].includes(value.status)) {
+    if (!validTemplate || !["A1", "A2", "B1", "B2"].includes(value.level) || typeof value.title !== "string" || value.title.length > 100 || typeof value.topic !== "string" || value.topic.length > 80 || !["id", "en", "id-en"].includes(value.language) || !validItems || !validSettings || value.status !== "draft") {
       return NextResponse.json({ error: "Data dasar draf game tidak valid.", code: "INVALID_DRAFT" }, { status: 400 });
     }
   }
-  const game: GameBlueprint = { ...normalized, id: typeof normalized.id === "string" && normalized.id.trim() ? normalized.id : randomUUID(), status: isPublished ? "published" : "draft", createdAt: normalized.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
+  const game: GameBlueprint = { ...normalized, id: typeof normalized.id === "string" && normalized.id.trim() ? normalized.id : randomUUID(), status: normalized.status, createdAt: normalized.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
   const supabase = await getSupabaseServerClient();
   if (supabase) {
     const { data, error } = await supabase.from("game_blueprints").upsert(toRow(game), { onConflict: "id" }).select("*").single();

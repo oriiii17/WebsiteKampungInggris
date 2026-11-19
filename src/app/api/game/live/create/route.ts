@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
 import { createLiveGameSessionFromGame } from "@/lib/game-session";
-import { getGameById, getGames } from "@/lib/db";
+import { readLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { readLocalDb } from "@/lib/db";
 import type { GameBlueprint } from "@/lib/game-blueprint";
@@ -51,20 +51,14 @@ export async function POST(req: Request) {
       const supabase = await getSupabaseServerClient();
       let blueprint: GameBlueprint | null = null;
       if (supabase) {
-        const { data, error } = await supabase.from("game_blueprints").select("*").eq("id", gameId).eq("status", "published").maybeSingle();
+        const { data, error } = await supabase.from("game_blueprints").select("*").eq("id", gameId).in("status", ["published", "session"]).maybeSingle();
         if (error) return NextResponse.json({ ok: false, error: "Blueprint tidak dapat dimuat." }, { status: 503 });
         if (data) blueprint = { id: data.id, title: data.title, template: data.template, level: data.level, topic: data.topic, language: data.language, coverImage: data.cover_image || undefined, status: data.status, plays: data.play_count || 0, settings: data.settings, items: data.items, createdAt: data.created_at, updatedAt: data.updated_at };
       } else {
-        blueprint = (await readLocalDb()).gameBlueprints?.find((entry) => entry.id === gameId && entry.status === "published") || null;
+        blueprint = (await readLocalDb()).gameBlueprints?.find((entry) => entry.id === gameId && (entry.status === "published" || entry.status === "session")) || null;
       }
       if (blueprint) game = blueprintToLiveGame(blueprint);
-    } else {
-      game = gameId ? await getGameById(gameId) : null;
-      if (!game) {
-        const games = await getGames();
-        game = games.find((g) => g.migratedFromTemplateId === gameId) || null;
-      }
-    }
+    } else return NextResponse.json({ ok: false, error: "Pilih game dari Game Builder untuk membuat sesi live." }, { status: 400 });
     if (!game) return NextResponse.json({ ok: false, error: "Game tidak ditemukan. Buat game di Kelola Game." }, { status: 400 });
     if (!game.questions || game.questions.length === 0) return NextResponse.json({ ok: false, error: "Game belum memiliki soal." }, { status: 400 });
 

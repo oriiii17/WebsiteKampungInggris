@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Presentation, Play, ArrowLeft, Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 import type { SessionPayload } from "@/lib/types";
 
-type G = { id: string; title: string; kind: string; source: "legacy" | "blueprint"; questions?: any[]; items?: any[] };
+type G = { id: string; title: string; kind: string; source: "blueprint"; questions?: any[]; items?: any[] };
 
 export default function HostCreateClient({ sessionUser }: { sessionUser: SessionPayload | null }) {
   const router = useRouter();
@@ -19,14 +19,10 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
   async function loadGames() {
     setLoadingGames(true);
     try {
-      const [legacyRes, blueprintRes] = await Promise.all([fetch("/api/admin/games"), fetch("/api/admin/game-builder")]);
-      const [legacyData, blueprintData] = await Promise.all([legacyRes.json(), blueprintRes.json()]);
-      if (!legacyRes.ok) throw new Error(legacyData.error || "Game lama gagal dimuat.");
+      const blueprintRes = await fetch("/api/admin/game-builder", { cache: "no-store" });
+      const blueprintData = await blueprintRes.json();
       if (!blueprintRes.ok) throw new Error(blueprintData.error || "Blueprint game gagal dimuat.");
-      const list: G[] = [
-        ...(legacyData.games || []).map((game: any) => ({ ...game, source: "legacy" as const })),
-        ...(blueprintData.games || []).filter((game: any) => game.status === "published").map((game: any) => ({ ...game, kind: game.template, source: "blueprint" as const })),
-      ];
+      const list: G[] = (blueprintData.games || []).filter((game: any) => game.status === "published" || game.status === "session").map((game: any) => ({ ...game, kind: game.template, source: "blueprint" as const }));
       setGames(list);
       if (list.length) setSelected(`${list[0].source}:${list[0].id}`);
       else setSelected("");
@@ -80,7 +76,7 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
                 return (
                   <button type="button" key={`${g.source}:${g.id}`} onClick={() => setSelected(`${g.source}:${g.id}`)} className={`text-left rounded-xl border-2 p-4 transition-all relative ${isSelected ? "border-[#14532D] bg-emerald-50/30 ring-2 ring-[#14532D]/20 shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"}`}>
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{g.source === "blueprint" ? "Game Builder · " : "Game klasik · "}{(g.kind||"").replace(/-/g," ").replace(/_/g," ")}</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-600">{g.status === "session" ? "Khusus Sesi · " : "Publik · "}{(g.kind||"").replace(/-/g," ").replace(/_/g," ")}</span>
                       {isSelected && <CheckCircle2 className="h-5 w-5 text-[#14532D]" />}
                     </div>
                     <h3 className="font-bold text-sm text-[#111827] mb-1">{g.title}</h3>
