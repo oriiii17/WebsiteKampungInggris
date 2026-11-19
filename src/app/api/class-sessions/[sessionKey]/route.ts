@@ -20,7 +20,7 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
       const guestData = Array.isArray(data) ? data[0] : data;
       if (!error && guestData) {
         const { data: linkedGame } = await supabase.from("class_session_games").select("live_pin,live_status").eq("session_id", guestData.id).not("live_pin", "is", null).or("live_status.is.null,live_status.neq.closed").limit(1).maybeSingle();
-        return NextResponse.json({ session: { id: guestData.id, code: guestData.code, title: guestData.title, status: guestData.status, registrationStatus: guestData.registration_status, classId: guestData.class_id, classTitle: guestData.class_title, classSlug: guestData.class_slug, startsAt: guestData.starts_at, activeGamePin: guestData.status === "open" && linkedGame?.live_status !== "closed" ? linkedGame?.live_pin || null : null, participantName: session.name, viewerType: "guest" } });
+        return NextResponse.json({ session: { id: guestData.id, code: guestData.code, title: guestData.title, status: guestData.status, registrationStatus: guestData.registration_status, classId: guestData.class_id, classTitle: guestData.class_title, classSlug: guestData.class_slug, startsAt: guestData.starts_at, activeGamePin: guestData.status === "open" && linkedGame?.live_status !== "closed" ? linkedGame?.live_pin || null : null, participantName: session?.name || "Guest", viewerType: "guest" } });
       }
     }
     if ((session?.role === "member" || session?.origin === "warga_kode") && session.guestSessionId) {

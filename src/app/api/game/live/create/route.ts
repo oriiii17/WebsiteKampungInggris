@@ -47,6 +47,7 @@ export async function POST(req: Request) {
     const gameId = String(body.gameId || body.templateId || "");
     const classSessionId = typeof body.classSessionId === "string" ? body.classSessionId : "";
     let game = null as GameRecord | null;
+    let gameStatus: GameBlueprint["status"] | null = null;
     if (body.source === "blueprint") {
       const supabase = await getSupabaseServerClient();
       let blueprint: GameBlueprint | null = null;
@@ -57,31 +58,35 @@ export async function POST(req: Request) {
       } else {
         blueprint = (await readLocalDb()).gameBlueprints?.find((entry) => entry.id === gameId && (entry.status === "published" || entry.status === "session")) || null;
       }
-      if (blueprint) game = blueprintToLiveGame(blueprint);
+      if (blueprint) {
+        gameStatus = blueprint.status;
+        game = blueprintToLiveGame(blueprint);
+      }
     } else return NextResponse.json({ ok: false, error: "Pilih game dari Game Builder untuk membuat sesi live." }, { status: 400 });
     if (!game) return NextResponse.json({ ok: false, error: "Game tidak ditemukan. Buat game di Kelola Game." }, { status: 400 });
     if (!game.questions || game.questions.length === 0) return NextResponse.json({ ok: false, error: "Game belum memiliki soal." }, { status: 400 });
 
     const supabase = await getSupabaseServerClient();
-    let linkedGame: { live_pin?: string | null; live_status?: string | null } | null = null;
+    let linkedGame: { livePin?: string | null; liveStatus?: string | null } | null = null;
     if (classSessionId) {
-      if (game.status !== "session") return NextResponse.json({ ok: false, error: "Hanya game kategori Sesi yang dapat dibuka dari sesi tatap muka." }, { status: 400 });
+      if (gameStatus !== "session") return NextResponse.json({ ok: false, error: "Hanya game kategori Sesi yang dapat dibuka dari sesi tatap muka." }, { status: 400 });
       if (supabase) {
         const { data: parent } = await supabase.from("class_sessions").select("id,status").eq("id", classSessionId).maybeSingle();
         if (!parent || parent.status !== "open") return NextResponse.json({ ok: false, error: "Sesi tatap muka sudah berakhir atau tidak ditemukan." }, { status: 409 });
         const { data: relation } = await supabase.from("class_session_games").select("live_pin,live_status").eq("session_id", classSessionId).eq("game_id", gameId).maybeSingle();
         if (!relation) return NextResponse.json({ ok: false, error: "Game ini belum ditautkan ke sesi tatap muka." }, { status: 404 });
-        linkedGame = relation;
+        linkedGame = { livePin: relation.live_pin, liveStatus: relation.live_status };
       } else {
         const db = await readLocalDb();
         const parent = db.classSessions?.find((entry) => entry.id === classSessionId);
         if (!parent || parent.status !== "open") return NextResponse.json({ ok: false, error: "Sesi tatap muka sudah berakhir atau tidak ditemukan." }, { status: 409 });
         linkedGame = db.classSessionGames?.find((entry) => entry.sessionId === classSessionId && entry.gameId === gameId) || null;
-        if (!linkedGame) return NextResponse.json({ ok: false, error: "Game ini belum ditautkan ke sesi tatap muka." }, { status: 404 });
       }
-      if (linkedGame.liveStatus === "closed") return NextResponse.json({ ok: false, error: "Game ini sudah ditutup oleh pengurus." }, { status: 409 });
-      if (linkedGame.livePin) {
-        const existing = getLiveSession(linkedGame.livePin);
+      const selectedLink = linkedGame;
+      if (!selectedLink) return NextResponse.json({ ok: false, error: "Game ini belum ditautkan ke sesi tatap muka." }, { status: 404 });
+      if (selectedLink.liveStatus === "closed") return NextResponse.json({ ok: false, error: "Game ini sudah ditutup oleh pengurus." }, { status: 409 });
+      if (selectedLink.livePin) {
+        const existing = getLiveSession(selectedLink.livePin);
         if (existing && existing.status !== "closed") {
           if (body.mode === "host" && existing.hostId !== session?.id) return NextResponse.json({ ok: false, error: "Mode Host hanya dapat dibuka oleh pengurus yang membuat sesi game ini." }, { status: 403 });
           return NextResponse.json({ ok: true, pin: existing.pin, hostId: existing.hostId, templateTitle: existing.templateTitle, gameId: game.id, gameKind: game.kind });

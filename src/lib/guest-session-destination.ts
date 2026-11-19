@@ -12,7 +12,7 @@ export async function getGuestSessionDestination(session: SessionPayload | null)
       supabase.from("class_sessions").select("id,code,class_id").eq("id", session.guestSessionId).maybeSingle(),
       supabase.from("class_session_guests").select("session_id,status").eq("id", session.guestRegistrationId).maybeSingle(),
     ]);
-    if (!classSession || registration?.session_id !== classSession.id) return "/";
+    if (!classSession || !registration || registration.session_id !== classSession.id) return "/";
     if (registration.status !== "approved") return `/sesi/${encodeURIComponent(classSession.code)}`;
     const guestClass = await getClassByIdOrSlug(classSession.class_id);
     return guestClass?.isPublished ? `/kelas/${encodeURIComponent(guestClass.slug || guestClass.id)}` : `/sesi/${encodeURIComponent(classSession.code)}`;

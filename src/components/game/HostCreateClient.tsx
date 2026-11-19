@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Presentation, Play, ArrowLeft, Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 import type { SessionPayload } from "@/lib/types";
+import type { GameBlueprint } from "@/lib/game-blueprint";
 
-type G = { id: string; title: string; kind: string; source: "blueprint"; questions?: any[]; items?: any[] };
+type G = Pick<GameBlueprint, "id" | "title" | "template" | "status" | "items"> & { kind: string; source: "blueprint" };
 
 export default function HostCreateClient({ sessionUser }: { sessionUser: SessionPayload | null }) {
   const router = useRouter();
@@ -22,7 +23,8 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
       const blueprintRes = await fetch("/api/admin/game-builder", { cache: "no-store" });
       const blueprintData = await blueprintRes.json();
       if (!blueprintRes.ok) throw new Error(blueprintData.error || "Blueprint game gagal dimuat.");
-      const list: G[] = (blueprintData.games || []).filter((game: any) => game.status === "published" || game.status === "session").map((game: any) => ({ ...game, kind: game.template, source: "blueprint" as const }));
+      const sourceGames = Array.isArray(blueprintData.games) ? blueprintData.games as GameBlueprint[] : [];
+      const list: G[] = sourceGames.filter((game) => game.status === "published" || game.status === "session").map((game) => ({ ...game, kind: game.template, source: "blueprint" }));
       setGames(list);
       if (list.length) setSelected(`${list[0].source}:${list[0].id}`);
       else setSelected("");
@@ -80,7 +82,7 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
                       {isSelected && <CheckCircle2 className="h-5 w-5 text-[#14532D]" />}
                     </div>
                     <h3 className="font-bold text-sm text-[#111827] mb-1">{g.title}</h3>
-                    <div className="text-[11px] font-semibold text-gray-500 pt-2 border-t border-gray-100">{(g.questions||g.items||[]).length} Soal</div>
+                    <div className="text-[11px] font-semibold text-gray-500 pt-2 border-t border-gray-100">{g.items.length} Soal</div>
                   </button>
                 );
               })}

@@ -81,11 +81,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!local) return NextResponse.json({ error: "Sesi tidak ditemukan." }, { status: 404 });
   if (body.action === "set-games") {
     if (local.status !== "open") return NextResponse.json({ error: "Game hanya dapat diatur pada sesi yang masih aktif." }, { status: 409 });
-    const gameIds = Array.isArray(body.gameIds) ? [...new Set(body.gameIds.filter((value: unknown): value is string => typeof value === "string" && value.length <= 100))].slice(0, 30) : [];
-    const availableIds = new Set((db.gameBlueprints || []).filter((game) => game.status === "session").map((game) => game.id));
+    const gameIds: string[] = Array.isArray(body.gameIds) ? [...new Set<string>(body.gameIds.filter((value: unknown): value is string => typeof value === "string" && value.length <= 100))].slice(0, 30) : [];
+    const availableIds = new Set<string>((db.gameBlueprints || []).filter((game) => game.status === "session").map((game) => String(game.id)));
     if (gameIds.some((gameId) => !availableIds.has(gameId))) return NextResponse.json({ error: "Pilih hanya game yang berstatus Sesi." }, { status: 400 });
     db.classSessionGames = (db.classSessionGames || []).filter((item) => item.sessionId !== id || gameIds.includes(item.gameId));
-    const existing = new Set(db.classSessionGames.filter((item) => item.sessionId === id).map((item) => item.gameId));
+    const existing = new Set<string>(db.classSessionGames.filter((item) => item.sessionId === id).map((item) => String(item.gameId)));
     db.classSessionGames.push(...gameIds.filter((gameId) => !existing.has(gameId)).map((gameId) => ({ sessionId: id, gameId, livePin: null, liveStatus: null })));
     await writeLocalDb(db);
     return NextResponse.json({ ok: true, gameIds });
