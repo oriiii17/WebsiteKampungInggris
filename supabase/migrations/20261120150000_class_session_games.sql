@@ -1,16 +1,21 @@
 create table if not exists public.class_session_games (
   session_id uuid not null references public.class_sessions(id) on delete cascade,
   game_id text not null references public.game_blueprints(id) on delete cascade,
+  live_pin text,
+  live_status text,
   created_at timestamptz not null default now(),
   primary key (session_id, game_id)
 );
+
+alter table public.class_session_games add column if not exists live_pin text;
+alter table public.class_session_games add column if not exists live_status text;
 
 create index if not exists class_session_games_session_idx
   on public.class_session_games(session_id, created_at);
 
 alter table public.class_session_games enable row level security;
 revoke all on public.class_session_games from public, anon, authenticated;
-grant select, insert, delete on public.class_session_games to authenticated, service_role;
+grant select, insert, update, delete on public.class_session_games to authenticated, service_role;
 
 drop policy if exists class_session_games_manager_access on public.class_session_games;
 create policy class_session_games_manager_access on public.class_session_games for all to authenticated
@@ -52,10 +57,12 @@ begin
     raise exception 'SESSION_GAME_INVALID';
   end if;
 
-  delete from public.class_session_games where session_id = p_session_id;
+  delete from public.class_session_games
+  where session_id = p_session_id and not (game_id = any(selected_ids));
   insert into public.class_session_games(session_id, game_id)
   select p_session_id, requested.game_id
-  from (select distinct unnest(selected_ids) as game_id) requested;
+  from (select distinct unnest(selected_ids) as game_id) requested
+  on conflict (session_id, game_id) do nothing;
 end;
 $$;
 

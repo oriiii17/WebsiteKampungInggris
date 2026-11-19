@@ -1,9 +1,8 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
-import { createLiveGameSessionFromGame } from "@/lib/game-session";
-import { readLocalDb } from "@/lib/db";
+import { createLiveGameSessionFromGame, getLiveSession } from "@/lib/game-session";
+import { readLocalDb, writeLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
-import { readLocalDb } from "@/lib/db";
 import type { GameBlueprint } from "@/lib/game-blueprint";
 import type { GameRecord, GameQuestion } from "@/lib/types";
 
@@ -46,6 +45,7 @@ export async function POST(req: Request) {
     }
     const body = await req.json().catch(() => ({}));
     const gameId = String(body.gameId || body.templateId || "");
+    const classSessionId = typeof body.classSessionId === "string" ? body.classSessionId : "";
     let game = null as GameRecord | null;
     if (body.source === "blueprint") {
       const supabase = await getSupabaseServerClient();
@@ -62,10 +62,43 @@ export async function POST(req: Request) {
     if (!game) return NextResponse.json({ ok: false, error: "Game tidak ditemukan. Buat game di Kelola Game." }, { status: 400 });
     if (!game.questions || game.questions.length === 0) return NextResponse.json({ ok: false, error: "Game belum memiliki soal." }, { status: 400 });
 
+    const supabase = await getSupabaseServerClient();
+    let linkedGame: { live_pin?: string | null; live_status?: string | null } | null = null;
+    if (classSessionId) {
+      if (game.status !== "session") return NextResponse.json({ ok: false, error: "Hanya game kategori Sesi yang dapat dibuka dari sesi tatap muka." }, { status: 400 });
+      if (supabase) {
+        const { data: parent } = await supabase.from("class_sessions").select("id,status").eq("id", classSessionId).maybeSingle();
+        if (!parent || parent.status !== "open") return NextResponse.json({ ok: false, error: "Sesi tatap muka sudah berakhir atau tidak ditemukan." }, { status: 409 });
+        const { data: relation } = await supabase.from("class_session_games").select("live_pin,live_status").eq("session_id", classSessionId).eq("game_id", gameId).maybeSingle();
+        if (!relation) return NextResponse.json({ ok: false, error: "Game ini belum ditautkan ke sesi tatap muka." }, { status: 404 });
+        linkedGame = relation;
+      } else {
+        const db = await readLocalDb();
+        const parent = db.classSessions?.find((entry) => entry.id === classSessionId);
+        if (!parent || parent.status !== "open") return NextResponse.json({ ok: false, error: "Sesi tatap muka sudah berakhir atau tidak ditemukan." }, { status: 409 });
+        linkedGame = db.classSessionGames?.find((entry) => entry.sessionId === classSessionId && entry.gameId === gameId) || null;
+        if (!linkedGame) return NextResponse.json({ ok: false, error: "Game ini belum ditautkan ke sesi tatap muka." }, { status: 404 });
+      }
+      if (linkedGame.liveStatus === "closed") return NextResponse.json({ ok: false, error: "Game ini sudah ditutup oleh pengurus." }, { status: 409 });
+      if (linkedGame.livePin) {
+        const existing = getLiveSession(linkedGame.livePin);
+        if (existing && existing.status !== "closed") {
+          if (body.mode === "host" && existing.hostId !== session?.id) return NextResponse.json({ ok: false, error: "Mode Host hanya dapat dibuka oleh pengurus yang membuat sesi game ini." }, { status: 403 });
+          return NextResponse.json({ ok: true, pin: existing.pin, hostId: existing.hostId, templateTitle: existing.templateTitle, gameId: game.id, gameKind: game.kind });
+        }
+        if (supabase) await supabase.from("class_session_games").update({ live_status: "closed" }).eq("session_id", classSessionId).eq("game_id", gameId);
+        else {
+          const db = await readLocalDb();
+          const relation = db.classSessionGames?.find((entry) => entry.sessionId === classSessionId && entry.gameId === gameId);
+          if (relation) { relation.liveStatus = "closed"; await writeLocalDb(db); }
+        }
+        return NextResponse.json({ ok: false, error: "Sesi game sebelumnya sudah berakhir. Game ini kini terkunci." }, { status: 409 });
+      }
+    }
+
     const hostId = session?.id || `host-${Date.now()}`;
     const hostName = session?.name || "Host Sapen English";
     const gameSession = createLiveGameSessionFromGame(game, hostId, hostName);
-    const supabase = await getSupabaseServerClient();
     if (supabase) {
       const { error } = await supabase.from("game_sessions").insert({
         game_id: game.id,
@@ -81,6 +114,14 @@ export async function POST(req: Request) {
         console.error("[game/live/create] Supabase", { code: error.code, message: error.message, details: error.details, hint: error.hint });
         return NextResponse.json({ ok: false, error: error.code === "PGRST205" || error.code === "42P01" ? "Terapkan migrasi supabase/migrations/20261117130000_live_game_sessions.sql untuk mengaktifkan sesi game." : `Gagal menyimpan sesi (${error.code || "Supabase"}): ${error.message}` }, { status: 503 });
       }
+      if (classSessionId) {
+        const { error: linkError } = await supabase.from("class_session_games").update({ live_pin: gameSession.pin, live_status: "lobby" }).eq("session_id", classSessionId).eq("game_id", gameId);
+        if (linkError) return NextResponse.json({ ok: false, error: "Sesi live dibuat, tetapi tautannya ke sesi tatap muka belum tersimpan. Muat ulang lalu coba lagi." }, { status: 503 });
+      }
+    } else if (classSessionId) {
+      const db = await readLocalDb();
+      const relation = db.classSessionGames?.find((entry) => entry.sessionId === classSessionId && entry.gameId === gameId);
+      if (relation) { relation.livePin = gameSession.pin; relation.liveStatus = "lobby"; await writeLocalDb(db); }
     }
     return NextResponse.json({ ok: true, pin: gameSession.pin, hostId: gameSession.hostId, templateTitle: gameSession.templateTitle, gameId: game.id, gameKind: game.kind });
   } catch (error: any) {

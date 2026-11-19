@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { canManageSessions, getServerSession } from "@/lib/auth";
 import { readLocalDb, writeLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { closeSessionGame, getLiveSession } from "@/lib/game-session";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
@@ -16,16 +17,18 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const [{ data: attendees }, { data: guests }, { data: gameLinks }] = await Promise.all([
       supabase.from("class_session_attendance").select("id,participant_name,participant_type,attended_at").eq("session_id", id).order("attended_at", { ascending: true }),
       supabase.from("class_session_guests").select("id,full_name,whatsapp,status,registered_at").eq("session_id", id).order("registered_at", { ascending: false }),
-      supabase.from("class_session_games").select("game_id").eq("session_id", id),
+      supabase.from("class_session_games").select("game_id,live_pin,live_status").eq("session_id", id),
     ]);
     const gameIds = (gameLinks || []).map((link) => link.game_id);
     const { data: gameRows } = gameIds.length ? await supabase.from("game_blueprints").select("id,title,template,level").in("id", gameIds).eq("status", "session") : { data: [] };
-    return NextResponse.json({ session: row, attendees: attendees || [], guests: guests || [], games: gameRows || [] });
+    const liveByGame = new Map((gameLinks || []).map((link) => [link.game_id, { livePin: link.live_pin, liveStatus: link.live_status }]));
+    return NextResponse.json({ session: row, attendees: attendees || [], guests: guests || [], games: (gameRows || []).map((game) => ({ ...game, ...liveByGame.get(game.id) })) });
   }
   const db = await readLocalDb(); const local = db.classSessions?.find((item) => item.id === id && (session?.role !== "tutor" || item.teacherId === session.id));
   if (!local) return NextResponse.json({ error: "Sesi tidak ditemukan." }, { status: 404 });
   const gameIds = (db.classSessionGames || []).filter((item) => item.sessionId === id).map((item) => item.gameId);
-  const games = (db.gameBlueprints || []).filter((game) => gameIds.includes(game.id) && game.status === "session").map(({ id: gameId, title, template, level }) => ({ id: gameId, title, template, level }));
+  const linkByGame = new Map((db.classSessionGames || []).filter((item) => item.sessionId === id).map((item) => [item.gameId, item]));
+  const games = (db.gameBlueprints || []).filter((game) => gameIds.includes(game.id) && game.status === "session").map(({ id: gameId, title, template, level }) => ({ id: gameId, title, template, level, livePin: linkByGame.get(gameId)?.livePin || null, liveStatus: linkByGame.get(gameId)?.liveStatus || null }));
   return NextResponse.json({ session: local, attendees: db.classSessionAttendance?.filter((item) => item.sessionId === id) || [], guests: db.classSessionGuests?.filter((item) => item.sessionId === id) || [], games });
 }
 
@@ -50,6 +53,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ ok: true, gameIds });
     }
     if (body.action === "close") {
+      const { data: links } = await supabase.from("class_session_games").select("game_id,live_pin").eq("session_id", id).not("live_pin", "is", null);
+      for (const link of links || []) {
+        if (!link.live_pin) continue;
+        const live = getLiveSession(link.live_pin);
+        if (live && live.status !== "closed") closeSessionGame(live.pin, live.hostId);
+        await supabase.from("game_sessions").update({ status: "closed", updated_at: new Date().toISOString() }).eq("pin", link.live_pin);
+      }
+      await supabase.from("class_session_games").update({ live_status: "closed" }).eq("session_id", id).not("live_pin", "is", null);
       const { error } = await supabase.from("class_sessions").update({ status: "closed", closed_at: new Date().toISOString() }).eq("id", id);
       if (error) return NextResponse.json({ error: "Sesi belum dapat ditutup." }, { status: 503 });
       return NextResponse.json({ ok: true });
@@ -73,12 +84,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const gameIds = Array.isArray(body.gameIds) ? [...new Set(body.gameIds.filter((value: unknown): value is string => typeof value === "string" && value.length <= 100))].slice(0, 30) : [];
     const availableIds = new Set((db.gameBlueprints || []).filter((game) => game.status === "session").map((game) => game.id));
     if (gameIds.some((gameId) => !availableIds.has(gameId))) return NextResponse.json({ error: "Pilih hanya game yang berstatus Sesi." }, { status: 400 });
-    db.classSessionGames = (db.classSessionGames || []).filter((item) => item.sessionId !== id);
-    db.classSessionGames.push(...gameIds.map((gameId) => ({ sessionId: id, gameId })));
+    db.classSessionGames = (db.classSessionGames || []).filter((item) => item.sessionId !== id || gameIds.includes(item.gameId));
+    const existing = new Set(db.classSessionGames.filter((item) => item.sessionId === id).map((item) => item.gameId));
+    db.classSessionGames.push(...gameIds.filter((gameId) => !existing.has(gameId)).map((gameId) => ({ sessionId: id, gameId, livePin: null, liveStatus: null })));
     await writeLocalDb(db);
     return NextResponse.json({ ok: true, gameIds });
   }
-  if (body.action === "close") { local.status = "closed"; local.closedAt = new Date().toISOString(); await writeLocalDb(db); return NextResponse.json({ ok: true }); }
+  if (body.action === "close") {
+    for (const link of db.classSessionGames || []) {
+      if (link.sessionId !== id || !link.livePin) continue;
+      const live = getLiveSession(link.livePin);
+      if (live && live.status !== "closed") closeSessionGame(live.pin, live.hostId);
+      link.liveStatus = "closed";
+    }
+    local.status = "closed"; local.closedAt = new Date().toISOString(); await writeLocalDb(db); return NextResponse.json({ ok: true });
+  }
   if (body.action === "approve" && typeof body.registrationId === "string") {
     const guest = db.classSessionGuests?.find((item) => item.id === body.registrationId && item.sessionId === id);
     if (!guest) return NextResponse.json({ error: "Pendaftaran tidak ditemukan." }, { status: 404 });

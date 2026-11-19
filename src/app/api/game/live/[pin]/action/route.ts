@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
 import { getLiveSession } from "@/lib/game-session";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { readLocalDb, writeLocalDb } from "@/lib/db";
 import {
   closeSessionGame,
   kickPlayerFromSession,
@@ -70,7 +71,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
 
-  const updatedSession = getLiveSession(pin);
+  const updatedSession = getLiveSession(pin) || (action === "close" ? liveSession : null);
   const supabase = await getSupabaseServerClient();
   if (updatedSession && supabase) {
     const { error } = await supabase.from("game_sessions").update({
@@ -82,6 +83,14 @@ export async function POST(
       console.error("[game/live/action] Supabase", { code: error.code, message: error.message, details: error.details, hint: error.hint });
       return NextResponse.json({ ok: false, error: `Sesi berubah di layar host, tetapi gagal disimpan (${error.code || "Supabase"}): ${error.message}` }, { status: 500 });
     }
+    if (action === "close") {
+      const { error: linkError } = await supabase.from("class_session_games").update({ live_status: "closed" }).eq("live_pin", pin);
+      if (linkError && linkError.code !== "PGRST116") return NextResponse.json({ ok: false, error: "Game sudah ditutup, tetapi status kuncinya belum tersimpan." }, { status: 500 });
+    }
+  } else if (action === "close") {
+    const db = await readLocalDb();
+    const relation = db.classSessionGames?.find((entry) => entry.livePin === pin);
+    if (relation) { relation.liveStatus = "closed"; await writeLocalDb(db); }
   }
 
   return NextResponse.json({ ok: true, message });
