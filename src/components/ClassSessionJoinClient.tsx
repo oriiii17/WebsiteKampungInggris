@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 
-type PublicSession = { id: string; code: string; title: string; status: string; requireApproval?: boolean; canAttendAsMember?: boolean; registrationStatus?: string; viewerType?: "guest" | "regular" | "visitor"; classId?: string; classTitle?: string; classSlug?: string; startsAt?: string };
+type PublicSession = { id: string; code: string; title: string; status: string; requireApproval?: boolean; canAttendAsMember?: boolean; registrationStatus?: string; viewerType?: "guest" | "regular" | "visitor"; classId?: string; classTitle?: string; classSlug?: string; startsAt?: string; activeGamePin?: string | null; participantName?: string };
 const inputClass = "mt-1.5 min-h-12 w-full rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] px-3 py-2 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20";
 const countryDialCodes = [
   { code: "ID", flag: "🇮🇩", name: "Indonesia", dial: "62" }, { code: "MY", flag: "🇲🇾", name: "Malaysia", dial: "60" },
@@ -24,6 +24,7 @@ const countryDialCodes = [
 export default function ClassSessionJoinClient({ code }: { code: string }) {
   const router = useRouter();
   const [session, setSession] = useState<PublicSession | null>(null);
+  const [scanEntry, setScanEntry] = useState(false);
   const [name, setName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [countryCode, setCountryCode] = useState("ID");
@@ -33,6 +34,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
   const [notice, setNotice] = useState("");
   const [leavingSession, setLeavingSession] = useState(false);
   const [leaveError, setLeaveError] = useState("");
+  const redirectedToGame = useRef(false);
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
     try {
@@ -44,6 +46,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
     finally { setLoading(false); }
   }, [code]);
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { setScanEntry(new URLSearchParams(window.location.search).get("entry") === "scan"); }, []);
   useEffect(() => {
     if (session?.status !== "open") return;
     const timer = window.setInterval(() => {
@@ -53,6 +56,14 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
     }, 5000);
     return () => window.clearInterval(timer);
   }, [code, session?.status]);
+
+  useEffect(() => {
+    if (!scanEntry || redirectedToGame.current || session?.viewerType !== "guest" || session.registrationStatus !== "approved" || !session.activeGamePin) return;
+    redirectedToGame.current = true;
+    try { sessionStorage.setItem("sapen_scan_guest_name", session.participantName || name); } catch {}
+    const params = new URLSearchParams({ pin: session.activeGamePin, entry: "scan" });
+    router.replace(`/game/join?${params.toString()}`);
+  }, [name, router, scanEntry, session]);
 
   const acknowledgeEndedSession = async () => {
     if (!session || leavingSession) return;
@@ -89,7 +100,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       apiResponseDetails = { status: response.status, body: data };
       if (!response.ok) throw new Error(response.status >= 500 ? "Server sedang mengalami kendala. Data belum berhasil disimpan; coba beberapa saat lagi." : data.error || "Pendaftaran belum berhasil. Periksa data lalu coba lagi.");
       if (data.ok !== true || !["approved", "pending"].includes(data.status)) throw new Error("Respons pendaftaran belum dapat dikonfirmasi. Periksa status sesi sebelum mencoba lagi.");
-      setSession((current) => current ? { ...current, registrationStatus: data.status, canAttendAsMember: false } : current);
+      setSession((current) => current ? { ...current, registrationStatus: data.status, canAttendAsMember: false, activeGamePin: data.activeGamePin || null, participantName: data.participantName || cleanName } : current);
       router.refresh();
       if (data.status === "pending") setNotice("Pendaftaran diterima. Tutor akan memeriksa permintaanmu sebelum akses sesi dibuka.");
       else setNotice("Presensi berhasil dicatat. Selamat belajar!");

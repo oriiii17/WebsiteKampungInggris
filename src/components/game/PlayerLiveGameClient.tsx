@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Gamepad2, CheckCircle2, XCircle, Clock, Trophy, Loader2, ArrowRight, Send, Leaf, Sun, BookOpen, Sparkles, Volume2 } from "lucide-react";
+import { Gamepad2, CheckCircle2, XCircle, Clock, Trophy, Loader2, ArrowRight, Send, Leaf, Sun, BookOpen, Sparkles, Volume2, Crown, Medal } from "lucide-react";
 import confetti from "canvas-confetti";
 
 type Q = any;
@@ -25,6 +24,8 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
   const [playerName, setPlayerName] = useState("");
   const [playerAvatarId, setPlayerAvatarId] = useState("leaf");
   const [playerTeam, setPlayerTeam] = useState("forest");
+  const [scanEntry, setScanEntry] = useState(false);
+  const [closeFallback, setCloseFallback] = useState(false);
   const [state, setState] = useState<SessionState | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [lastPoints, setLastPoints] = useState<number | null>(null);
@@ -64,7 +65,7 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
   useEffect(() => {
     const raw = sessionStorage.getItem(`sapen_game_${pin}`);
     if (!raw) { router.push(`/game/join?pin=${pin}`); return; }
-    try { const p = JSON.parse(raw); setPlayerId(p.playerId); setPlayerName(p.playerName); setPlayerAvatarId(p.avatarId || "leaf"); setPlayerTeam(p.team || "forest"); } catch { router.push(`/game/join?pin=${pin}`); }
+    try { const p = JSON.parse(raw); setPlayerId(p.playerId); setPlayerName(p.playerName); setPlayerAvatarId(p.avatarId || "leaf"); setPlayerTeam(p.team || "forest"); setScanEntry(p.entry === "scan"); } catch { router.push(`/game/join?pin=${pin}`); }
   }, [pin, router]);
 
   useEffect(() => {
@@ -121,7 +122,14 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
   const q = state?.currentQuestion;
   const qType = q?.type || "kuis_live";
   const myPlayerInfo = state?.playersList.find((p) => p.id === playerId);
-  const myRank = state ? state.playersList.findIndex((p) => p.id === playerId) + 1 : 0;
+  const rankedPlayers = useMemo(() => [...(state?.playersList || [])].sort((a, b) => b.score - a.score), [state?.playersList]);
+  const myRank = rankedPlayers.findIndex((p) => p.id === playerId) + 1;
+
+  const returnFromGame = () => {
+    if (!scanEntry) { router.push("/game"); return; }
+    window.close();
+    window.setTimeout(() => { if (!window.closed) setCloseFallback(true); }, 250);
+  };
 
   const revealCorrectText = useMemo(() => {
     if (!q) return "";
@@ -247,16 +255,23 @@ export default function PlayerLiveGameClient({ pin }: { pin: string }) {
         )}
 
         {state.status === "podium" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-6 animate-[fadeIn_.4s_ease]">
-            <div className="h-24 w-24 rounded-full bg-amber-500/20 border-2 border-amber-300 flex items-center justify-center text-amber-300 shadow-xl animate-[trophy_.9s_ease_infinite_alternate]"><Trophy className="h-12 w-12" /></div>
-            <div className="space-y-2"><h2 className="text-3xl font-black text-white">Kuis Selesai!</h2><p className="text-sm text-slate-300">Terima kasih sudah bermain.</p></div>
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 w-full space-y-3 shadow-lg"><div className="text-xs text-slate-400 uppercase tracking-wider font-bold">Pencapaian Akhirmu</div><div className="text-4xl font-black text-amber-300">Peringkat #{myRank || "-"}</div><div className="text-sm font-bold text-slate-200">Total Skor: <span className="text-emerald-400">{myPlayerInfo?.score || 0}</span> Poin</div></div>
-            <Link href="/game" className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-500 transition shadow min-h-[44px]"><span>Kembali ke Menu Game</span><ArrowRight className="h-4 w-4" /></Link>
+          <div className="relative isolate flex-1 overflow-hidden rounded-3xl bg-[radial-gradient(ellipse_at_top,#28523d_0%,#173627_42%,#10251c_100%)] px-4 py-8 text-center text-white sm:px-8 sm:py-10 animate-[fadeIn_.4s_ease]">
+            <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full border border-amber-200/10" />
+            <div className="relative mx-auto max-w-3xl space-y-6">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-amber-200/30 bg-amber-300/15 text-amber-200 shadow-lg sm:h-20 sm:w-20"><Trophy className="h-9 w-9 sm:h-11 sm:w-11" /></div>
+              <div><p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">Permainan selesai</p><h2 className="mt-2 font-display text-3xl font-bold sm:text-4xl">Kerja bagus, {playerName}!</h2><p className="mt-2 text-sm text-white/75">Inilah peringkat akhir untuk {state.templateTitle}.</p></div>
+              <div className="grid gap-3 text-left sm:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]">
+                <section className="rounded-2xl border border-white/10 bg-white/[.07] p-5 sm:p-6"><div className="flex items-center gap-2 text-sm font-bold text-amber-100"><Crown className="h-4 w-4" />Pencapaianmu</div><p className="mt-4 font-display text-4xl font-bold text-amber-200">#{myRank || "—"}</p><p className="mt-1 text-sm text-white/75">{myPlayerInfo?.score || 0} poin · Tim {playerTeam === "forest" ? "Daun" : "Mentari"}</p><div className="mt-4 h-px bg-white/10" /><p className="mt-3 text-xs leading-5 text-white/70">Skor dihitung dari ketepatan dan kecepatan jawaban.</p></section>
+                <section aria-label="Leaderboard akhir" className="rounded-2xl border border-white/10 bg-[#0d1d17]/55 p-4 sm:p-5"><h3 className="flex items-center gap-2 text-sm font-bold text-white"><Medal className="h-4 w-4 text-amber-200" />Peringkat peserta</h3>{rankedPlayers.length ? <ol className="mt-3 space-y-2">{rankedPlayers.slice(0, 5).map((player, index) => <li key={player.id} className={`flex min-h-12 items-center gap-3 rounded-xl px-3 py-2 ${player.id === playerId ? "bg-amber-200/15 ring-1 ring-amber-200/35" : "bg-white/[.05]"}`}><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-black ${index === 0 ? "bg-amber-300 text-[#38260a]" : index === 1 ? "bg-slate-200 text-slate-800" : index === 2 ? "bg-orange-300 text-orange-950" : "bg-white/10 text-white/75"}`}>{index + 1}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold">{player.name}{player.id === playerId && <span className="ml-1 text-xs text-amber-200">(kamu)</span>}</span><span className="shrink-0 text-sm font-bold tabular-nums text-amber-100">{player.score} pt</span></li>)}</ol> : <p className="mt-3 text-sm text-white/70">Belum ada skor peserta.</p>}</section>
+              </div>
+              {closeFallback && <p role="status" className="rounded-xl border border-amber-200/25 bg-amber-100/10 px-4 py-3 text-sm text-amber-50">Browser tidak mengizinkan halaman ini menutup tab. Silakan tutup tab secara manual.</p>}
+              <button type="button" onClick={returnFromGame} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#c24a31] px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#a83d2a] active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100">{scanEntry ? "Selesai · tutup halaman" : "Kembali ke menu game"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button>
+            </div>
           </div>
         )}
 
         {state.status === "closed" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4"><h2 className="text-xl font-bold text-white">Sesi Kuis Ditutup</h2><p className="text-xs text-slate-400">Pengajar telah menutup sesi ini.</p><Link href="/game" className="rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-bold text-white">Kembali ke Menu Game</Link></div>
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4"><h2 className="text-xl font-bold text-white">Sesi Kuis Ditutup</h2><p className="text-sm text-slate-300">Pengajar telah menutup sesi ini.</p>{closeFallback && <p role="status" className="text-sm text-amber-100">Browser tidak mengizinkan halaman ini menutup tab. Silakan tutup tab secara manual.</p>}<button type="button" onClick={returnFromGame} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-500">{scanEntry ? "Tutup halaman" : "Kembali ke menu game"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button></div>
         )}
       </main>
 

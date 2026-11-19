@@ -18,7 +18,10 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
     if (registrationId) {
       const { data, error } = await supabase.rpc("get_guest_class_session", { p_code: code, p_registration_id: registrationId });
       const guestData = Array.isArray(data) ? data[0] : data;
-      if (!error && guestData) return NextResponse.json({ session: { id: guestData.id, code: guestData.code, title: guestData.title, status: guestData.status, registrationStatus: guestData.registration_status, classId: guestData.class_id, classTitle: guestData.class_title, classSlug: guestData.class_slug, startsAt: guestData.starts_at, viewerType: "guest" } });
+      if (!error && guestData) {
+        const { data: linkedGame } = await supabase.from("class_session_games").select("live_pin,live_status").eq("session_id", guestData.id).not("live_pin", "is", null).or("live_status.is.null,live_status.neq.closed").limit(1).maybeSingle();
+        return NextResponse.json({ session: { id: guestData.id, code: guestData.code, title: guestData.title, status: guestData.status, registrationStatus: guestData.registration_status, classId: guestData.class_id, classTitle: guestData.class_title, classSlug: guestData.class_slug, startsAt: guestData.starts_at, activeGamePin: guestData.status === "open" && linkedGame?.live_status !== "closed" ? linkedGame?.live_pin || null : null, participantName: session.name, viewerType: "guest" } });
+      }
     }
     if ((session?.role === "member" || session?.origin === "warga_kode") && session.guestSessionId) {
       const { data, error } = await supabase.rpc("get_member_class_session", { p_code: code, p_participant_key: `${session.origin}:${session.id}` });
@@ -35,7 +38,10 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
   if (!local) return NextResponse.json({ error: "Kode sesi tidak ditemukan." }, { status: 404 });
   if (session?.role === "guest" && session.guestSessionId === local.id && session.guestRegistrationId) {
     const guest = db.classSessionGuests?.find((item) => item.id === session.guestRegistrationId && item.sessionId === local.id);
-    if (guest) return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: guest.status, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, viewerType: "guest" } });
+    if (guest) {
+      const linkedGame = db.classSessionGames?.find((item) => item.sessionId === local.id && item.livePin && item.liveStatus !== "closed");
+      return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: guest.status, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, activeGamePin: local.status === "open" ? linkedGame?.livePin || null : null, participantName: session.name, viewerType: "guest" } });
+    }
   }
   if ((session?.role === "member" || session?.origin === "warga_kode") && session.guestSessionId === local.id && db.classSessionAttendance?.some((item) => item.sessionId === local.id && item.participantKey === `${session.origin}:${session.id}`)) {
     return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: "approved", classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, viewerType: "regular" } });
@@ -154,7 +160,17 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
     result = { registrationId: existing.id, sessionId: local.id, title: local.title, status: existing.status };
   }
   const guestSession: SessionPayload = { id: result.registrationId, name: guest.name, role: "guest", origin: "guest", guestRegistrationId: result.registrationId, guestSessionId: result.sessionId, expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(), watermarkText: guest.name };
-  const response = NextResponse.json({ ok: true, title: result.title, status: result.status, sessionId: result.sessionId }, { status: 200 });
+  let activeGamePin: string | null = null;
+  if (result.status === "approved") {
+    if (supabase) {
+      const { data: liveGame } = await supabase.from("class_session_games").select("live_pin,live_status").eq("session_id", result.sessionId).not("live_pin", "is", null).or("live_status.is.null,live_status.neq.closed").limit(1).maybeSingle();
+      if (liveGame?.live_status !== "closed") activeGamePin = liveGame?.live_pin || null;
+    } else {
+      const db = await readLocalDb();
+      activeGamePin = db.classSessionGames?.find((item) => item.sessionId === result?.sessionId && item.livePin && item.liveStatus !== "closed")?.livePin || null;
+    }
+  }
+  const response = NextResponse.json({ ok: true, title: result.title, status: result.status, sessionId: result.sessionId, activeGamePin, participantName: guest.name }, { status: 200 });
   response.cookies.set(GUEST_SESSION_COOKIE_NAME, encodeSessionToken(guestSession), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) });
   return response;
 }

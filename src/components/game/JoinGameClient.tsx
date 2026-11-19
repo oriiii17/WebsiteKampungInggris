@@ -27,10 +27,15 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
     if (pinParam) {
       setPin(pinParam.replace(/\D/g, "").slice(0, 6));
     }
+    let scannedName = "";
+    if (searchParams.get("entry") === "scan") {
+      try { scannedName = (sessionStorage.getItem("sapen_scan_guest_name") || "").trim(); } catch {}
+    }
+    if (scannedName) setName(scannedName);
     // Auto-fill HANYA dari nama terakhir yang pernah diketik user ini di HP yang sama (bukan default sistem)
     try {
       const last = (localStorage.getItem("sapen_last_quiz_name") || "").trim();
-      if (last) setName(last);
+      if (last && !scannedName) setName(last);
     } catch {}
   }, [searchParams]);
 
@@ -86,7 +91,9 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
         playerName: data.playerName,
         avatarId: data.avatarId,
         team: data.team,
+        entry: searchParams.get("entry") === "scan" ? "scan" : null,
       }));
+      if (searchParams.get("entry") === "scan") sessionStorage.removeItem("sapen_scan_guest_name");
 
       router.push(`/game/play/${cleanPin}`);
     } catch (err: any) {

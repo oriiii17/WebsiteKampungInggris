@@ -112,8 +112,9 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
 
   useEffect(() => {
     if (!selected) { setQr(""); return; }
-    const url = classSessionJoinUrl(window.location.origin, selected.code);
-    QRCode.toDataURL(url, { errorCorrectionLevel: "M", margin: 2, width: 240, color: { dark: "#183b2d", light: "#fdf9f0" } }).then(setQr).catch(() => setQr(""));
+    const url = new URL(classSessionJoinUrl(window.location.origin, selected.code));
+    url.searchParams.set("entry", "scan");
+    QRCode.toDataURL(url.toString(), { errorCorrectionLevel: "M", margin: 2, width: 240, color: { dark: "#183b2d", light: "#fdf9f0" } }).then(setQr).catch(() => setQr(""));
   }, [selected]);
 
   const loadDetail = async (session: SessionDetail) => {
