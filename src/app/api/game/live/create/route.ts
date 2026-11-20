@@ -45,6 +45,7 @@ export async function POST(req: Request) {
     }
     const body = await req.json().catch(() => ({}));
     const gameId = String(body.gameId || body.templateId || "");
+    if (!gameId.trim()) return NextResponse.json({ ok: false, error: "Pilih game yang sudah tersimpan di Kelola Game, lalu coba lagi." }, { status: 400 });
     const classSessionId = typeof body.classSessionId === "string" ? body.classSessionId : "";
     let game = null as GameRecord | null;
     let gameStatus: GameBlueprint["status"] | null = null;
@@ -53,7 +54,10 @@ export async function POST(req: Request) {
       let blueprint: GameBlueprint | null = null;
       if (supabase) {
         const { data, error } = await supabase.from("game_blueprints").select("*").eq("id", gameId).in("status", ["published", "session"]).maybeSingle();
-        if (error) return NextResponse.json({ ok: false, error: "Blueprint tidak dapat dimuat." }, { status: 503 });
+        if (error) {
+          console.error("[game/live/create] Blueprint lookup failed", { code: error.code, message: error.message });
+          return NextResponse.json({ ok: false, error: "Game belum dapat diverifikasi. Pastikan game sudah tersimpan dan migrasi game_blueprints sudah diterapkan." }, { status: 503 });
+        }
         if (data) blueprint = { id: data.id, title: data.title, template: data.template, level: data.level, topic: data.topic, language: data.language, coverImage: data.cover_image || undefined, status: data.status, plays: data.play_count || 0, settings: data.settings, items: data.items, createdAt: data.created_at, updatedAt: data.updated_at };
       } else {
         blueprint = (await readLocalDb()).gameBlueprints?.find((entry) => entry.id === gameId && (entry.status === "published" || entry.status === "session")) || null;
@@ -73,7 +77,11 @@ export async function POST(req: Request) {
       if (supabase) {
         const { data: parent } = await supabase.from("class_sessions").select("id,status").eq("id", classSessionId).maybeSingle();
         if (!parent || parent.status !== "open") return NextResponse.json({ ok: false, error: "Sesi tatap muka sudah berakhir atau tidak ditemukan." }, { status: 409 });
-        const { data: relation } = await supabase.from("class_session_games").select("live_pin,live_status").eq("session_id", classSessionId).eq("game_id", gameId).maybeSingle();
+        const { data: relation, error: relationError } = await supabase.from("class_session_games").select("live_pin,live_status").eq("session_id", classSessionId).eq("game_id", gameId).maybeSingle();
+        if (relationError) {
+          console.error("[game/live/create] Session game lookup failed", { code: relationError.code, message: relationError.message });
+          return NextResponse.json({ ok: false, error: "Game sesi belum dapat diverifikasi. Simpan kembali pilihan game di detail sesi, lalu coba lagi." }, { status: 503 });
+        }
         if (!relation) return NextResponse.json({ ok: false, error: "Game ini belum ditautkan ke sesi tatap muka." }, { status: 404 });
         linkedGame = { livePin: relation.live_pin, liveStatus: relation.live_status };
       } else {
@@ -117,11 +125,19 @@ export async function POST(req: Request) {
       });
       if (error) {
         console.error("[game/live/create] Supabase", { code: error.code, message: error.message, details: error.details, hint: error.hint });
-        return NextResponse.json({ ok: false, error: error.code === "PGRST205" || error.code === "42P01" ? "Terapkan migrasi supabase/migrations/20261117130000_live_game_sessions.sql untuk mengaktifkan sesi game." : `Gagal menyimpan sesi (${error.code || "Supabase"}): ${error.message}` }, { status: 503 });
+        const message = error.code === "PGRST205" || error.code === "42P01"
+          ? "Terapkan migrasi supabase/migrations/20261117130000_live_game_sessions.sql untuk mengaktifkan sesi game."
+          : error.code === "23503"
+            ? "Relasi game belum sesuai. Terapkan migrasi supabase/migrations/20261120170000_game_sessions_blueprint_fk.sql, lalu coba lagi."
+            : "Sesi game gagal disimpan. Pastikan game masih tersedia dan coba lagi.";
+        return NextResponse.json({ ok: false, error: message }, { status: 503 });
       }
       if (classSessionId) {
         const { error: linkError } = await supabase.from("class_session_games").update({ live_pin: gameSession.pin, live_status: "lobby" }).eq("session_id", classSessionId).eq("game_id", gameId);
-        if (linkError) return NextResponse.json({ ok: false, error: "Sesi live dibuat, tetapi tautannya ke sesi tatap muka belum tersimpan. Muat ulang lalu coba lagi." }, { status: 503 });
+        if (linkError) {
+          console.error("[game/live/create] Session game link update failed", { code: linkError.code, message: linkError.message });
+          return NextResponse.json({ ok: false, error: "Sesi game berhasil dibuat, tetapi tautan ke sesi tatap muka belum tersimpan. Muat ulang detail sesi sebelum mencoba lagi." }, { status: 503 });
+        }
       }
     } else if (classSessionId) {
       const db = await readLocalDb();
