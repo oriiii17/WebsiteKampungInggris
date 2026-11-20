@@ -4,7 +4,8 @@ import { getClasses } from "@/lib/db";
 
 export async function GET() {
   const session = await getServerSession();
-  if (!canManageSessions(session)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
+  if (!session) return NextResponse.json({ error: "Sesi admin sudah berakhir. Masuk kembali untuk melanjutkan." }, { status: 401 });
+  if (!canManageSessions(session)) return NextResponse.json({ error: "Akun ini belum memiliki akses untuk mengelola sesi. Gunakan akun pengurus atau tutor." }, { status: 403 });
   try {
     const classes = await getClasses(true);
     const published = classes

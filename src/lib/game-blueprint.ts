@@ -13,7 +13,8 @@ export const GAME_TEMPLATES = [
 
 export type GameTemplateId = (typeof GAME_TEMPLATES)[number]["id"];
 export type GameLevel = "A1" | "A2" | "B1" | "B2";
-export type GameBlueprintStatus = "draft" | "published" | "session";
+export type GameBlueprintStatus = "draft" | "published" | "session" | "independent";
+export type GameBlueprintDestination = "public" | "session" | "independent";
 
 export interface GameBlueprintItem {
   id: string;
@@ -41,6 +42,7 @@ export interface GameBlueprint {
   language: "id" | "en" | "id-en";
   coverImage?: string;
   status: GameBlueprintStatus;
+  destination?: GameBlueprintDestination;
   plays?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -97,7 +99,13 @@ export function normalizeGameBlueprint(value: unknown): GameBlueprint {
     }
     return normalized;
   }) : game.items;
-  return { ...game, items } as GameBlueprint;
+  const status = ["draft", "published", "session", "independent"].includes(String(game.status))
+    ? game.status as GameBlueprintStatus
+    : "draft";
+  const destination = ["public", "session", "independent"].includes(String(game.destination))
+    ? game.destination as GameBlueprintDestination
+    : status === "session" ? "session" : status === "independent" ? "independent" : "public";
+  return { ...game, status, destination, items } as GameBlueprint;
 }
 
 const validator = new Ajv({ allErrors: true, jsonPointers: true }).compile(schema);

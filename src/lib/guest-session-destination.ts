@@ -5,6 +5,7 @@ import { getSupabaseServerClient } from "@/lib/supabase-server";
 /** Resolve the public destination for a guest without ever exposing the paid class catalog. */
 export async function getGuestSessionDestination(session: SessionPayload | null): Promise<string> {
   if (session?.role !== "guest" || !session.guestSessionId || !session.guestRegistrationId) return "/";
+  if (session.guestClassHref?.startsWith("/kelas/") && !session.guestClassHref.startsWith("//")) return session.guestClassHref;
 
   const supabase = await getSupabaseServerClient();
   if (supabase) {

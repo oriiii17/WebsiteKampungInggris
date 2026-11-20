@@ -127,6 +127,7 @@ export default function AdminDashboardClient() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [refreshingOverview, setRefreshingOverview] = useState(false);
 
   // State Manual Subscription Grant
   const [manualName, setManualName] = useState("");
@@ -155,10 +156,16 @@ export default function AdminDashboardClient() {
       if (supabase) await supabase.auth.signOut({ scope: "local" });
     } catch {
       // Tetap hapus sesi aplikasi lokal jika jaringan Supabase tidak tersedia.
-    } finally {
-      try { await fetch("/api/auth/session", { method: "DELETE" }); } catch {}
-      router.push("/admin/masuk");
+    }
+    try {
+      const response = await fetch("/api/auth/session", { method: "DELETE", cache: "no-store" });
+      if (!response.ok) throw new Error("Permintaan keluar belum berhasil.");
+      try { localStorage.removeItem("sapen_last_quiz_name"); } catch {}
+      router.replace("/");
       router.refresh();
+    } catch {
+      notify("Belum berhasil keluar. Periksa koneksi, lalu tekan Keluar lagi.");
+    } finally {
       setLoggingOut(false);
     }
   }
@@ -177,10 +184,12 @@ export default function AdminDashboardClient() {
     try {
       const res = await fetch("/api/admin/overview", { cache: "no-store" });
       if (!res.ok) {
-        if (!hasLoadedOverview.current) setData(null);
-        setLoadError(res.status === 401 || res.status === 403
-          ? "Sesi admin tidak valid. Silakan masuk kembali."
-          : "Data dashboard belum dapat dimuat. Coba lagi.");
+        if (res.status === 401 || res.status === 403) setData(null);
+        setLoadError(res.status === 401
+          ? "Sesi admin tidak ditemukan atau sudah berakhir. Masuk kembali untuk melanjutkan."
+          : res.status === 403
+            ? "Akun ini belum memiliki akses admin. Masuk dengan akun pengurus."
+            : "Data dashboard belum dapat dimuat. Periksa koneksi lalu coba lagi.");
       } else { setData(await res.json()); hasLoadedOverview.current = true; }
     } catch {
       if (!hasLoadedOverview.current) setData(null);
@@ -189,6 +198,16 @@ export default function AdminDashboardClient() {
       setLoading(false);
     }
   }, []);
+
+  async function refreshOverview() {
+    setRefreshingOverview(true);
+    try {
+      await fetchOverview();
+      router.refresh();
+    } finally {
+      setRefreshingOverview(false);
+    }
+  }
 
   useEffect(() => {
     fetchOverview();
@@ -229,7 +248,7 @@ export default function AdminDashboardClient() {
         <h1 className="text-xl font-bold text-[#1A2E1A]">Dashboard belum dapat dibuka</h1>
         <p className="mt-2 text-sm text-[#1A2E1A]/75">{loadError || "Data dashboard belum dapat dimuat."}</p>
         <div className="mt-5 flex flex-wrap justify-center gap-3">
-          <button type="button" onClick={fetchOverview} className="min-h-11 rounded-md bg-earth px-4 py-2 text-sm font-bold text-white">Coba lagi</button>
+          <button type="button" disabled={refreshingOverview} onClick={() => void refreshOverview()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-earth px-4 py-2 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{refreshingOverview && <RefreshCw className="h-4 w-4 animate-spin" />}{refreshingOverview ? "Memuat ulang…" : "Coba lagi"}</button>
           <Link href="/admin/masuk" className="inline-flex min-h-11 items-center rounded-md border border-rule px-4 py-2 text-sm font-bold text-leaf">Masuk kembali</Link>
         </div>
       </section>
@@ -339,11 +358,11 @@ export default function AdminDashboardClient() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={fetchOverview} className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7]">
-                <RefreshCw className="h-4 w-4" />
-                <span className="hidden sm:inline">Muat Ulang</span>
+              <button type="button" disabled={refreshingOverview} onClick={() => void refreshOverview()} className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7] disabled:cursor-wait disabled:opacity-60">
+                <RefreshCw className={`h-4 w-4 ${refreshingOverview ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">{refreshingOverview ? "Memuat…" : "Muat ulang"}</span>
               </button>
-              <button type="button" onClick={handleLogout} disabled={loggingOut} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7]">
+              <button type="button" onClick={handleLogout} disabled={loggingOut} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7] disabled:cursor-wait disabled:opacity-60">
                 <LogOut className="h-4 w-4 text-[#14532D]" />
                 <span className="hidden sm:inline">Keluar</span>
               </button>

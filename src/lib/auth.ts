@@ -65,7 +65,7 @@ async function getVerifiedSupabaseSession(accessToken?: string): Promise<Session
     if (error || !user) return null;
     const { data: profile } = await supabase.from("profiles").select("role,full_name").eq("id", user.id).maybeSingle();
     const role = profile?.role || user.app_metadata?.role;
-    if (role !== "pengurus" && role !== "developer" && role !== "tutor") return null;
+    if (role !== "admin" && role !== "pengurus" && role !== "developer" && role !== "tutor") return null;
     const name = profile?.full_name || user.user_metadata?.full_name || (role === "developer" ? "Developer Sistem Sapen" : role === "tutor" ? "Tutor Sapen" : "Pengurus Kampung Sapen");
     return {
       id: user.id,
@@ -106,17 +106,15 @@ export function hasActiveMaterialAccess(session: SessionPayload | null): boolean
 }
 
 export function isAdminSession(session: SessionPayload | null): boolean {
-  return Boolean(session && (session.role === "pengurus" || session.role === "developer"));
+  return Boolean(session && (session.role === "admin" || session.role === "pengurus" || session.role === "developer"));
 }
 
 export function isTutorSession(session: SessionPayload | null): boolean {
-  return canManageSessions(session);
+  return session?.role === "tutor";
 }
 
-const SESSION_MANAGER_ROLES = new Set<string>(["admin", "pengurus", "developer", "tutor"]);
-
 export function canManageSessions(session: SessionPayload | null): boolean {
-  return Boolean(session && SESSION_MANAGER_ROLES.has(session.role));
+  return isAdminSession(session) || isTutorSession(session);
 }
 
 /**

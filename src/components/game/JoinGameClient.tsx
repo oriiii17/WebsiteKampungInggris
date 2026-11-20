@@ -12,7 +12,7 @@ const AVATARS = [
   { id: "bird", label: "Burung", Icon: Bird },
 ] as const;
 
-export default function JoinGameClient({ defaultName = "" }: { defaultName?: string }) {
+export default function JoinGameClient({ defaultName = "", isGuest = false }: { defaultName?: string; isGuest?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -59,10 +59,13 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
     setLoading(true);
 
     try {
-      let playerId = localStorage.getItem("sapen_player_id");
+      // sessionStorage is isolated per browser tab and scoped by PIN, so another
+      // game or a newly opened tab cannot inherit an earlier participant ID.
+      const playerKey = `sapen_player_id_${cleanPin}`;
+      let playerId = sessionStorage.getItem(playerKey);
       if (!playerId) {
-        playerId = `player-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-        localStorage.setItem("sapen_player_id", playerId);
+        playerId = createPlayerId();
+        sessionStorage.setItem(playerKey, playerId);
       }
 
       // Simpan nama terakhir yang diketik user ini (bukan default sistem)
@@ -85,6 +88,9 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
         setLoading(false);
         return;
       }
+
+      // The API may issue a replacement ID if it detects a legacy ID collision.
+      sessionStorage.setItem(playerKey, data.playerId);
 
       sessionStorage.setItem(`sapen_game_${cleanPin}`, JSON.stringify({
         playerId: data.playerId,
@@ -169,7 +175,7 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
             />
           </div>
           <p className="mt-1 text-[11px] text-gray-500">
-            Wajib isi nama sendiri (min. 2-3 huruf). Nama ini akan muncul di papan skor.
+            Isi 2–20 karakter. Nama ini akan muncul di papan skor; nama panggilan bebas.
           </p>
         </div>
 
@@ -191,13 +197,23 @@ export default function JoinGameClient({ defaultName = "" }: { defaultName?: str
 
       <div className="mt-6 pt-5 border-t border-gray-100 text-center">
         <Link
-          href="/game"
+          href={isGuest ? "/games" : "/game"}
           className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-muted hover:text-ink"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Kembali ke Informasi Game</span>
+          <span>{isGuest ? "Kembali ke beranda" : "Kembali ke Informasi Game"}</span>
         </Link>
       </div>
     </div>
   );
+}
+
+function createPlayerId() {
+  const bytes = new Uint8Array(16);
+  if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256);
+  }
+  return `player-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }

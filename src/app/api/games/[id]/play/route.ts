@@ -1,15 +1,30 @@
 import { NextResponse } from "next/server";
-import { readLocalDb, writeLocalDb } from "@/lib/db";
+import { getUserEnrollments, readLocalDb, writeLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
-import { getSessionWithGuestContext } from "@/lib/auth";
+import { getSessionWithGuestContext, isAdminSession } from "@/lib/auth";
 
-export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const session = await getSessionWithGuestContext();
+  const body = await request.json().catch(() => ({}));
+  const requestedClassId = typeof body.classId === "string" ? body.classId : "";
   const supabase = await getSupabaseServerClient();
   if (supabase) {
     const { data: game, error: gameError } = await supabase.from("game_blueprints").select("status").eq("id", id).maybeSingle();
     if (gameError || !game || game.status === "draft") return NextResponse.json({ error: "Game tidak tersedia." }, { status: 404 });
+    if (game.status === "independent") {
+      let allowed = Boolean(requestedClassId && (isAdminSession(session) || session?.origin === "warga_kode"));
+      if (session?.role === "guest" && session.guestSessionId && session.guestRegistrationId) {
+        const [{ data: guest }, { data: parent }] = await Promise.all([
+          supabase.from("class_session_guests").select("session_id,status").eq("id", session.guestRegistrationId).maybeSingle(),
+          supabase.from("class_sessions").select("class_id").eq("id", session.guestSessionId).maybeSingle(),
+        ]);
+        allowed = Boolean(requestedClassId && guest?.status === "approved" && guest.session_id === session.guestSessionId && parent?.class_id === requestedClassId);
+      } else if (!allowed && requestedClassId && session?.email) {
+        allowed = (await getUserEnrollments(session.email)).some((enrollment) => enrollment.classId === requestedClassId);
+      }
+      if (!allowed) return NextResponse.json({ error: "Latihan ini tersedia untuk peserta kelas yang terdaftar." }, { status: 403 });
+    }
     if (game.status === "session") {
       if (session?.role !== "guest" || !session.guestSessionId || !session.guestRegistrationId) return NextResponse.json({ error: "Game ini hanya tersedia bagi peserta sesi yang ditautkan." }, { status: 403 });
       const { data: guest } = await supabase.from("class_session_guests").select("session_id,status").eq("id", session.guestRegistrationId).maybeSingle();
@@ -26,8 +41,19 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ plays: data });
   }
   const db = await readLocalDb();
-  const game = db.gameBlueprints?.find((item) => item.id === id && (item.status === "published" || item.status === "session"));
+  const game = db.gameBlueprints?.find((item) => item.id === id && (item.status === "published" || item.status === "session" || item.status === "independent"));
   if (!game) return NextResponse.json({ error: "Game tidak tersedia." }, { status: 404 });
+  if (game.status === "independent") {
+    let allowed = Boolean(requestedClassId && (isAdminSession(session) || session?.origin === "warga_kode"));
+    if (session?.role === "guest" && session.guestSessionId && session.guestRegistrationId) {
+      const guest = db.classSessionGuests?.some((item) => item.id === session.guestRegistrationId && item.sessionId === session.guestSessionId && item.status === "approved");
+      const parent = db.classSessions?.find((item) => item.id === session.guestSessionId);
+      allowed = Boolean(requestedClassId && guest && parent?.classId === requestedClassId);
+    } else if (!allowed && requestedClassId && session?.email) {
+      allowed = (await getUserEnrollments(session.email)).some((enrollment) => enrollment.classId === requestedClassId);
+    }
+    if (!allowed) return NextResponse.json({ error: "Latihan ini tersedia untuk peserta kelas yang terdaftar." }, { status: 403 });
+  }
   if (game.status === "session") {
     const guest = session?.role === "guest" && Boolean(session.guestSessionId && session.guestRegistrationId && db.classSessionGuests?.some((item) => item.id === session.guestRegistrationId && item.sessionId === session.guestSessionId && item.status === "approved"));
     const parent = guest ? db.classSessions?.find((item) => item.id === session?.guestSessionId) : null;

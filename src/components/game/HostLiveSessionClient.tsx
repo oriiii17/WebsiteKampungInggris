@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
+import Image from "next/image";
 import { Users, Play, ArrowRight, Trophy, XCircle, Copy, Check, Sparkles, Award, Crown, Leaf, Sun, BookOpen } from "lucide-react";
 import confetti from "canvas-confetti";
+import QRCode from "qrcode";
 
 interface SessionState {
   pin: string; templateTitle: string; hostName: string; status: "lobby" | "question" | "reveal" | "podium" | "closed";
@@ -24,6 +25,27 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
   const [remainingTime, setRemainingTime] = useState<number>(20);
   const [actionLoading, setActionLoading] = useState(false);
   const [mediaLoadFailed, setMediaLoadFailed] = useState(false);
+  const [joinQr, setJoinQr] = useState("");
+  const [hostError, setHostError] = useState("");
+  const [closeFallback, setCloseFallback] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const joinUrl = new URL("/game/join", window.location.origin);
+    joinUrl.searchParams.set("pin", initialPin);
+    joinUrl.searchParams.set("entry", "scan");
+    QRCode.toDataURL(joinUrl.toString(), {
+      errorCorrectionLevel: "H",
+      margin: 2,
+      width: 480,
+      color: { dark: "#10251c", light: "#ffffff" },
+    }).then((dataUrl) => {
+      if (!cancelled) setJoinQr(dataUrl);
+    }).catch(() => {
+      if (!cancelled) setHostError("QR belum dapat dibuat. Peserta tetap bisa masuk dengan mengetik PIN.");
+    });
+    return () => { cancelled = true; };
+  }, [initialPin]);
 
   useEffect(() => setMediaLoadFailed(false), [state?.currentQuestionIndex, state?.status]);
 
@@ -54,7 +76,32 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
     try { await fetch(`/api/game/live/${initialPin}/action`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, hostId: hostId || "host-dev", targetPlayerId }) }); } finally { setActionLoading(false); }
   };
 
-  const copyJoinLink = () => { navigator.clipboard.writeText(`${window.location.origin}/game/join?pin=${initialPin}`); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const copyJoinLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/game/join?pin=${initialPin}&entry=scan`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setHostError("Tautan belum dapat disalin. Peserta bisa memindai QR atau memasukkan PIN secara manual.");
+    }
+  };
+
+  const closeProjector = () => {
+    if (state?.status !== "closed") {
+      void fetch(`/api/game/live/${initialPin}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "close", hostId: hostId || "host-dev" }),
+        keepalive: true,
+      }).then((response) => {
+        if (!response.ok) setHostError("Sesi tidak dapat ditutup oleh server. Periksa akses atau koneksi; tab tetap akan dicoba untuk ditutup.");
+      }).catch(() => setHostError("Sesi mungkin belum tertutup. Periksa koneksi; tab tetap akan dicoba untuk ditutup."));
+    }
+    window.close();
+    window.setTimeout(() => {
+      if (!window.closed) setCloseFallback(true);
+    }, 350);
+  };
 
   if (!state) return (<div className="flex h-screen items-center justify-center text-center bg-gradient-to-b from-[#062814] via-[#0F172A] to-[#0b1020]"><div><div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent mx-auto mb-4" /><p className="text-gray-300 font-semibold">Menghubungkan ke Sesi Live #{initialPin}...</p></div></div>);
 
@@ -78,16 +125,21 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
           <div><h1 className="text-base sm:text-lg font-bold text-white leading-tight">{state.templateTitle || templateTitle}</h1><p className="text-xs text-slate-400">Host: <span className="text-slate-200 font-semibold">{state.hostName}</span></p></div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <button onClick={copyJoinLink} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 border border-slate-700 transition">{copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}<span>{copied ? "Tersalin!" : "Salin Link"}</span></button>
-          <button onClick={() => sendAction("close")} className="inline-flex items-center gap-1.5 rounded-lg bg-red-950/60 px-3 py-2 text-xs font-semibold text-red-300 hover:bg-red-900 border border-red-800/60 transition"><XCircle className="h-4 w-4" /><span>Tutup</span></button>
+          <button type="button" onClick={() => void copyJoinLink()} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3.5 text-sm font-semibold text-slate-100 transition-all duration-150 hover:-translate-y-px hover:bg-slate-700 active:scale-[.97]">{copied ? <Check className="h-4 w-4 text-emerald-300" /> : <Copy className="h-4 w-4" />}<span>{copied ? "✓ Tersalin" : "Salin tautan"}</span></button>
+          <button type="button" onClick={closeProjector} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-red-800/70 bg-red-950/70 px-3 text-sm font-semibold text-red-100 transition-all duration-150 hover:-translate-y-px hover:bg-red-900 active:scale-[.97]"><XCircle className="h-4 w-4" /><span>Tutup proyektor</span></button>
         </div>
       </header>
+
+      {(hostError || closeFallback) && <div className="mx-auto mt-3 w-full max-w-6xl space-y-2 px-4 sm:px-8">{hostError && <p role="status" className="rounded-lg border border-amber-300/40 bg-amber-950/70 px-4 py-3 text-sm text-amber-100">{hostError}</p>}{closeFallback && <p role="status" className="rounded-lg border border-amber-300/40 bg-amber-950/70 px-4 py-3 text-sm text-amber-100">Browser tidak mengizinkan tab ini ditutup otomatis. Tutup tab proyektor ini secara manual.</p>}</div>}
 
       <main className="flex-1 p-4 sm:p-8 max-w-6xl mx-auto w-full">
         {!!state.teamScores?.length && <section aria-label="Papan skor tim" className="mb-6 grid gap-3 sm:grid-cols-2">{state.teamScores.map((team) => <div key={team.team} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${team.team === "forest" ? "border-emerald-800 bg-emerald-950/60 text-emerald-100" : "border-amber-800 bg-amber-950/50 text-amber-100"}`}><div className="flex items-center gap-3">{team.team === "forest" ? <Leaf className="h-5 w-5" /> : <Sun className="h-5 w-5" />}<span className="font-bold">Tim {team.team === "forest" ? "Daun" : "Mentari"}<span className="ml-2 text-xs font-normal opacity-75">{team.players} peserta</span></span></div><span className="font-mono text-xl font-black tabular-nums">{team.score} pt</span></div>)}</section>}
         {state.status === "lobby" && (
           <div className="space-y-8 py-4">
-            <div className="text-center space-y-3 animate-[fadeIn_.5s_ease]"><span className="inline-block bg-slate-800/80 border border-slate-700 px-4 py-1 rounded-full text-xs font-bold text-slate-300 uppercase tracking-widest">Ruang Tunggu</span><h2 className="text-3xl sm:text-5xl font-black text-white">Buka HP: <span className="text-emerald-400 underline underline-offset-8">/game/join</span></h2><p className="text-slate-300 text-lg">Masukkan PIN: <span className="text-amber-400 font-black font-mono text-3xl tracking-[0.2em]">{state.pin}</span></p></div>
+            <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+              <div className="space-y-3 text-center animate-[fadeIn_.5s_ease] lg:text-left"><span className="inline-block rounded-full border border-slate-700 bg-slate-800/80 px-4 py-1 text-xs font-bold uppercase tracking-widest text-slate-300">Ruang Tunggu</span><h2 className="text-3xl font-black text-white sm:text-5xl">Pindai QR untuk bergabung</h2><p className="text-slate-300">Arahkan kamera ponsel ke QR atau masukkan PIN di halaman game.</p><p className="text-slate-300 text-lg">PIN: <span className="font-mono text-3xl font-black tracking-[0.2em] text-amber-400">{state.pin}</span></p></div>
+              {joinQr && <aside className="mx-auto w-full max-w-[280px] rounded-2xl border border-slate-700 bg-white p-4 text-center shadow-xl shadow-black/20"><Image src={joinQr} alt={`QR untuk bergabung ke game dengan PIN ${state.pin}`} width={480} height={480} unoptimized className="mx-auto aspect-square w-full max-w-[240px] rounded-lg" /><p className="mt-3 text-sm font-bold text-[#10251c]">Pindai untuk ikut bermain</p><p className="mt-1 break-all text-xs text-[#3e5047]">{window.location.origin}/game/join</p></aside>}
+            </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6 backdrop-blur">
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800"><div className="flex items-center gap-2 text-slate-200 font-bold"><Users className="h-5 w-5 text-emerald-400" /><span>Peserta Bergabung ({totalPlayers})</span></div>{totalPlayers === 0 && <span className="text-xs text-slate-500 animate-pulse">Menunggu peserta...</span>}</div>
               {totalPlayers === 0 ? (<div className="text-center py-10 text-slate-500"><p>Belum ada peserta. Tampilkan PIN di layar!</p></div>) : (<div className="flex flex-wrap gap-2.5 max-h-[320px] overflow-y-auto pr-1">{state.playersList.map((player:any) => (<div key={player.id} className="group flex items-center gap-2 rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2 text-sm font-bold text-white shadow-sm hover:border-emerald-500/50 transition"><span className={`h-7 w-7 rounded-full flex items-center justify-center ${player.team === "forest" ? "bg-emerald-600/30 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>{player.avatarId === "sun" ? <Sun className="h-4 w-4" /> : player.avatarId === "bird" ? <Sparkles className="h-4 w-4" /> : player.avatarId === "book" ? <BookOpen className="h-4 w-4" /> : <Leaf className="h-4 w-4" />}</span><span>{player.name}<small className="ml-2 text-[10px] font-semibold text-slate-400">{player.team === "forest" ? "Daun" : "Mentari"}</small></span><button onClick={() => sendAction("kick", player.id)} title="Keluarkan" aria-label={`Keluarkan ${player.name}`} className="min-h-11 min-w-11 text-red-400 hover:text-red-300 ml-1">×</button></div>))}</div>)}
@@ -153,11 +205,11 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
               <div className="flex flex-col items-center animate-[rise_.6s_ease_.2s_both]"><div className="text-xs sm:text-sm font-bold text-slate-200 mb-1 truncate max-w-[120px]">{state.playersList[2]?.name || "—"}</div><div className="text-xs text-amber-300 font-mono mb-2">{state.playersList[2] ? `${state.playersList[2].score} pt` : ""}</div><div className="w-full rounded-t-2xl bg-amber-900 h-20 sm:h-28 flex flex-col items-center justify-center text-amber-100"><Award className="h-6 w-6 mb-1" /><span className="text-xl font-black">3</span></div></div>
             </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 max-w-2xl mx-auto text-left"><h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider mb-3">Peringkat Seluruh Peserta</h3><div className="divide-y divide-slate-800 max-h-64 overflow-y-auto pr-1">{state.playersList.map((p:any, idx:number)=>(<div key={p.id} className="flex items-center justify-between py-2.5 text-sm"><div className="flex items-center gap-3 min-w-0"><span className="font-mono font-bold text-slate-500 w-7">#{idx+1}</span><span className="font-semibold text-white truncate">{p.name}</span></div><span className="font-mono font-bold text-emerald-400">{p.score} poin</span></div>))}</div></div>
-            <div className="flex justify-center gap-3 sm:gap-4 pt-2 flex-wrap"><Link href="/admin?tab=games" className="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-500 transition">Buka Sesi Baru</Link><Link href="/admin?tab=game-builder" className="rounded-xl bg-slate-800 border border-slate-700 px-6 py-3 text-sm font-bold text-slate-200 hover:bg-slate-700 transition">Kembali ke Kelola Game</Link></div>
+            <div className="flex justify-center pt-2"><button type="button" onClick={closeProjector} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-red-800 px-6 py-3 text-sm font-bold text-white transition hover:bg-red-700 active:scale-[.98]"><XCircle className="h-4 w-4" />Tutup proyektor</button></div>
           </div>
         )}
 
-        {state.status === "closed" && (<div className="text-center py-20 space-y-4"><h2 className="text-2xl font-bold text-white">Sesi Kuis Telah Ditutup</h2><p className="text-sm text-slate-400">Terima kasih.</p><Link href="/admin?tab=game-builder" className="inline-block rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-500">Kembali ke Kelola Game</Link></div>)}
+        {state.status === "closed" && (<div className="text-center py-20 space-y-4"><h2 className="text-2xl font-bold text-white">Sesi Kuis Telah Ditutup</h2><p className="text-sm text-slate-300">Terima kasih. Jendela proyektor dapat ditutup.</p><button type="button" onClick={closeProjector} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-red-800 px-6 py-3 text-sm font-bold text-white transition hover:bg-red-700 active:scale-[.98]"><XCircle className="h-4 w-4" />Tutup proyektor</button></div>)}
       </main>
       <style jsx global>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}@keyframes rise{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style>
     </div>

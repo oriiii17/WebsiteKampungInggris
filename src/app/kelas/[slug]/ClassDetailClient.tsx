@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Gamepad2, Lock, Loader2, ShieldCheck, Sparkles, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { ClassItem, ModuleItem, SessionPayload } from "@/lib/types";
+import type { GameBlueprint } from "@/lib/game-blueprint";
 import AddToCartButton from "@/components/AddToCartButton";
 import { formatIDR } from "@/lib/currency";
 
@@ -14,7 +16,33 @@ interface Props {
 }
 
 export default function ClassDetailClient({ classItem, includedModules, isEnrolled, sessionUser }: Props) {
+  const [practiceOpen, setPracticeOpen] = useState(false);
+  const [practiceGames, setPracticeGames] = useState<GameBlueprint[]>([]);
+  const [practiceLoading, setPracticeLoading] = useState(false);
+  const [practiceError, setPracticeError] = useState("");
   const isGuest = sessionUser?.role === "guest" || sessionUser?.origin === "guest";
+  useEffect(() => {
+    if (!practiceOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setPracticeOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [practiceOpen]);
+
+  async function openIndependentPractice() {
+    setPracticeOpen(true);
+    setPracticeLoading(true);
+    setPracticeError("");
+    try {
+      const response = await fetch(`/api/games?purpose=independent&classId=${encodeURIComponent(classItem.id)}`, { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Latihan mandiri belum dapat dimuat.");
+      setPracticeGames(data.games || []);
+    } catch (error) {
+      setPracticeError(error instanceof Error ? error.message : "Latihan mandiri belum dapat dimuat.");
+    } finally {
+      setPracticeLoading(false);
+    }
+  }
   const publishedModules = classItem.modules?.length
     ? [...classItem.modules].sort((a, b) => a.urutan - b.urutan)
     : includedModules.map((module, index) => ({
@@ -63,6 +91,11 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
         </div>}
       </section>
 
+      {isEnrolled && <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#c9bda7] bg-[#e8eee5] p-5 sm:p-6">
+        <div className="flex min-w-0 items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#244b3a] text-white"><Gamepad2 className="h-5 w-5" /></span><div><h2 className="text-xl font-bold text-[#183b2d]">Latihan Mandiri</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-[#34472d]">Latihan yang diterbitkan untuk kelas ini bisa dimainkan kapan saja, tanpa menunggu sesi tatap muka.</p></div></div>
+        <button type="button" onClick={() => void openIndependentPractice()} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-5 text-sm font-bold text-white transition hover:bg-[#183b2d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ba472f]"><Gamepad2 className="h-4 w-4" />Lihat latihan</button>
+      </section>}
+
       <section className="class-detail-section">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-rule pb-4">
           <div><h2 className="text-2xl sm:text-3xl">Modul pelajaran</h2></div>
@@ -88,6 +121,14 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
           </ol>
         )}
       </section>
+
+      {practiceOpen && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPracticeOpen(false); }} className="fixed inset-0 z-[100] grid place-items-center bg-[#13271f]/60 p-3 sm:p-6">
+        <section role="dialog" aria-modal="true" aria-labelledby="independent-practice-title" className="flex max-h-[min(88dvh,740px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#c9bda7] bg-[#fdf9f0] shadow-2xl">
+          <header className="flex items-start justify-between gap-4 border-b border-[#e2d8c7] p-5 sm:p-6"><div><h2 id="independent-practice-title" className="text-2xl font-bold text-[#183b2d]">Latihan Mandiri</h2><p className="mt-1 text-sm leading-6 text-[#514b3e]">Pilih latihan untuk mulai belajar kapan saja.</p></div><button type="button" aria-label="Tutup latihan mandiri" onClick={() => setPracticeOpen(false)} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg border border-[#b8aa8e] bg-white text-[#244b3a] hover:bg-[#e8eee5]"><X className="h-4 w-4" /></button></header>
+          <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">{practiceLoading ? <div className="flex min-h-32 items-center justify-center gap-2 text-sm font-semibold text-[#514b3e]"><Loader2 className="h-5 w-5 animate-spin" />Memuat latihan…</div> : practiceError ? <p role="alert" className="rounded-xl border border-[#ba472f]/30 bg-[#f2dfd6] p-4 text-sm font-semibold text-[#7b2c1d]">{practiceError}</p> : practiceGames.length ? <ul className="space-y-3">{practiceGames.map((game) => <li key={game.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#c9bda7] bg-white p-4"><div className="min-w-0"><h3 className="font-bold text-[#183b2d]">{game.title}</h3><p className="mt-1 text-sm text-[#514b3e]">{game.topic} · {game.level} · {game.items.length} soal</p></div><Link href={`/games/${encodeURIComponent(game.id)}?classId=${encodeURIComponent(classItem.id)}`} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#ba472f] px-4 text-sm font-bold text-white transition hover:bg-[#943520]">Mulai latihan<ArrowRight className="h-4 w-4" /></Link></li>)}</ul> : <div className="rounded-xl border border-dashed border-[#b8aa8e] bg-white px-5 py-8 text-center"><Gamepad2 className="mx-auto h-8 w-8 text-[#244b3a]" /><h3 className="mt-3 font-bold text-[#183b2d]">Belum ada latihan mandiri</h3><p className="mt-1 text-sm leading-6 text-[#514b3e]">Pengurus akan menambahkan latihan yang bisa dikerjakan kapan saja.</p></div>}</div>
+          <footer className="flex justify-end border-t border-[#e2d8c7] bg-white/60 p-4"><button type="button" onClick={() => setPracticeOpen(false)} className="min-h-11 rounded-lg border border-[#b8aa8e] px-4 text-sm font-bold text-[#244b3a] hover:bg-[#e8eee5]">Tutup</button></footer>
+        </section>
+      </div>}
 
     </div>
   );

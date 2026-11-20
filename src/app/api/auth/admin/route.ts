@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     }
 
     const role = profile?.role || user.app_metadata?.role;
-    if (role !== "pengurus" && role !== "developer") {
+    if (role !== "admin" && role !== "pengurus" && role !== "developer") {
       return NextResponse.json({ error: "Akun ini bukan akun admin" }, { status: 403 });
     }
 

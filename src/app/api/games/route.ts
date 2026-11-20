@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { readLocalDb } from "@/lib/db";
+import { getUserEnrollments, readLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { normalizeGameBlueprint, type GameBlueprint } from "@/lib/game-blueprint";
-import { getSessionWithGuestContext } from "@/lib/auth";
+import { getSessionWithGuestContext, isAdminSession } from "@/lib/auth";
 
 function fromRow(row: any): GameBlueprint {
   const normalizeMedia = (value?: string | null) => {
@@ -11,12 +11,46 @@ function fromRow(row: any): GameBlueprint {
     return match ? `/api/game-media/${match[1]}` : value;
   };
   return normalizeGameBlueprint({ id: row.id, title: row.title, template: row.template, level: row.level, topic: row.topic,
-    language: row.language, coverImage: normalizeMedia(row.cover_image), status: row.status, plays: row.play_count || 0,
+    language: row.language, coverImage: normalizeMedia(row.cover_image), status: row.status, destination: row.destination, plays: row.play_count || 0,
     settings: row.settings, items: Array.isArray(row.items) ? row.items.map((item: any) => ({ ...item, mediaUrl: normalizeMedia(item.mediaUrl) })) : row.items, createdAt: row.created_at, updatedAt: row.updated_at });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getSessionWithGuestContext();
+  const requestUrl = new URL(request.url);
+  const purpose = requestUrl.searchParams.get("purpose");
+  const classId = requestUrl.searchParams.get("classId") || "";
+  if (purpose === "independent") {
+    if (!classId) return NextResponse.json({ error: "Kelas tidak ditemukan." }, { status: 400 });
+    let allowed = isAdminSession(session) || session?.origin === "warga_kode";
+    if (session?.role === "guest" && session.guestSessionId && session.guestRegistrationId) {
+      const supabase = await getSupabaseServerClient();
+      if (supabase) {
+        const [{ data: guest }, { data: parent }] = await Promise.all([
+          supabase.from("class_session_guests").select("session_id,status").eq("id", session.guestRegistrationId).maybeSingle(),
+          supabase.from("class_sessions").select("class_id").eq("id", session.guestSessionId).maybeSingle(),
+        ]);
+        allowed = guest?.status === "approved" && guest.session_id === session.guestSessionId && parent?.class_id === classId;
+      } else {
+        const db = await readLocalDb();
+        const guest = db.classSessionGuests?.some((item) => item.id === session.guestRegistrationId && item.sessionId === session.guestSessionId && item.status === "approved");
+        const parent = db.classSessions?.find((item) => item.id === session.guestSessionId);
+        allowed = Boolean(guest && parent?.classId === classId);
+      }
+    } else if (!allowed && session?.email) {
+      allowed = (await getUserEnrollments(session.email)).some((enrollment) => enrollment.classId === classId);
+    }
+    if (!allowed) return NextResponse.json({ error: "Latihan ini tersedia untuk peserta kelas yang terdaftar." }, { status: 403 });
+
+    const supabase = await getSupabaseServerClient();
+    if (supabase) {
+      const { data, error } = await supabase.from("game_blueprints").select("*").eq("status", "independent").order("updated_at", { ascending: false });
+      if (error) return NextResponse.json({ error: "Latihan mandiri belum dapat dimuat." }, { status: 503 });
+      return NextResponse.json({ games: (data || []).map(fromRow) }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    }
+    const db = await readLocalDb();
+    return NextResponse.json({ games: (db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => game.status === "independent") }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  }
   let allowedGuestGameIds: string[] | null = null;
   if (session?.role === "guest") {
     allowedGuestGameIds = [];

@@ -20,7 +20,15 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
       const guestData = Array.isArray(data) ? data[0] : data;
       if (!error && guestData) {
         const { data: linkedGame } = await supabase.from("class_session_games").select("live_pin,live_status").eq("session_id", guestData.id).not("live_pin", "is", null).or("live_status.is.null,live_status.neq.closed").limit(1).maybeSingle();
-        return NextResponse.json({ session: { id: guestData.id, code: guestData.code, title: guestData.title, status: guestData.status, registrationStatus: guestData.registration_status, classId: guestData.class_id, classTitle: guestData.class_title, classSlug: guestData.class_slug, startsAt: guestData.starts_at, activeGamePin: guestData.status === "open" && linkedGame?.live_status !== "closed" ? linkedGame?.live_pin || null : null, participantName: session?.name || "Guest", viewerType: "guest" } });
+        const { data: guestClass } = guestData.registration_status === "approved" && guestData.class_id
+          ? await supabase.from("classes").select("slug,is_published").eq("id", guestData.class_id).maybeSingle()
+          : { data: null };
+        const classSlug = guestClass?.is_published ? guestClass.slug : undefined;
+        const response = NextResponse.json({ session: { id: guestData.id, code: guestData.code, title: guestData.title, status: guestData.status, registrationStatus: guestData.registration_status, classId: guestData.class_id, classTitle: guestData.class_title, classSlug, startsAt: guestData.starts_at, activeGamePin: guestData.status === "open" && linkedGame?.live_status !== "closed" ? linkedGame?.live_pin || null : null, participantName: session?.name || "Guest", viewerType: "guest" } });
+        if (session?.role === "guest" && classSlug) {
+          response.cookies.set(GUEST_SESSION_COOKIE_NAME, encodeSessionToken({ ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` }), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) });
+        }
+        return response;
       }
     }
     if ((session?.role === "member" || session?.origin === "warga_kode") && session.guestSessionId) {
@@ -40,7 +48,11 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
     const guest = db.classSessionGuests?.find((item) => item.id === session.guestRegistrationId && item.sessionId === local.id);
     if (guest) {
       const linkedGame = db.classSessionGames?.find((item) => item.sessionId === local.id && item.livePin && item.liveStatus !== "closed");
-      return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: guest.status, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, activeGamePin: local.status === "open" ? linkedGame?.livePin || null : null, participantName: session.name, viewerType: "guest" } });
+      const guestClass = db.classes?.find((item) => item.id === local.classId && item.isPublished);
+      const classSlug = guestClass?.slug;
+      const response = NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: guest.status, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug, activeGamePin: local.status === "open" ? linkedGame?.livePin || null : null, participantName: session.name, viewerType: "guest" } });
+      if (guest.status === "approved" && classSlug) response.cookies.set(GUEST_SESSION_COOKIE_NAME, encodeSessionToken({ ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` }), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) });
+      return response;
     }
   }
   if ((session?.role === "member" || session?.origin === "warga_kode") && session.guestSessionId === local.id && db.classSessionAttendance?.some((item) => item.sessionId === local.id && item.participantKey === `${session.origin}:${session.id}`)) {
@@ -159,7 +171,22 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
     const { writeLocalDb } = await import("@/lib/db"); await writeLocalDb(db);
     result = { registrationId: existing.id, sessionId: local.id, title: local.title, status: existing.status };
   }
-  const guestSession: SessionPayload = { id: result.registrationId, name: guest.name, role: "guest", origin: "guest", guestRegistrationId: result.registrationId, guestSessionId: result.sessionId, expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(), watermarkText: guest.name };
+  let guestClassHref: string | undefined;
+  if (result.status === "approved") {
+    if (supabase) {
+      const { data: parent } = await supabase.from("class_sessions").select("class_id").eq("id", result.sessionId).maybeSingle();
+      if (parent?.class_id) {
+        const { data: guestClass } = await supabase.from("classes").select("slug,is_published").eq("id", parent.class_id).maybeSingle();
+        if (guestClass?.is_published && guestClass.slug) guestClassHref = `/kelas/${encodeURIComponent(guestClass.slug)}`;
+      }
+    } else {
+      const db = await readLocalDb();
+      const parent = db.classSessions?.find((item) => item.id === result?.sessionId);
+      const guestClass = db.classes?.find((item) => item.id === parent?.classId && item.isPublished);
+      if (guestClass) guestClassHref = `/kelas/${encodeURIComponent(guestClass.slug || guestClass.id)}`;
+    }
+  }
+  const guestSession: SessionPayload = { id: result.registrationId, name: guest.name, role: "guest", origin: "guest", guestRegistrationId: result.registrationId, guestSessionId: result.sessionId, guestClassHref, expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(), watermarkText: guest.name };
   let activeGamePin: string | null = null;
   if (result.status === "approved") {
     if (supabase) {

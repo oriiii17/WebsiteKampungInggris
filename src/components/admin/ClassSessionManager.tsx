@@ -58,6 +58,8 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
   const [requireApproval, setRequireApproval] = useState(false);
   const [qr, setQr] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshingSessions, setRefreshingSessions] = useState(false);
+  const [needsAdminLogin, setNeedsAdminLogin] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -91,13 +93,26 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
     try {
       const [sessionResponse, classResponse] = await Promise.all([fetch("/api/class-sessions", { cache: "no-store" }), fetch("/api/class-sessions/classes", { cache: "no-store" })]);
       const [sessionData, classData] = await Promise.all([sessionResponse.json().catch(() => ({})), classResponse.json().catch(() => ({}))]);
-      if (!sessionResponse.ok) throw new Error(sessionData.error || "Sesi belum dapat dimuat.");
-      if (!classResponse.ok) throw new Error(classData.error || "Daftar kelas terbit belum dapat dimuat. Coba muat ulang.");
+      if (!sessionResponse.ok) {
+        if (sessionResponse.status === 401 || sessionResponse.status === 403) {
+          setNeedsAdminLogin(sessionResponse.status === 401);
+          throw new Error(sessionResponse.status === 401 ? "Sesi admin sudah berakhir. Masuk kembali untuk memuat sesi." : sessionData.error || "Akun ini belum memiliki akses untuk mengelola sesi.");
+        }
+        throw new Error(sessionData.error || "Sesi belum dapat dimuat. Periksa koneksi lalu coba lagi.");
+      }
+      if (!classResponse.ok) {
+        if (classResponse.status === 401 || classResponse.status === 403) {
+          setNeedsAdminLogin(classResponse.status === 401);
+          throw new Error(classResponse.status === 401 ? "Sesi admin sudah berakhir. Masuk kembali untuk memuat daftar kelas." : classData.error || "Akun ini belum memiliki akses untuk mengelola sesi.");
+        }
+        throw new Error(classData.error || "Daftar kelas terbit belum dapat dimuat. Periksa koneksi lalu coba lagi.");
+      }
       const publishedClasses: ClassItem[] = Array.isArray(classData.classes)
         ? classData.classes.filter((item: ClassItem) => item.isPublished && item.status !== "draft")
         : [];
       setSessions(Array.isArray(sessionData.sessions) ? sessionData.sessions.filter((item: SessionDetail) => !deletedSessionIds.current.has(item.id)) : []);
       setClasses(publishedClasses);
+      setNeedsAdminLogin(false);
       if (initialClassId && publishedClasses.some((item) => item.id === initialClassId)) setClassId(initialClassId);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Sesi belum dapat dimuat."); }
     finally { if (showLoading) setLoading(false); }
@@ -122,9 +137,26 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
     try {
       const response = await fetch(`/api/class-sessions/${session.id}`, { cache: "no-store" });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Daftar peserta belum dapat dimuat.");
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setNeedsAdminLogin(response.status === 401);
+          throw new Error(response.status === 401 ? "Sesi admin sudah berakhir. Masuk kembali untuk melihat detail sesi." : data.error || "Akun ini belum memiliki akses untuk melihat detail sesi.");
+        }
+        throw new Error(data.error || "Daftar peserta belum dapat dimuat.");
+      }
       setDetail({ attendees: data.attendees || [], guests: data.guests || [], games: data.games || [] });
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Daftar peserta belum dapat dimuat."); }
+  };
+
+  const refreshSessionData = async () => {
+    setRefreshingSessions(true);
+    try {
+      await loadSessions();
+      if (selected) await loadDetail(selected);
+      router.refresh();
+    } finally {
+      setRefreshingSessions(false);
+    }
   };
 
   useEffect(() => {
@@ -134,11 +166,19 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
         fetch("/api/class-sessions", { cache: "no-store" }),
         selectedId ? fetch(`/api/class-sessions/${selectedId}`, { cache: "no-store" }) : Promise.resolve(null),
       ]);
-      if (sessionsResponse.ok) {
+      if (sessionsResponse.status === 401 || sessionsResponse.status === 403) {
+        const data = await sessionsResponse.json().catch(() => ({}));
+        setNeedsAdminLogin(sessionsResponse.status === 401);
+        setError(sessionsResponse.status === 401 ? "Sesi admin sudah berakhir. Masuk kembali untuk melanjutkan." : data.error || "Akun ini belum memiliki akses untuk mengelola sesi.");
+      } else if (sessionsResponse.ok) {
         const data = await sessionsResponse.json();
         setSessions(Array.isArray(data.sessions) ? data.sessions.filter((item: SessionDetail) => !deletedSessionIds.current.has(item.id)) : []);
       }
-      if (detailResponse?.ok) {
+      if (detailResponse && (detailResponse.status === 401 || detailResponse.status === 403)) {
+        const data = await detailResponse.json().catch(() => ({}));
+        setNeedsAdminLogin(detailResponse.status === 401);
+        setError(detailResponse.status === 401 ? "Sesi admin sudah berakhir. Masuk kembali untuk melihat detail sesi." : data.error || "Akun ini belum memiliki akses untuk melihat detail sesi.");
+      } else if (detailResponse?.ok) {
         const data = await detailResponse.json();
         setDetail({ attendees: data.attendees || [], guests: data.guests || [], games: data.games || [] });
       }
@@ -366,11 +406,14 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
   const ongoing = activeSessions.filter((session) => !session.startsAt || new Date(session.startsAt).getTime() <= Date.now());
   const upcoming = activeSessions.filter((session) => session.startsAt && new Date(session.startsAt).getTime() > Date.now());
   return <div className="w-full space-y-6 px-1 text-[#20251f] sm:px-2">
-    <nav role="tablist" aria-label="Halaman sesi tatap muka" className="flex max-w-full gap-2 overflow-x-auto border-b border-[#d2c5ad] pb-2">
-      {tabs.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={view === value} onClick={() => updateDraft(value)} className={`min-h-11 shrink-0 rounded-lg border px-4 text-sm font-bold ${view === value ? "border-[#244b3a] bg-[#244b3a] text-white" : "border-[#b8aa8e] bg-[#fdf9f0] text-[#244b3a] hover:bg-[#e6eadf]"}`}>{label}</button>)}
-    </nav>
+    <div className="flex items-center gap-2 border-b border-[#d2c5ad] pb-2">
+      <nav role="tablist" aria-label="Halaman sesi tatap muka" className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
+        {tabs.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={view === value} onClick={() => updateDraft(value)} className={`min-h-11 shrink-0 rounded-lg border px-4 text-sm font-bold ${view === value ? "border-[#244b3a] bg-[#244b3a] text-white" : "border-[#b8aa8e] bg-[#fdf9f0] text-[#244b3a] hover:bg-[#e6eadf]"}`}>{label}</button>)}
+      </nav>
+      <button type="button" disabled={refreshingSessions} onClick={() => void refreshSessionData()} aria-label={refreshingSessions ? "Memuat ulang sesi" : "Muat ulang sesi"} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-[#b8aa8e] bg-white px-3 text-sm font-bold text-[#244b3a] transition hover:bg-[#e6eadf] disabled:cursor-wait disabled:opacity-60"><Loader2 className={`h-4 w-4 ${refreshingSessions ? "animate-spin" : ""}`} /><span className="hidden sm:inline">{refreshingSessions ? "Memuat…" : "Muat ulang"}</span></button>
+    </div>
     {toast && <div role="status" className="fixed right-4 top-20 z-[110] max-w-[calc(100vw-2rem)] rounded-xl border border-[#244b3a]/20 bg-[#e6eadf] px-4 py-3 text-sm font-bold text-[#183b2d] shadow-lg sm:right-6">{toast}</div>}
-    {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#943520]/25 bg-[#ba472f]/5 px-4 py-3 text-sm text-[#943520]"><p>{error}</p><button type="button" onClick={() => void loadSessions()} className="inline-flex min-h-11 items-center rounded-lg border border-[#943520]/30 bg-white px-3 font-bold text-[#943520]">Muat ulang</button></div>}
+    {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#943520]/25 bg-[#ba472f]/5 px-4 py-3 text-sm text-[#7b2c1d]"><p className="min-w-0 flex-1">{error}</p><div className="flex shrink-0 flex-wrap gap-2">{needsAdminLogin && <Link href="/admin/masuk" className="inline-flex min-h-11 items-center rounded-lg bg-[#943520] px-3 font-bold text-white">Masuk kembali</Link>}<button type="button" disabled={refreshingSessions} onClick={() => void refreshSessionData()} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#943520]/30 bg-white px-3 font-bold text-[#7b2c1d] disabled:cursor-wait disabled:opacity-60"><Loader2 className={`h-4 w-4 ${refreshingSessions ? "animate-spin" : ""}`} />{refreshingSessions ? "Memuat sesi…" : "Muat ulang"}</button></div></div>}
 
     {view === "buat" && <section className="mx-auto w-full max-w-5xl space-y-5">
       {showExplanation && <aside className="relative w-full rounded-xl border border-[#d2c5ad] bg-[#fdf9f0] p-4 pr-14 sm:p-5"><button type="button" onClick={() => setShowExplanation(false)} aria-label="Tutup penjelasan" className="absolute right-3 top-3 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[#244b3a] hover:bg-[#e6eadf]"><X className="h-4 w-4" /></button><h2 className="font-bold text-[#183b2d]">Apa itu sesi tatap muka?</h2><p className="mt-1 max-w-4xl text-sm leading-6 text-[#3d4038]">Buat pertemuan langsung, bagikan kode atau QR kepada peserta, lalu pantau presensi dan persetujuan tamu.</p></aside>}

@@ -3,8 +3,8 @@
 import { usePathname } from "next/navigation";
 import Footer from "@/components/Footer";
 
-export default function PublicFooter() {
+export default function PublicFooter({ isGuest = false }: { isGuest?: boolean }) {
   const pathname = usePathname();
-  const hidden = pathname.startsWith("/admin") || pathname.startsWith("/game/host") || pathname.startsWith("/game/play") || pathname.startsWith("/game/join") || pathname.startsWith("/games/") || pathname.startsWith("/sesi/") || ["/masuk", "/daftar", "/lupa-password", "/reset-password", "/sesi"].includes(pathname);
+  const hidden = isGuest || pathname.startsWith("/admin") || pathname.startsWith("/game/host") || pathname.startsWith("/game/play") || pathname.startsWith("/game/join") || pathname.startsWith("/games/") || pathname.startsWith("/sesi/") || ["/masuk", "/daftar", "/lupa-password", "/reset-password", "/sesi"].includes(pathname);
   return hidden ? null : <Footer />;
 }

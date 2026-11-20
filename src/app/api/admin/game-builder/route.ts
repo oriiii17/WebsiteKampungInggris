@@ -15,6 +15,7 @@ function toRow(game: GameBlueprint) {
     language: game.language,
     cover_image: game.coverImage || null,
     status: game.status,
+    destination: game.destination || "public",
     play_count: game.plays || 0,
     settings: game.settings,
     items: game.items,
@@ -31,7 +32,7 @@ function fromRow(row: any): GameBlueprint {
   };
   return normalizeGameBlueprint({
     id: row.id, title: row.title, template: row.template, level: row.level, topic: row.topic,
-    language: row.language, coverImage: normalizeMedia(row.cover_image), status: row.status, plays: row.play_count || 0,
+    language: row.language, coverImage: normalizeMedia(row.cover_image), status: row.status, destination: row.destination, plays: row.play_count || 0,
     settings: row.settings, items: Array.isArray(row.items) ? row.items.map((item: any) => ({ ...item, mediaUrl: normalizeMedia(item.mediaUrl) })) : row.items, createdAt: row.created_at, updatedAt: row.updated_at,
   });
 }
@@ -56,11 +57,11 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Isi game tidak valid.", code: "INVALID_GAME" }, { status: 400 });
   const normalized = normalizeGameBlueprint(body);
-  const requiresCompleteGame = normalized.status === "published" || normalized.status === "session";
+  const requiresCompleteGame = normalized.status === "published" || normalized.status === "session" || normalized.status === "independent";
   if (requiresCompleteGame) {
     const title = typeof normalized.title === "string" ? normalized.title.trim() : "";
     if (!title || title.toLocaleLowerCase("id-ID") === "game baru") {
-      return NextResponse.json({ error: "Beri game ini judul yang jelas sebelum menyimpan status Publik atau Sesi.", code: "GAME_TITLE_REQUIRED" }, { status: 400 });
+      return NextResponse.json({ error: "Beri game ini judul yang jelas sebelum menerbitkannya.", code: "GAME_TITLE_REQUIRED" }, { status: 400 });
     }
     const result = validateGameBlueprint(normalized);
     if (!result.valid) {
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
       && ["solo", "class", "both"].includes(settings.mode) && ["forest", "tomato", "saffron", "ocean"].includes(settings.theme)
       && typeof settings.randomizeQuestions === "boolean" && typeof settings.randomizeOptions === "boolean";
     const validItems = Array.isArray(value.items) && value.items.length <= 200 && value.items.every((item: unknown) => item && typeof item === "object" && !Array.isArray(item));
-    if (!validTemplate || !["A1", "A2", "B1", "B2"].includes(value.level) || typeof value.title !== "string" || value.title.length > 100 || typeof value.topic !== "string" || value.topic.length > 80 || !["id", "en", "id-en"].includes(value.language) || !validItems || !validSettings || value.status !== "draft") {
+    if (!validTemplate || !["A1", "A2", "B1", "B2"].includes(value.level) || typeof value.title !== "string" || value.title.length > 100 || typeof value.topic !== "string" || value.topic.length > 80 || !["id", "en", "id-en"].includes(value.language) || !validItems || !validSettings || value.status !== "draft" || !["public", "session", "independent"].includes(value.destination || "public")) {
       return NextResponse.json({ error: "Data dasar draf game tidak valid.", code: "INVALID_DRAFT" }, { status: 400 });
     }
   }

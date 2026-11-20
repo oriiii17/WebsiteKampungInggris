@@ -6,7 +6,8 @@ import { closeSessionGame, getLiveSession } from "@/lib/game-session";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
-  if (!canManageSessions(session)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
+  if (!session) return NextResponse.json({ error: "Sesi admin sudah berakhir. Masuk kembali untuk melanjutkan." }, { status: 401 });
+  if (!canManageSessions(session)) return NextResponse.json({ error: "Akun ini belum memiliki akses untuk mengelola sesi. Gunakan akun pengurus atau tutor." }, { status: 403 });
   const { id } = await context.params;
   const supabase = await getSupabaseServerClient();
   if (supabase) {
@@ -34,7 +35,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
-  if (!canManageSessions(session)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
+  if (!session) return NextResponse.json({ error: "Sesi admin sudah berakhir. Masuk kembali untuk melanjutkan." }, { status: 401 });
+  if (!canManageSessions(session)) return NextResponse.json({ error: "Akun ini belum memiliki akses untuk mengelola sesi. Gunakan akun pengurus atau tutor." }, { status: 403 });
   const { id } = await context.params; const body = await request.json().catch(() => ({}));
   const supabase = await getSupabaseServerClient();
   if (supabase) {
@@ -118,7 +120,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
-  if (!canManageSessions(session)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
+  if (!session) return NextResponse.json({ error: "Sesi admin sudah berakhir. Masuk kembali untuk melanjutkan." }, { status: 401 });
+  if (!canManageSessions(session)) return NextResponse.json({ error: "Akun ini belum memiliki akses untuk mengelola sesi. Gunakan akun pengurus atau tutor." }, { status: 403 });
   const { id } = await context.params;
   const supabase = await getSupabaseServerClient();
   if (supabase) {

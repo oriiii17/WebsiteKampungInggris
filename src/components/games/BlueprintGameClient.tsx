@@ -9,7 +9,7 @@ import TagInput from "@/components/ui/TagInput";
 
 function shuffled<T>(values: T[]): T[] { return [...values].sort(() => Math.random() - 0.5); }
 
-export default function BlueprintGameClient({ gameId }: { gameId: string }) {
+export default function BlueprintGameClient({ gameId, classId }: { gameId: string; classId?: string }) {
   const [game, setGame] = useState<GameBlueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -26,16 +26,17 @@ export default function BlueprintGameClient({ gameId }: { gameId: string }) {
   const options = useMemo(() => item?.options ? game?.settings.randomizeOptions ? shuffled(item.options) : item.options : [], [game?.settings.randomizeOptions, item]);
 
   useEffect(() => {
-    fetch("/api/games", { cache: "no-store" }).then(async (response) => {
+    const gamesUrl = classId ? `/api/games?purpose=independent&classId=${encodeURIComponent(classId)}` : "/api/games";
+    fetch(gamesUrl, { cache: "no-store" }).then(async (response) => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Game belum tersedia.");
       const selected = (data.games as GameBlueprint[]).find((candidate) => candidate.id === gameId);
       if (!selected) throw new Error("Game tidak ditemukan atau belum diterbitkan.");
       const ready = selected.settings.randomizeQuestions ? { ...selected, items: shuffled(selected.items) } : selected;
       setGame(ready); setProgress(initialGameProgress(ready));
-      void fetch(`/api/games/${encodeURIComponent(ready.id)}/play`, { method: "POST" }).catch(() => undefined);
+      void fetch(`/api/games/${encodeURIComponent(ready.id)}/play`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(classId ? { classId } : {}) }).catch(() => undefined);
     }).catch((reason) => setError(reason instanceof Error ? reason.message : "Game belum tersedia.")).finally(() => setLoading(false));
-  }, [gameId]);
+  }, [classId, gameId]);
 
   useEffect(() => {
     if (game?.settings.timeLimitSec) setTimeLeft(game.settings.timeLimitSec);

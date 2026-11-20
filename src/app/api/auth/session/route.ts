@@ -121,5 +121,7 @@ export async function DELETE(req: Request) {
   res.cookies.delete(SESSION_COOKIE_NAME);
   res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, "", { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 0, expires: new Date(0) });
   res.cookies.delete(SUPABASE_ACCESS_TOKEN_COOKIE);
+  res.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 0, expires: new Date(0) });
+  res.cookies.delete(GUEST_SESSION_COOKIE_NAME);
   return res;
 }

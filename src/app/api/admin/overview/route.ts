@@ -4,9 +4,8 @@ import { getSystemDiagnostics, readLocalDb, resetLocalDbToSeed } from "@/lib/db"
 
 export async function GET() {
   const session = await getServerSession();
-  if (!isAdminSession(session)) {
-    return NextResponse.json({ error: "Akses khusus Admin." }, { status: 403 });
-  }
+  if (!session) return NextResponse.json({ error: "Sesi admin sudah berakhir. Masuk kembali untuk melanjutkan." }, { status: 401 });
+  if (!isAdminSession(session)) return NextResponse.json({ error: "Akun ini belum memiliki akses admin." }, { status: 403 });
 
   const db = await readLocalDb();
   const diagnostics = getSystemDiagnostics();

@@ -7,7 +7,8 @@ function csvCell(value: unknown) { return `"${String(value ?? "").replace(/"/g, 
 
 export async function GET(_request: Request, context: { params: Promise<{ sessionKey: string }> }) {
   const user = await getServerSession();
-  if (!canManageSessions(user)) return NextResponse.json({ error: "Sesi ini hanya dapat dikelola oleh pengurus atau tutor. Silakan masuk dengan akun yang sesuai." }, { status: 403 });
+  if (!user) return NextResponse.json({ error: "Sesi admin sudah berakhir. Masuk kembali untuk melanjutkan." }, { status: 401 });
+  if (!canManageSessions(user)) return NextResponse.json({ error: "Akun ini belum memiliki akses untuk mengelola sesi. Gunakan akun pengurus atau tutor." }, { status: 403 });
   const { sessionKey: id } = await context.params;
   const supabase = await getSupabaseServerClient();
   let title = "Sesi"; let rows: { participant_name: string; participant_type: string; attended_at: string }[] = [];

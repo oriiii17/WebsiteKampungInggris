@@ -1,4 +1,4 @@
-export type UserRole = "pengurus" | "developer" | "tutor" | "member" | "guest" | "peserta" | "umum";
+export type UserRole = "admin" | "pengurus" | "developer" | "tutor" | "member" | "guest" | "peserta" | "umum";
 
 // ============================================================
 // WARGA RW - Model login khusus warga Kampung Sapen per RW
@@ -59,6 +59,7 @@ export interface SessionPayload {
   avatarDataUrl?: string;
   guestRegistrationId?: string;
   guestSessionId?: string;
+  guestClassHref?: string;
 }
 
 export interface SyllabusItem {

@@ -35,6 +35,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
   const [leavingSession, setLeavingSession] = useState(false);
   const [leaveError, setLeaveError] = useState("");
   const redirectedToGame = useRef(false);
+  const redirectedToClass = useRef(false);
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
     try {
@@ -64,6 +65,13 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
     const params = new URLSearchParams({ pin: session.activeGamePin, entry: "scan" });
     router.replace(`/game/join?${params.toString()}`);
   }, [name, router, scanEntry, session]);
+
+  useEffect(() => {
+    if (redirectedToClass.current || session?.viewerType !== "guest" || session.registrationStatus !== "approved") return;
+    redirectedToClass.current = true;
+    router.refresh();
+    if (session.classSlug && !(scanEntry && session.activeGamePin)) router.replace(`/kelas/${encodeURIComponent(session.classSlug)}`);
+  }, [router, scanEntry, session]);
 
   const acknowledgeEndedSession = async () => {
     if (!session || leavingSession) return;
@@ -101,7 +109,6 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       if (!response.ok) throw new Error(response.status >= 500 ? "Server sedang mengalami kendala. Data belum berhasil disimpan; coba beberapa saat lagi." : data.error || "Pendaftaran belum berhasil. Periksa data lalu coba lagi.");
       if (data.ok !== true || !["approved", "pending"].includes(data.status)) throw new Error("Respons pendaftaran belum dapat dikonfirmasi. Periksa status sesi sebelum mencoba lagi.");
       setSession((current) => current ? { ...current, registrationStatus: data.status, canAttendAsMember: false, activeGamePin: data.activeGamePin || null, participantName: data.participantName || cleanName } : current);
-      router.refresh();
       if (data.status === "pending") setNotice("Pendaftaran diterima. Tutor akan memeriksa permintaanmu sebelum akses sesi dibuka.");
       else setNotice("Presensi berhasil dicatat. Selamat belajar!");
     } catch (reason) {
