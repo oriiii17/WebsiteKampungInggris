@@ -45,22 +45,35 @@ Sampel yang dibuka: `/modul/grammar-basic`, `/materi/grammar-basic`, `/belajar/g
 
 ## Hasil audit admin terautentikasi
 
-**GAGAL — audit admin belum dapat dilanjutkan.** Skrip memuat `.env.local` menggunakan `process.loadEnvFile('.env.local')` tanpa mencetak nilainya, membuka `/admin/masuk`, lalu mencoba login satu kali. UI mengembalikan pesan **“Email / kata sandi salah”**. Sesuai instruksi, proses dihentikan; tidak ada percobaan login lain, pembuatan akun, atau perubahan data.
+Menurut hasil yang dijalankan pengguna, 50 pemeriksaan awal berstatus READY, GAGAL=0, dan overflow dokumen=0. Saya membaca hasil DOM terbaru (20 pemeriksaan) dan memeriksa seluruh 20 screenshot full-page (10 tab × 360/390 px). Semua 20 menampilkan konten tab nyata, bukan loading/error. `documentElement.scrollWidth` tetap sama dengan viewport, tetapi elemen di dalam beberapa tabel/toolbar melewati tepi layar.
 
-| Route | Hasil |
+| Tab | Status sebelum perbaikan — temuan full-page + DOM |
 |---|---|
-| `/admin/masuk` | Halaman login dapat dibuka dan screenshot login tersimpan pada lima viewport; autentikasi gagal dengan pesan di atas. |
-| `/admin`, `/admin?tab=dashboard`, `/admin?tab=classes`, `/admin?tab=warga`, `/admin?tab=testimoni`, `/admin?tab=codes`, `/admin?tab=games`, `/admin?tab=game-builder`, `/admin?tab=sessions`, `/admin?tab=public`, `/admin?tab=payments` | **Tidak dapat diaudit sebagai halaman admin yang sebenarnya** karena login gagal. Screenshot lama tanpa autentikasi yang menampilkan “Dashboard belum dapat dibuka / Sesi admin tidak ditemukan atau sudah berakhir” ditandai **GAGAL** dan tidak dipakai untuk menyimpulkan responsivitas tab admin. Overflow admin belum dinilai. |
+| `dashboard` | **GAGAL** — dua tombol ikon header berukuran 42×44 px dan terdeteksi tanpa nama aksesibel; isi dashboard lain tersusun normal. |
+| `classes` | **GAGAL** — toolbar Kelas Aktif memanjang hingga x=407 px (viewport 360/390); tab Aktif/Draft tetap berdampingan tetapi terbungkus ke baris terpisah dari filter/aksi; tombol Ekspor/Segarkan 36 px dan sebagian tombol aksi kartu 36×36 px; label stepper membungkus. |
+| `warga` | **GAGAL** — tabel “Daftar Warga Terdaftar” tampil huruf-per-huruf pada judul kolom di full-page 360 dan 390; pada 360 tabel melewati batas hingga x=370; kontrol kelompok kode 20–26 px dan kotak kode 36 px lebar. |
+| `testimoni` | **GAGAL** — tabel ulasan memiliki lebar sampai x=737 px pada kedua viewport; judul kolom dan empty state terpotong di dalam kartu. |
+| `codes` | **GAGAL** — tabel user reguler melebar sampai x=734 px pada kedua viewport; kolom kelas terpotong, email patah di tengah alamat, dan badge jumlah tab Guest terpotong pada 360. |
+| `games` | **GAGAL** — deskripsi Host kuis live membungkus dalam kolom sempit di sebelah tombol Muat ulang; dua tombol ikon header 42×44 px dan tanpa nama aksesibel. |
+| `game-builder` | **GAGAL** — kartu draf game menampilkan teks rincian dalam kolom sangat sempit; DOM mengukur elemen teks 13×400 px pada 360 (terindikasi per huruf), sementara isi lain berupa daftar kartu satu kolom. |
+| `sessions` | **GAGAL** — tombol Muat ulang sesi dan dua tombol ikon header lebarnya 42 px (di bawah target 44 px); dua tombol ikon header tanpa nama aksesibel. Isi form/stepper tidak terpotong di screenshot. |
+| `public` | **GAGAL** — halaman selesai dirender tetapi area konten setelah judul dan deskripsi kosong total pada full-page 360 dan 390; tidak ada konten maupun empty state. |
+| `payments` | **GAGAL** — tabel riwayat menampilkan judul kolom dan data huruf-per-huruf; mencapai x=412 px, melewati viewport 360/390; tombol aksi baris 24 px dan tombol utama 36 px. DOM mengukur satu nilai email 12×208 px. |
 
-Temuan UI pada layar fallback yang terlihat tanpa sesi: konten berada di bagian atas dengan ruang kosong besar di bawah, tombol tidak melebar penuh pada mobile, dan aksi “Coba lagi” serta “Masuk kembali” tampil bersamaan untuk kondisi sesi hilang. Ini bukan hasil audit tab admin terautentikasi dan belum diperbaiki; menunggu konfirmasi setelah laporan ini.
+**Verifikasi wajib:** (a) Ya, full-page `admin-full-warga-360x640.png` dan `admin-full-warga-390x844.png` menunjukkan judul kolom tabel warga tersusun huruf-per-huruf. (b) Ya, `admin-full-classes-360x640.png` dan `admin-full-classes-390x844.png` menunjukkan baris toolbar Kelas Aktif melampaui sisi kanan; Aktif/Draft tidak bertumpuk satu di atas yang lain, melainkan berada berdampingan di baris tersendiri setelah toolbar/filter. (c) Ya, screenshot full-page tab `public` hanya memperlihatkan header admin, judul “Situs Publik”, deskripsi, lalu ruang kosong hingga bawah.
+
+Temuan lintas tab: DOM melaporkan dua tombol ikon header bersama berukuran 42×44 px tanpa nama aksesibel di seluruh tab. Teks vertikal tidak terdeteksi sebagai `writing-mode`; screenshot warga dan pembayaran membuktikan efek tampilan serupa akibat kolom terlalu sempit. Semua temuan di atas berstatus **sebelum perbaikan**. Tidak ada UI aplikasi yang diubah.
+
+Screenshot full-page yang ditinjau berada di `docs/screenshots/mobile-audit-2026-11-22/admin-full-{dashboard,classes,warga,testimoni,codes,games,game-builder,sessions,public,payments}-{360x640,390x844}.png`; data DOM di `admin-visual-results.json`.
 
 ## Skrip dan perlindungan file lokal
 
 - `scripts/audit-mobile.cjs`: audit route dan overflow umum.
-- `scripts/audit-admin-auth.cjs`: memuat kredensial dari `.env.local` atau environment, memakai route `/admin/masuk`, autentikasi sekali, menyimpan Playwright storage state lokal, lalu mengukur dan mengambil screenshot semua tab admin pada lima viewport. Setiap redirect ke halaman login atau layar fallback akan ditandai GAGAL.
-- `git check-ignore -v` mengonfirmasi aturan ignore: `.gitignore:27` untuk `.env.local` (`.env*.local`), `.gitignore:31` untuk `.playwright-auth/`, dan `.gitignore:32` untuk `docs/screenshots/mobile-audit-*/`. Storage state tidak berhasil dibuat karena login gagal.
-- Audit hanya membuka route dan mengirim form login; tidak menjalankan tombol Hapus, Simpan, Ekspor, atau aksi lain yang mengubah data.
+- `scripts/audit-admin-auth.cjs`: memuat kredensial dari `.env.local`, memakai route `/admin/masuk`, autentikasi sekali, menyimpan Playwright storage state lokal, lalu menunggu heading tab dan hilangnya teks “Memuat” sebelum screenshot/pengukuran pada lima viewport.
+- `scripts/audit-admin-visual.cjs`: pemeriksaan DOM baca-saja berurutan memakai storage state untuk 10 tab pada 360/390 px; mengambil screenshot `fullPage: true` dan menyimpan hasil DOM beserta nama screenshot.
+- `git check-ignore -v` mengonfirmasi aturan ignore: `.gitignore:27` untuk `.env.local` (`.env*.local`), `.gitignore:31` untuk `.playwright-auth/`, dan `.gitignore:32` untuk `docs/screenshots/mobile-audit-*/`. Storage state tersedia di `.playwright-auth/admin.storageState.json` dan diabaikan Git.
+- Audit admin terdahulu membuka route dan mengirim form login; tidak menjalankan tombol Hapus, Simpan, Ekspor, atau aksi lain yang mengubah data. Pemeriksaan screenshot terbaru dilakukan hanya dengan melihat gambar yang sudah tersimpan.
 
 ## Yang dibutuhkan untuk melanjutkan
 
-Periksa bahwa `ADMIN_EMAIL` dan `ADMIN_PASSWORD` adalah kredensial akun pengurus yang dapat login pada proyek Supabase yang digunakan server lokal, lalu minta audit dilanjutkan. Jangan kirim nilainya di chat; cukup perbarui `.env.local` secara lokal dan konfirmasi.
+Hasil audit publik dan admin sudah dipisahkan. Tahap A selesai; saya berhenti di sini dan menunggu konfirmasi Anda sebelum Tahap B. Tidak ada perbaikan UI yang dikerjakan.
