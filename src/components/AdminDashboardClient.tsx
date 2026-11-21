@@ -279,7 +279,7 @@ export default function AdminDashboardClient() {
   ];
 
   const sidebar = (
-    <aside className="flex h-full w-[250px] flex-col border-r border-[#E5E7EB] bg-white">
+    <aside className="flex h-full w-[210px] flex-col border-r border-[#E5E7EB] bg-white lg:w-[250px]">
       <div className="border-b border-[#E5E7EB] px-4 py-4">
         <Link href="/admin" className="flex items-center gap-2.5">
           <Image src="/sapen-english-village-logo.jpg" alt="Sapen English Village" width={651} height={453} priority className="h-auto w-[104px] shrink-0" />
@@ -336,11 +336,11 @@ export default function AdminDashboardClient() {
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <button type="button" aria-label="Tutup menu" className="absolute inset-0 bg-[#1A2E1A]/20" onClick={() => setSidebarOpen(false)} />
-          <div className="relative h-full w-[250px]">{sidebar}</div>
+          <div className="relative h-full w-[210px] lg:w-[250px]">{sidebar}</div>
         </div>
       )}
 
-      <div className="md:pl-[250px]">
+      <div className="md:pl-[210px] lg:pl-[250px]">
         <header className="sticky top-0 z-20 border-b border-[#E5E7EB] bg-white">
           <div className="flex min-h-[64px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">

@@ -1,10 +1,18 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CheckCircle2, Lock, Mail, RefreshCw, Eye, EyeOff } from "lucide-react";
 import AuthShell from "@/components/auth/AuthShell";
+import SixBoxCodeInput, { toCodeString } from "@/components/SixBoxCodeInput";
+import SegmentedAccessCodeInput from "@/components/SegmentedAccessCodeInput";
+
+const RT_BY_RW: Record<string, string[]> = {
+  "06": ["18", "19", "20", "21"],
+  "07": ["22", "23", "24"],
+  "08": ["25", "26", "27", "28"],
+};
 
 function MasukContent() {
   const router = useRouter();
@@ -12,17 +20,19 @@ function MasukContent() {
   const nextUrl = searchParams.get("next") || "/modul";
   const [mode, setMode] = useState<"umum" | "warga">(searchParams.get("mode") === "warga" ? "warga" : "umum");
   const [wargaCode, setWargaCode] = useState("");
-  const [showWargaCode, setShowWargaCode] = useState(true);
+  const [wargaCodeDigits, setWargaCodeDigits] = useState<string[]>(Array(6).fill(""));
+  const wargaCodeRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [showWargaCode, setShowWargaCode] = useState(false);
   const [codePrefix, setCodePrefix] = useState("SAP");
   const [requestName, setRequestName] = useState("");
-  const [requestRw, setRequestRw] = useState("06");
-  const [requestRt, setRequestRt] = useState("01");
+  const [requestCodeValue, setRequestCodeValue] = useState("");
+  const [requestRw, setRequestRw] = useState("");
+  const [requestRt, setRequestRt] = useState("");
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requestBusy, setRequestBusy] = useState(false);
   const [requestError, setRequestError] = useState("");
   const [issuedCode, setIssuedCode] = useState("");
   const [requestSuccessOpen, setRequestSuccessOpen] = useState(false);
-  const [showRequestCode, setShowRequestCode] = useState(true);
   const [umumEmail, setUmumEmail] = useState("");
   const [umumPassword, setUmumPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -45,26 +55,20 @@ function MasukContent() {
   }, []);
 
   useEffect(() => {
-    if (!showRequestForm) return;
-    setShowRequestCode(true);
-    const timer = window.setTimeout(() => setShowRequestCode(false), 2000);
-    return () => window.clearTimeout(timer);
-  }, [codePrefix, requestRw, requestRt, showRequestForm]);
-
-  useEffect(() => {
-    if (!wargaCode) return;
+    if (!wargaCodeDigits.some(Boolean) && !wargaCode) return;
     setShowWargaCode(true);
-    const timer = window.setTimeout(() => setShowWargaCode(false), 2000);
+    const timer = window.setTimeout(() => setShowWargaCode(false), 1000);
     return () => window.clearTimeout(timer);
-  }, [wargaCode]);
+  }, [wargaCode, wargaCodeDigits]);
 
   async function handleWargaSubmit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError(null);
-    const code = wargaCode.trim().toUpperCase();
-    if (!/^[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(code) && !/^[A-Z0-9]{3,4}-RW0[678]-RT\d{2}$/.test(code)) {
-      setError("Isi kode enam karakter lama atau format baru, misalnya SAP-RW06-RT01.");
+    const code = toCodeString(wargaCodeDigits).trim().toUpperCase();
+    const legacyCode = /^[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(code);
+    if (!legacyCode) {
+      setError("Masukkan semua 6 karakter kode warga. Jika lupa, gunakan Minta kode baru.");
       setLoading(false);
       return;
     }
@@ -92,11 +96,19 @@ function MasukContent() {
   async function handleRequestWargaCode(event: React.FormEvent) {
     event.preventDefault();
     setRequestError("");
+    const normalizedPrefix = requestCodeValue.slice(0, 3).toUpperCase();
+    const normalizedRw = requestRw.trim().padStart(2, "0");
+    const normalizedRt = requestRt.trim().padStart(2, "0");
+    if (!/^[A-Z0-9]{7}$/.test(requestCodeValue) || !/^[A-Z0-9]{3}$/.test(normalizedPrefix) || normalizedPrefix !== codePrefix || requestCodeValue.slice(3, 5) !== normalizedRw || requestCodeValue.slice(5, 7) !== normalizedRt || !RT_BY_RW[normalizedRw]?.includes(normalizedRt)) {
+      setRequestError("Lengkapi kode 3–2–2. Awalan harus sama dengan awalan aktif, dan RW/RT harus cocok dengan pilihan.");
+      return;
+    }
     setRequestBusy(true);
     try {
-      const response = await fetch("/api/rw-code-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fullName: requestName, rw: requestRw, rt: requestRt }) });
+      const response = await fetch("/api/rw-code-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fullName: requestName, prefix: normalizedPrefix, rw: normalizedRw, rt: normalizedRt, typedCode: requestCodeValue }) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Permintaan kode belum berhasil.");
+      if (typeof result.code !== "string" || !/^[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(result.code)) throw new Error("Format kode belum sesuai. Coba kirim kembali atau hubungi pengurus.");
       setIssuedCode(result.code);
       setRequestSuccessOpen(true);
     } catch (reason) {
@@ -173,29 +185,29 @@ function MasukContent() {
             <form onSubmit={handleWargaSubmit} className="space-y-5">
               <p className="text-sm font-semibold text-body">Masuk sebagai Warga Sapen</p>
               <div>
-                <label className="block text-xs font-bold text-body">Kode Warga / Kode Akses</label>
-                <div className="relative mt-1.5"><input type={showWargaCode ? "text" : "password"} autoComplete="one-time-code" autoCapitalize="characters" spellCheck={false} value={wargaCode} onChange={(event) => setWargaCode(event.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24))} placeholder="QTU-OP3 atau SAP-RW06-RT01" className="min-h-12 w-full rounded-lg border border-rule-strong bg-paper-light px-3 pr-12 font-mono text-sm font-bold tracking-wider text-ink focus:border-leaf focus:outline-none" /><button type="button" aria-label={showWargaCode ? "Sembunyikan kode" : "Tampilkan kode"} onClick={() => setShowWargaCode((show) => !show)} className="absolute right-1 top-1 grid h-10 w-10 place-items-center rounded-md text-leaf hover:bg-forest-soft">{showWargaCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
-                <p className="mt-2 text-center text-xs text-muted">Kode lama 6 karakter tetap dapat dipakai. Kode baru memakai format AWALAN-RW-RT.</p>
+                <label className="block text-xs font-bold text-body">Kode Warga (6 karakter)</label>
+                <div className="mt-1.5 flex items-center gap-2"><SixBoxCodeInput value={wargaCodeDigits} inputRefs={wargaCodeRefs} masked={!showWargaCode} onChange={(digits) => { setWargaCodeDigits(digits); setWargaCode(digits.join("")); }} /><button type="button" aria-label={showWargaCode ? "Sembunyikan kode" : "Tampilkan kode"} onClick={() => setShowWargaCode((show) => !show)} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-bold text-leaf hover:bg-forest-soft">{showWargaCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}{showWargaCode ? "Sembunyikan" : "Tampilkan"}</button></div>
+                <p className="mt-2 text-center text-xs text-muted">Kode warga terdiri dari 6 karakter. Karakter yang baru diketik terlihat selama 1 detik, lalu disamarkan.</p>
               </div>
-              <button type="submit" disabled={loading || !wargaCode.trim()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-earth py-3.5 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:cursor-not-allowed disabled:opacity-60">{loading ? <><RefreshCw className="h-4 w-4 animate-spin"/>Memeriksa kode...</> : <><CheckCircle2 className="h-4 w-4"/>Masuk sebagai Warga</>}</button>
+              <button type="submit" disabled={loading || !wargaCodeDigits.every(Boolean)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-earth py-3.5 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:cursor-not-allowed disabled:opacity-60">{loading ? <><RefreshCw className="h-4 w-4 animate-spin"/>Memeriksa kode...</> : <><CheckCircle2 className="h-4 w-4"/>Masuk sebagai Warga</>}</button>
               <p className="border-t border-rule pt-4 text-center text-xs text-muted"><button type="button" onClick={() => { setMode("umum"); setError(null); }} className="font-bold text-leaf underline underline-offset-4">Bukan warga? Masuk sebagai Peserta Umum</button></p>
             </form>
             <section className="rounded-xl border border-dashed border-rule-strong bg-paper-light/70 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-extrabold text-forest-deep">Belum punya kode akses?</h2><p className="mt-1 text-xs leading-5 text-muted">Minta kode berdasarkan wilayah tempat tinggal.</p></div><button type="button" onClick={() => setShowRequestForm((open) => !open)} aria-expanded={showRequestForm} className="inline-flex min-h-11 items-center rounded-lg border border-leaf px-3 text-sm font-bold text-leaf hover:bg-forest-soft">{showRequestForm ? "Tutup formulir" : "Minta kode warga"}</button></div>
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-extrabold text-forest-deep">Lupa atau belum punya kode akses?</h2><p className="mt-1 text-xs leading-5 text-muted">Jalur ini opsional. Minta kode pengganti sesuai wilayah tempat tinggal.</p></div><button type="button" onClick={() => setShowRequestForm((open) => { if (!open) { setRequestName(""); setRequestCodeValue(""); setRequestRw(""); setRequestRt(""); setRequestError(""); } return !open; })} aria-expanded={showRequestForm} className="inline-flex min-h-11 items-center rounded-lg border border-leaf px-3 text-sm font-bold text-leaf hover:bg-forest-soft">{showRequestForm ? "Tutup formulir" : "Minta kode baru"}</button></div>
               {showRequestForm && <form onSubmit={handleRequestWargaCode} className="mt-4 space-y-3 border-t border-rule pt-4">
                 <label className="block text-xs font-bold text-body">Nama lengkap<input required minLength={2} maxLength={80} autoComplete="name" value={requestName} onChange={(event) => setRequestName(event.target.value.toLocaleUpperCase("id-ID"))} placeholder="NAMA LENGKAP" className="mt-1.5 min-h-11 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm uppercase text-ink" /></label>
-                <div className="grid grid-cols-2 gap-3"><label className="block text-xs font-bold text-body">RW<select value={requestRw} onChange={(event) => setRequestRw(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm text-ink">{["06", "07", "08"].map((rw) => <option key={rw} value={rw}>RW {rw}</option>)}</select></label><label className="block text-xs font-bold text-body">RT<select value={requestRt} onChange={(event) => setRequestRt(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm text-ink">{Array.from({ length: 99 }, (_, index) => String(index + 1).padStart(2, "0")).map((rt) => <option key={rt} value={rt}>RT {rt}</option>)}</select></label></div>
-                <div><span className="block text-xs font-bold text-body">Format kode verifikasi</span><div className="mt-1.5 flex flex-wrap items-center gap-2" aria-label="Awalan, RW, dan RT kode warga"><span className="inline-flex min-h-11 min-w-20 items-center justify-center rounded-lg border border-rule-strong bg-white px-3 font-mono font-bold tracking-wider text-leaf">{showRequestCode ? codePrefix : "*".repeat(codePrefix.length)}</span><span aria-hidden="true" className="font-bold text-muted">–</span><span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-rule-strong bg-white px-3 font-mono font-bold tracking-wider text-leaf">{showRequestCode ? `RW${requestRw}` : "******"}</span><span aria-hidden="true" className="font-bold text-muted">–</span><span className="inline-flex min-h-11 items-center justify-center rounded-lg border border-rule-strong bg-white px-3 font-mono font-bold tracking-wider text-leaf">{showRequestCode ? `RT${requestRt}` : "****"}</span></div><p className="mt-1.5 text-xs text-muted">Awalan mengikuti pengaturan pengurus; RW dan RT mengikuti pilihanmu. Kode akan disamarkan setelah 2 detik.</p></div>
+                <div className="grid grid-cols-2 gap-3"><label className="block text-xs font-bold text-body">RW<select required value={requestRw} onChange={(event) => { setRequestRw(event.target.value); setRequestRt(""); }} className="mt-1.5 min-h-11 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm text-ink"><option value="">Pilih RW</option>{Object.keys(RT_BY_RW).map((rw) => <option key={rw} value={rw}>RW {rw}</option>)}</select></label><label className="block text-xs font-bold text-body">RT<select required disabled={!requestRw} value={requestRt} onChange={(event) => setRequestRt(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm text-ink disabled:cursor-not-allowed disabled:bg-paper-shadow"><option value="">Pilih RT</option>{(RT_BY_RW[requestRw] || []).map((rt) => <option key={rt} value={rt}>RT {rt}</option>)}</select></label></div>
+                <div><span className="block text-xs font-bold text-body">Masukkan Kode Akses</span><p className="mt-1 text-xs text-muted">Ketik 3 karakter awalan, 2 digit RW, dan 2 digit RT sesuai pilihan di atas.</p><div className="mt-1.5"><SegmentedAccessCodeInput value={requestCodeValue} onChange={setRequestCodeValue} /></div></div>
                 {requestError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-800">{requestError}</p>}
-                <button type="submit" disabled={requestBusy || requestName.trim().length < 2} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-extrabold text-white hover:bg-[#183b2d] disabled:opacity-60">{requestBusy ? <><RefreshCw className="h-4 w-4 animate-spin" />Membuat kode…</> : "Kirim dan buat kode akses"}</button>
+                <button type="submit" disabled={requestBusy || requestName.trim().length < 2 || !/^[A-Z0-9]{7}$/.test(requestCodeValue) || !requestRw || !requestRt || !/^[A-Z0-9]{3}$/.test(codePrefix)} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-extrabold text-white hover:bg-[#183b2d] disabled:opacity-60">{requestBusy ? <><RefreshCw className="h-4 w-4 animate-spin" />Mengirim…</> : "Kirim"}</button>
               </form>}
             </section>
             </div>
           )}
         </section>
-        <footer className="mt-4 border-t border-rule pt-3 text-center"><Link href="/admin/masuk" className="text-xs text-muted underline underline-offset-4 hover:text-leaf">Khusus pengurus</Link></footer>
+        <footer className="mt-4 border-t border-rule pt-3 text-center"><Link href="/admin/masuk" className="inline-flex min-h-11 items-center justify-center px-3 text-xs font-semibold text-muted underline underline-offset-4 hover:text-leaf">Khusus Pengurus</Link></footer>
       {showWargaPrompt && <div className="fixed inset-0 z-[100] grid place-items-center bg-[#20251f]/55 p-4"><section role="dialog" aria-modal="true" aria-labelledby="warga-account-title" className="w-full max-w-md rounded-2xl border border-rule bg-paper-light p-5 shadow-xl sm:p-7"><h2 id="warga-account-title" className="font-display text-2xl font-bold text-forest-deep">Simpan akses ini sebagai akun permanen?</h2><p className="mt-2 text-sm leading-6 text-body">Pilihan ini opsional. Akses kelas gratis dengan kode warga tetap aktif jika kamu melewatinya.</p>{wargaAccountError && <p role="alert" className="mt-4 rounded-lg border border-earth/30 bg-[#f8e8e1] p-3 text-sm font-semibold text-earth-dark">{wargaAccountError}</p>}<form onSubmit={createPermanentWargaAccount} className="mt-5 space-y-3"><label className="block text-sm font-bold text-body">Email<input required type="email" autoComplete="email" value={wargaEmail} onChange={(event) => setWargaEmail(event.target.value)} placeholder="nama@email.com" className="mt-1.5 min-h-12 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm" /></label><label className="block text-sm font-bold text-body">Kata sandi<input required type="password" minLength={8} autoComplete="new-password" value={wargaPassword} onChange={(event) => setWargaPassword(event.target.value)} placeholder="Minimal 8 karakter" className="mt-1.5 min-h-12 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm" /></label><label className="block text-sm font-bold text-body">Ulangi kata sandi<input required type="password" minLength={8} autoComplete="new-password" value={wargaPasswordConfirm} onChange={(event) => setWargaPasswordConfirm(event.target.value)} placeholder="Ulangi kata sandi" className="mt-1.5 min-h-12 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm" /></label><button type="submit" disabled={savingWargaAccount} className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-earth px-4 text-sm font-extrabold text-white hover:bg-earth-dark disabled:opacity-60">{savingWargaAccount ? "Menyimpan akun…" : "Buat akun permanen"}</button></form><button type="button" onClick={() => { setShowWargaPrompt(false); router.replace("/kelas"); router.refresh(); }} className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-rule-strong px-4 text-sm font-bold text-leaf hover:bg-forest-soft">Nanti Saja, lanjut ke kelas</button></section></div>}
-      {requestSuccessOpen && <div className="fixed inset-0 z-[110] grid place-items-center bg-[#20251f]/60 p-4"><section role="alertdialog" aria-modal="true" aria-labelledby="warga-code-success-title" className="w-full max-w-md rounded-2xl border border-rule bg-paper-light p-6 shadow-2xl"><div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#e6eadf] text-[#244b3a]"><CheckCircle2 className="h-6 w-6" /></div><h2 id="warga-code-success-title" className="mt-4 text-center font-display text-2xl font-bold text-forest-deep">Kode akses siap</h2><p className="mt-2 text-center text-sm leading-6 text-body">Simpan kode ini. Tekan OK untuk mengisinya pada form masuk warga.</p><p className="mt-4 rounded-xl border border-rule bg-white px-3 py-4 text-center font-mono text-lg font-extrabold tracking-wider text-leaf">{issuedCode}</p><button type="button" onClick={() => { setWargaCode(issuedCode); setMode("warga"); setShowWargaCode(true); setShowRequestForm(false); setRequestSuccessOpen(false); }} className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d]">OK · Isi kode untuk masuk</button></section></div>}
+      {requestSuccessOpen && <div className="fixed inset-0 z-[110] grid place-items-center bg-[#20251f]/60 p-4"><section role="alertdialog" aria-modal="true" aria-labelledby="warga-code-success-title" className="w-full max-w-md rounded-2xl border border-rule bg-paper-light p-6 shadow-2xl"><div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#e6eadf] text-[#244b3a]"><CheckCircle2 className="h-6 w-6" /></div><h2 id="warga-code-success-title" className="mt-4 text-center font-display text-2xl font-bold text-forest-deep">Halo {requestName.trim()}</h2><p className="mt-2 text-center text-sm leading-6 text-body">Permintaan kode akses berhasil. Tekan Oke untuk mengisi kode di form masuk warga.</p><button type="button" onClick={() => { const digits = issuedCode.replace(/-/g, "").split("").slice(0, 6); setWargaCode(issuedCode.replace(/-/g, "")); setWargaCodeDigits(digits); setMode("warga"); setShowWargaCode(true); setShowRequestForm(false); setRequestSuccessOpen(false); }} className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d]">Oke</button></section></div>}
     </AuthShell>
   );
 }

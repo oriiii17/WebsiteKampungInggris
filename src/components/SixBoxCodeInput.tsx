@@ -8,6 +8,7 @@ type Props = {
   onCompleteChange?: (code: string, complete: boolean) => void;
   inputRefs: React.MutableRefObject<(HTMLInputElement | null)[]>;
   groupClassName?: string;
+  masked?: boolean;
 };
 
 function normalizeChar(ch: string): string {
@@ -21,7 +22,7 @@ export function toCodeString(digits: string[]): string {
   return `${joined.slice(0, 3)}-${joined.slice(3)}`;
 }
 
-export default function SixBoxCodeInput({ value, onChange, onCompleteChange, inputRefs, groupClassName }: Props) {
+export default function SixBoxCodeInput({ value, onChange, onCompleteChange, inputRefs, groupClassName, masked = false }: Props) {
   function emit(next: string[]) {
     onChange(next);
     const code = toCodeString(next);
@@ -75,6 +76,7 @@ export default function SixBoxCodeInput({ value, onChange, onCompleteChange, inp
   const renderBox = (i: number) => (
     <input
       key={i}
+      type={masked ? "password" : "text"}
       ref={(el) => { inputRefs.current[i] = el; }}
       value={value[i]}
       onChange={(e) => handleChange(i, e)}

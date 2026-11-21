@@ -402,6 +402,63 @@ input:focus, textarea:focus, select:focus {
   body::after { content: "Mencetak halaman materi Kampung Inggris Sapen tidak diizinkan."; display: block; padding: 3rem; text-align: center; font-size: 1.25rem; font-weight: bold; }
 }
 
+/* Shared mobile guardrails: let grid/flex children shrink before they force page overflow. */
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+}
+
+body,
+main,
+section,
+article,
+aside,
+form,
+fieldset,
+header,
+footer,
+nav {
+  min-width: 0;
+}
+
+img,
+video,
+canvas,
+iframe {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea,
+button,
+table {
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .app-dialog-backdrop,
+  .session-ended-backdrop {
+    padding: .75rem;
+  }
+
+  .app-dialog-panel,
+  .session-ended-panel {
+    max-height: calc(100dvh - 1.5rem);
+    overflow-y: auto;
+    padding: clamp(1rem, 5vw, 1.5rem);
+  }
+
+  .app-dialog-actions {
+    flex-wrap: wrap;
+  }
+
+  .app-dialog-actions button {
+    flex: 1 1 8rem;
+  }
+}
+
 .perspective-1000 { perspective: 1000px; }
 .transform-style-3d { transform-style: preserve-3d; }
 .backface-hidden { backface-visibility: hidden; }
@@ -428,7 +485,7 @@ input:focus, textarea:focus, select:focus {
 .auth-shell-photo img { object-fit: cover; }
 .auth-shell-photo::after { position: absolute; inset: 0; content: ""; background: linear-gradient(to top, rgba(16, 36, 24, .92) 0%, rgba(16, 36, 24, .45) 45%, transparent 100%); }
 .auth-shell-photo figcaption { position: absolute; z-index: 1; right: 0; bottom: 0; left: 0; padding: clamp(1.25rem, 3vw, 2rem); color: #faf6ee; }
-.auth-shell-photo h2 { max-width: 18ch; font: 650 clamp(1.6rem, 2.6vw, 2.4rem)/1.08 "Fraunces", Georgia, serif; }
+.auth-shell-photo h2 { max-width: 18ch; color: #fff !important; font: 650 clamp(1.6rem, 2.6vw, 2.4rem)/1.08 "Fraunces", Georgia, serif; }
 .auth-shell-photo p { max-width: 42ch; margin-top: .6rem; line-height: 1.55; }
 .auth-password-field { position: relative; display: block; }
 .auth-password-field input { padding-right: 5.5rem; }
@@ -680,6 +737,55 @@ input:focus, textarea:focus, select:focus {
 
 /* Reserve page chrome consistently; route layouts mark screens without a public footer. */
 body > footer { flex: 0 0 auto; }
+
+@media (max-width: 767px) {
+  .auth-shell-main [role="alertdialog"] {
+    max-height: calc(100dvh - 1.5rem);
+    overflow-y: auto;
+    padding: clamp(1rem, 5vw, 1.5rem);
+  }
+
+  .auth-shell-form div:has(> [role="group"][aria-label="Kode warga, enam karakter"]) {
+    flex-wrap: wrap;
+  }
+
+  .auth-shell-form [role="group"][aria-label="Kode warga, enam karakter"] {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .auth-shell-form [role="group"][aria-label="Kode warga, enam karakter"] input {
+    width: clamp(2rem, 9vw, 2.25rem) !important;
+  }
+
+  .auth-shell-form [aria-label="Kode akses baru, tujuh karakter"] {
+    grid-template-columns: minmax(0, 3fr) auto minmax(0, 2fr) auto minmax(0, 2fr);
+    gap: .25rem;
+  }
+
+  .auth-shell-form [aria-label="Kode akses baru, tujuh karakter"] > div {
+    gap: .125rem;
+  }
+
+  .auth-shell-form [aria-label="Kode akses baru, tujuh karakter"] input {
+    width: clamp(1.75rem, 8.9vw, 2rem) !important;
+  }
+
+  body:has(.bottomNav) > main#main-content {
+    padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+  }
+
+  body:has(.bottomNav) > footer.site-footer {
+    padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 700px) {
+  .home-title { max-width: 13ch; font-size: clamp(2.25rem, 10vw, 3.25rem); line-height: 1.04; }
+  .home-opening { gap: 1.35rem; padding-block: 1.25rem 2.25rem; }
+  .home-opening-copy { padding-block: .25rem; }
+  .home-opening-art { aspect-ratio: 1.25 / 1; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .route-transition { animation: none; }

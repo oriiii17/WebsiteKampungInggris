@@ -100,7 +100,7 @@ export default function AdminWargaManager({
 
   async function saveCodePrefix() {
     const prefix = codePrefix.trim().toUpperCase();
-    if (!/^[A-Z0-9]{3,4}$/.test(prefix)) { notify("Awalan harus terdiri dari 3–4 huruf atau angka."); return; }
+    if (!/^[A-Z0-9]{3}$/.test(prefix)) { notify("Awalan harus tepat 3 huruf dan/atau angka."); return; }
     setSavingPrefix(true);
     try {
       const response = await fetch("/api/admin/rw-code-settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prefix }) });
@@ -266,9 +266,9 @@ export default function AdminWargaManager({
       <section className="rounded-xl border border-[#d8d0c2] bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div><h3 className="text-lg font-extrabold text-[#183b2d]">Awalan Kode Verifikasi Warga</h3><p className="mt-1 max-w-2xl text-sm leading-6 text-[#625f54]">Awalan ini dipakai saat warga meminta kode akses baru. Mengubahnya tidak mencabut kode lama yang sudah diterbitkan.</p></div>
-          <div className="flex items-center gap-2"><label className="sr-only" htmlFor="rw-code-prefix">Awalan alfanumerik, 3 sampai 4 karakter</label><input id="rw-code-prefix" autoCapitalize="characters" maxLength={4} value={codePrefix} onChange={(event) => setCodePrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder="SAP" className="min-h-11 w-32 rounded-lg border border-[#c9bda7] bg-[#fffdf8] px-3 text-center font-mono font-bold tracking-widest text-[#183b2d] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20" /><button type="button" onClick={() => void saveCodePrefix()} disabled={savingPrefix || !/^[A-Z0-9]{3,4}$/.test(codePrefix)} className="min-h-11 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d] disabled:opacity-50">{savingPrefix ? "Menyimpan…" : "Simpan awalan"}</button></div>
+          <div className="flex items-center gap-2"><label className="sr-only" htmlFor="rw-code-prefix">Awalan alfanumerik, tepat 3 karakter</label><input id="rw-code-prefix" autoCapitalize="characters" maxLength={3} value={codePrefix} onChange={(event) => setCodePrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder="SAP" className="min-h-11 w-32 rounded-lg border border-[#c9bda7] bg-[#fffdf8] px-3 text-center font-mono font-bold tracking-widest text-[#183b2d] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20" /><button type="button" onClick={() => void saveCodePrefix()} disabled={savingPrefix || !/^[A-Z0-9]{3}$/.test(codePrefix)} className="min-h-11 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d] disabled:opacity-50">{savingPrefix ? "Menyimpan…" : "Simpan awalan"}</button></div>
         </div>
-        <p className="mt-2 text-xs text-[#625f54]">3–4 karakter huruf/angka, contoh: K12, 99X, SPN1. Kode lengkap berbentuk AWALAN-RW-RT.</p>
+        <p className="mt-2 text-xs text-[#625f54]">Tepat 3 karakter huruf/angka, contoh: K12 atau 99X. Kode lengkap berbentuk AWALAN-RW-RT.</p>
       </section>
 
       <section className="rounded-xl border border-[#E5E7EB] bg-white p-6">

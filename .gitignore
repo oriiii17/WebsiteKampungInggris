@@ -27,6 +27,10 @@ yarn-error.log*
 .env*.local
 .env
 
+# Local Playwright auth state and responsive audit captures
+/.playwright-auth/
+/docs/screenshots/mobile-audit-*/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -20,7 +20,7 @@ export async function PATCH(request: NextRequest) {
   if (!isAdminSession(session)) return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
   const body = await request.json().catch(() => ({}));
   const prefix = String(body.prefix || "").trim().toUpperCase();
-  if (!/^[A-Z0-9]{3,4}$/.test(prefix)) return NextResponse.json({ error: "Awalan harus terdiri dari 3–4 huruf atau angka, misalnya K12 atau SPN1." }, { status: 400 });
+  if (!/^[A-Z0-9]{3}$/.test(prefix)) return NextResponse.json({ error: "Awalan harus tepat 3 huruf dan/atau angka, misalnya K12 atau 99X." }, { status: 400 });
   try {
     const { data, error } = await createSupabaseAdminClient().from("rw_code_settings").upsert({ id: 1, active_prefix: prefix, updated_at: new Date().toISOString(), updated_by: session?.name || "Pengurus" }, { onConflict: "id" }).select("active_prefix,updated_at").single();
     if (error) throw error;

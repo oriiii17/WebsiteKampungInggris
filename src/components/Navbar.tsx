@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, ShoppingCart, ChevronDown, Gamepad2, GraduationCap, KeyRound, LogOut, Settings, User } from "lucide-react";
+import { BookOpen, ShoppingCart, ChevronDown, Gamepad2, GraduationCap, KeyRound, LogOut, Settings, User, CalendarDays } from "lucide-react";
 import { SessionPayload } from "@/lib/types";
 import { SITE_CONFIG } from "@/config/site";
 import styles from "./Navbar.module.css";
@@ -131,15 +131,7 @@ export default function Navbar({ session }: NavbarProps) {
         </div>
 
         <div className={styles.mobileActions}>
-          {showCart && <Link href="/keranjang" className={styles.mobileCartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-5 w-5" /></Link>}
-          {session ? (
-            <button type="button" onClick={() => setOpen((v) => !v)} className={styles.mobileAccountButton} aria-label="Menu akun" aria-expanded={open}>{initial}</button>
-          ) : (
-            <>
-              <Link href="/masuk" className={styles.mobileSignIn}>Masuk</Link>
-              <Link href="/daftar" className={styles.mobileSignUp}>Daftar</Link>
-            </>
-          )}
+          {session && <button type="button" onClick={() => setOpen((v) => !v)} className={styles.mobileAccountButton} aria-label="Menu akun" aria-expanded={open}>{initial}</button>}
         </div>
       </div>
 
@@ -155,14 +147,11 @@ export default function Navbar({ session }: NavbarProps) {
       )}
 
       <nav className={styles.bottomNav} aria-label="Navigasi bawah">
-        <Link href="/" className={`${styles.bottomLink} ${pathname === "/" ? styles.bottomLinkActive : ""}`}><GraduationCap />Beranda</Link>
-        <Link href="/kelas" onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen />Kelas</Link>
-        <Link href="/games" onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 />Games</Link>
-        {session ? (
-          <Link href="/akun" className={`${styles.bottomLink} ${pathname.startsWith("/akun") ? styles.bottomLinkActive : ""}`}><User />Akun</Link>
-        ) : (
-          <Link href="/masuk" className={`${styles.bottomLink} ${pathname.startsWith("/masuk") ? styles.bottomLinkActive : ""}`}><KeyRound />Masuk</Link>
-        )}
+        <Link href="/" aria-current={pathname === "/" ? "page" : undefined} className={`${styles.bottomLink} ${pathname === "/" ? styles.bottomLinkActive : ""}`}><GraduationCap aria-hidden="true" />Beranda</Link>
+        <Link href="/kelas" aria-current={pathname.startsWith("/kelas") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen aria-hidden="true" />Kelas</Link>
+        <Link href="/sesi" aria-current={pathname === "/sesi" ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname === "/sesi" || pathname.startsWith("/sesi/") ? styles.bottomLinkActive : ""}`}><CalendarDays aria-hidden="true" />Sesi Kelas</Link>
+        <Link href="/games" aria-current={pathname.startsWith("/games") || pathname.startsWith("/game") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 aria-hidden="true" />Games</Link>
+        <Link href={session ? "/akun" : "/masuk"} aria-current={session ? (pathname.startsWith("/akun") ? "page" : undefined) : (pathname.startsWith("/masuk") ? "page" : undefined)} className={`${styles.bottomLink} ${(session ? pathname.startsWith("/akun") : pathname.startsWith("/masuk")) ? styles.bottomLinkActive : ""}`}>{session ? <User aria-hidden="true" /> : <KeyRound aria-hidden="true" />}{session ? "Akun" : "Masuk"}</Link>
       </nav>
     </header>
   );
