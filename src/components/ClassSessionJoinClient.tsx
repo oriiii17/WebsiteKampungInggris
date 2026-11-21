@@ -94,6 +94,23 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
     }
   };
 
+  const returnToHome = async () => {
+    if (leavingSession) return;
+    setLeavingSession(true);
+    setLeaveError("");
+    try {
+      if (session?.viewerType === "guest") {
+        const response = await fetch("/api/auth/session?scope=guest", { method: "DELETE", cache: "no-store" });
+        if (!response.ok) throw new Error("Sesi Guest belum berhasil dibersihkan. Coba lagi.");
+        window.dispatchEvent(new Event("sapen:guest-session-updated"));
+      }
+      router.replace("/");
+    } catch (reason) {
+      setLeaveError(reason instanceof Error ? reason.message : "Belum dapat kembali ke beranda. Coba lagi.");
+      setLeavingSession(false);
+    }
+  };
+
   const join = async (event?: React.FormEvent) => {
     event?.preventDefault(); setSubmitting(true); setError(""); setNotice("");
     let apiResponseDetails: { status: number; body: unknown } | undefined;
@@ -129,9 +146,10 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
   const isPending = session?.registrationStatus === "pending";
   const isRejected = session?.registrationStatus === "rejected";
   const isFuture = Boolean(session?.startsAt && new Date(session.startsAt).getTime() > Date.now());
-  if (isPending) return <main className="grid min-h-[calc(100dvh-4rem)] place-items-center bg-[#f3e9d5] px-4 py-10 text-[#20251f]"><section className="w-full max-w-lg rounded-2xl border border-[#c9bda7] bg-[#fdf9f0] p-6 text-center shadow-[0_18px_48px_rgba(32,37,31,.09)] sm:p-9"><span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#e6eadf] text-[#244b3a]"><Loader2 className="h-7 w-7 animate-spin" aria-hidden="true" /></span><p className="mt-5 text-xs font-extrabold uppercase tracking-wide text-[#625f54]">Sesi {session.code}</p><h1 className="mt-2 font-display text-3xl font-bold leading-tight text-[#183b2d]">Menunggu persetujuan pengurus</h1><p className="mt-3 text-sm leading-6 text-[#3d4038]">Permintaanmu untuk bergabung ke {session.title} sudah diterima. Kelas dan Games akan terbuka setelah pengurus menyetujui aksesmu.</p>{notice && <p role="status" className="mt-4 rounded-lg bg-[#e6eadf] p-3 text-sm font-semibold text-[#183b2d]">{notice}</p>}<button type="button" onClick={() => void refresh()} className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#b8aa8e] px-4 text-sm font-bold text-[#244b3a] hover:bg-[#e6eadf]"><RefreshCw className="h-4 w-4" />Periksa status</button></section></main>;
+  if (isPending) return <main className="grid min-h-[calc(100dvh-4rem)] place-items-center bg-[#f3e9d5] px-4 py-10 text-[#20251f]"><section className="w-full max-w-lg rounded-2xl border border-[#c9bda7] bg-[#fdf9f0] p-6 text-center shadow-[0_18px_48px_rgba(32,37,31,.09)] sm:p-9"><span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#e6eadf] text-[#244b3a]"><Loader2 className="h-7 w-7 animate-spin" aria-hidden="true" /></span><p className="mt-5 text-xs font-extrabold uppercase tracking-wide text-[#625f54]">Sesi {session.code}</p><h1 className="mt-2 font-display text-3xl font-bold leading-tight text-[#183b2d]">Menunggu persetujuan pengurus</h1><p className="mt-3 text-sm leading-6 text-[#3d4038]">Permintaanmu untuk bergabung ke {session.title} sudah diterima. Kelas dan Games akan terbuka setelah pengurus menyetujui aksesmu.</p>{notice && <p role="status" className="mt-4 rounded-lg bg-[#e6eadf] p-3 text-sm font-semibold text-[#183b2d]">{notice}</p>}{leaveError && <p role="alert" className="mt-4 rounded-lg bg-[#fff1eb] p-3 text-sm font-semibold text-[#8e321f]">{leaveError}</p>}<div className="mt-5 flex flex-wrap justify-center gap-2"><button type="button" onClick={() => void refresh()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#b8aa8e] px-4 text-sm font-bold text-[#244b3a] hover:bg-[#e6eadf]"><RefreshCw className="h-4 w-4" />Periksa status</button><button type="button" onClick={() => void returnToHome()} disabled={leavingSession} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d] disabled:opacity-60"><ArrowLeft className="h-4 w-4" />{leavingSession ? "Kembali…" : "Kembali ke Beranda"}</button></div></section></main>;
   return <main className="min-h-screen bg-[#f3e9d5] px-4 py-10 text-[#20251f] sm:px-8"><div className="mx-auto max-w-2xl">
-    <Link href="/sesi" className="inline-flex min-h-10 items-center gap-2 text-sm font-bold text-[#244b3a] underline"><ArrowLeft className="h-4 w-4" />Masukkan kode sesi</Link>
+    <button type="button" onClick={() => void returnToHome()} disabled={leavingSession} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] px-4 text-sm font-bold text-[#244b3a] hover:bg-[#e8eee5] disabled:opacity-60"><ArrowLeft className="h-4 w-4" />{leavingSession ? "Kembali…" : "Kembali ke Beranda"}</button>
+    {leaveError && <p role="alert" className="mt-3 rounded-lg bg-[#fff1eb] p-3 text-sm font-semibold text-[#8e321f]">{leaveError}</p>}
     {error && !session && <section className="mt-8 rounded-xl border border-[#d2c5ad] bg-[#fdf9f0] p-6"><h1 className="text-2xl font-bold text-[#183b2d]">Sesi belum ditemukan</h1><p role="alert" className="mt-2 text-sm text-[#943520]">{error}</p><Link href="/sesi" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#ba472f] px-4 text-sm font-bold text-white">Coba kode lain<ArrowRight className="h-4 w-4" /></Link></section>}
     {session && <><header className="mt-7 border-y border-[#d2c5ad] py-6"><p className="text-xs font-bold uppercase tracking-wide text-[#625f54]">Sesi tatap muka · kode {session.code}</p><h1 className="mt-2 font-display text-4xl font-bold leading-tight text-[#183b2d]">{session.title}</h1><p className="mt-3 text-sm text-[#3d4038]">{session.classTitle ? `Kelas: ${session.classTitle}` : "Kelas sesi ini belum tersedia."}{session.startsAt ? ` · ${new Date(session.startsAt).toLocaleString("id-ID")}` : ""}</p><p className="mt-2 text-sm text-[#3d4038]">{session.status !== "open" ? "Sesi ini telah ditutup." : isFuture ? "Sesi belum dibuka. Presensi dapat dilakukan sesuai jadwal." : "Sesi sedang berlangsung atau siap dimulai."}</p></header>
       {notice && <p role="status" className="mt-5 rounded-lg border border-[#244b3a]/20 bg-[#e6eadf] p-4 text-sm font-bold text-[#183b2d]">{notice}</p>}

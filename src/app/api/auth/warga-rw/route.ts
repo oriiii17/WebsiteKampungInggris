@@ -10,8 +10,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 type VerifiedCode = { id: string; label: string; rt_rw: string; holder_type: "keluarga" | "individu" };
 
 function normalizeCode(value: unknown): string {
-  const compact = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return compact.length === 6 ? `${compact.slice(0, 3)}-${compact.slice(3)}` : "";
+  const input = String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+  const compact = input.replace(/-/g, "");
+  if (/^[A-Z0-9]{6}$/.test(compact)) return `${compact.slice(0, 3)}-${compact.slice(3)}`;
+  if (/^[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(input)) return input;
+  if (/^[A-Z0-9]{3,4}-RW0[678]-RT\d{2}$/.test(input)) return input;
+  return "";
 }
 
 export async function POST(req: NextRequest) {
@@ -23,7 +27,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const code = normalizeCode(body.code);
-    if (!code) return NextResponse.json({ error: "Masukkan enam karakter kode warga dengan format XXX-XXX." }, { status: 400 });
+    if (!code) return NextResponse.json({ error: "Masukkan kode warga lama enam karakter atau kode baru berformat AWALAN-RW-RT." }, { status: 400 });
 
     const supabase = createPublicSupabaseClient();
     if (!supabase) return NextResponse.json({ error: "Layanan login warga belum dikonfigurasi." }, { status: 503 });

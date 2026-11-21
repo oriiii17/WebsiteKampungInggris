@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Gamepad2, Lock, Loader2, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ClassItem, ModuleItem, SessionPayload } from "@/lib/types";
@@ -16,12 +17,16 @@ interface Props {
 }
 
 export default function ClassDetailClient({ classItem, includedModules, isEnrolled, sessionUser }: Props) {
+  const router = useRouter();
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceGames, setPracticeGames] = useState<GameBlueprint[]>([]);
   const [practiceLoading, setPracticeLoading] = useState(false);
   const [practiceError, setPracticeError] = useState("");
+  const [leavingAsGuest, setLeavingAsGuest] = useState(false);
+  const [leaveGuestError, setLeaveGuestError] = useState("");
   const isGuest = sessionUser?.role === "guest" || sessionUser?.origin === "guest";
   const isWarga = sessionUser?.origin === "warga_kode";
+  const inClassSession = Boolean(sessionUser?.guestSessionId);
   useEffect(() => {
     if (!practiceOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setPracticeOpen(false); };
@@ -44,6 +49,20 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
       setPracticeLoading(false);
     }
   }
+  async function leaveGuestSession() {
+    if (leavingAsGuest) return;
+    setLeavingAsGuest(true);
+    setLeaveGuestError("");
+    try {
+      const response = await fetch("/api/auth/session?scope=guest", { method: "DELETE", cache: "no-store" });
+      if (!response.ok) throw new Error("Sesi Guest belum berhasil dibersihkan. Coba lagi.");
+      window.dispatchEvent(new Event("sapen:guest-session-updated"));
+      router.replace("/");
+    } catch (error) {
+      setLeaveGuestError(error instanceof Error ? error.message : "Belum dapat kembali ke beranda.");
+      setLeavingAsGuest(false);
+    }
+  }
   const publishedModules = classItem.modules?.length
     ? [...classItem.modules].sort((a, b) => a.urutan - b.urutan)
     : includedModules.map((module, index) => ({
@@ -58,14 +77,12 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
 
   return (
     <div className="space-y-8">
-      {!isGuest && <Link href={isWarga ? "/" : "/kelas"} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rule bg-white px-4 py-2 text-sm font-bold text-leaf transition hover:bg-leaf-soft">
-        <ArrowLeft className="h-4 w-4" /> {isWarga ? "Kembali ke beranda" : "Kembali ke Katalog Kelas"}
-      </Link>}
+      {inClassSession ? (isGuest ? <div className="space-y-2"><button type="button" onClick={() => void leaveGuestSession()} disabled={leavingAsGuest} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rule bg-white px-4 py-2 text-sm font-bold text-leaf transition hover:bg-leaf-soft disabled:opacity-60"><ArrowLeft className="h-4 w-4" />{leavingAsGuest ? "Keluar…" : "Kembali ke Beranda"}</button>{leaveGuestError && <p role="alert" className="text-sm font-semibold text-[#943520]">{leaveGuestError}</p>}</div> : <Link href="/" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rule bg-white px-4 py-2 text-sm font-bold text-leaf transition hover:bg-leaf-soft"><ArrowLeft className="h-4 w-4" />Kembali ke Beranda</Link>) : !isGuest && <Link href={isWarga ? "/" : "/kelas"} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rule bg-white px-4 py-2 text-sm font-bold text-leaf transition hover:bg-leaf-soft"><ArrowLeft className="h-4 w-4" />{isWarga ? "Kembali ke beranda" : "Kembali ke Katalog Kelas"}</Link>}
 
-      <section className={`class-detail-hero${isGuest ? " class-detail-hero-guest" : ""}`}>
+      <section className={`class-detail-hero${inClassSession ? " class-detail-hero-guest" : ""}`}>
         <div className="class-detail-copy">
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="section-badge"><Sparkles className="h-3.5 w-3.5 text-earth" /> {isGuest ? "Akses sesi kelas" : "Akses Selamanya"}</span>
+          <span className="section-badge"><Sparkles className="h-3.5 w-3.5 text-earth" /> {inClassSession ? "Akses sesi kelas" : "Akses Selamanya"}</span>
             {isEnrolled && <span className="inline-flex min-h-[30px] items-center gap-1.5 rounded-full border border-[#244b3a] bg-[#244b3a] px-3 text-xs font-bold text-white"><ShieldCheck className="h-3.5 w-3.5" /> Akses Anda Aktif</span>}
           </div>
           <h1 className="mt-3 break-words text-4xl sm:text-5xl">{classItem.title}</h1>
@@ -75,7 +92,7 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
             <span className="inline-flex items-center gap-2"><BookOpen className="h-4 w-4 text-leaf" />{publishedModules.length} materi</span>
           </div>
         </div>
-      {!isGuest && !isWarga && <div className="class-detail-enrollment">
+      {!inClassSession && !isWarga && <div className="class-detail-enrollment">
           <div>
             <p className="workbook-print-note">Biaya akses kelas</p>
             <p className="mt-1 font-display text-3xl">{formatIDR(classItem.priceIdr)}</p>

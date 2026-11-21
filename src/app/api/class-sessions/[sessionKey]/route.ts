@@ -132,7 +132,9 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
   if (body.consent !== true) return NextResponse.json({ error: "Setujui penggunaan data untuk pendaftaran dan presensi terlebih dahulu." }, { status: 400 });
   const guest = validateGuestRegistration(body.name, body.whatsapp);
   if (!guest) return NextResponse.json({ error: "Periksa nama (2–80 karakter) dan pastikan nomor WhatsApp berisi 9–15 digit jika diisi." }, { status: 400 });
-  const isAccountParticipant = Boolean(current && ["member", "peserta", "umum"].includes(current.role));
+  // RW-code users stay on the account-session path even if their role label changes.
+  // Session approval is attached to their existing account token; it must never mint a Guest token.
+  const isAccountParticipant = Boolean(current && (current.origin === "warga_kode" || ["member", "peserta", "umum"].includes(current.role)));
   if (isAccountParticipant && current) {
     let registrationId: string | undefined;
     let sessionId = "";

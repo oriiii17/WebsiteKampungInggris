@@ -70,6 +70,8 @@ export default function AdminWargaManager({
   const [savingCode, setSavingCode] = useState(false);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [codes, setCodes] = useState<RwCodeItem[]>([]);
+  const [codePrefix, setCodePrefix] = useState("SAP");
+  const [savingPrefix, setSavingPrefix] = useState(false);
   const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
@@ -84,6 +86,31 @@ export default function AdminWargaManager({
     });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/rw-code-settings", { cache: "no-store" }).then(async (response) => {
+      const result = await response.json().catch(() => ({}));
+      if (!active) return;
+      if (response.ok && typeof result.prefix === "string") setCodePrefix(result.prefix);
+      else notify(result.error || "Awalan kode warga belum dapat dimuat.");
+    }).catch(() => { if (active) notify("Awalan kode warga belum dapat dimuat."); });
+    return () => { active = false; };
+  }, [notify]);
+
+  async function saveCodePrefix() {
+    const prefix = codePrefix.trim().toUpperCase();
+    if (!/^[A-Z0-9]{3,4}$/.test(prefix)) { notify("Awalan harus terdiri dari 3–4 huruf atau angka."); return; }
+    setSavingPrefix(true);
+    try {
+      const response = await fetch("/api/admin/rw-code-settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prefix }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Awalan belum dapat disimpan.");
+      setCodePrefix(result.prefix);
+      notify(`Awalan kode warga diperbarui menjadi ${result.prefix}.`);
+    } catch (error) { notify(error instanceof Error ? error.message : "Awalan belum dapat disimpan."); }
+    finally { setSavingPrefix(false); }
+  }
 
   const filteredWarga = localWarga
     .filter((w) => {
@@ -236,6 +263,14 @@ export default function AdminWargaManager({
       </div>
 
       {/* Kelola Kode RW */}
+      <section className="rounded-xl border border-[#d8d0c2] bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div><h3 className="text-lg font-extrabold text-[#183b2d]">Awalan Kode Verifikasi Warga</h3><p className="mt-1 max-w-2xl text-sm leading-6 text-[#625f54]">Awalan ini dipakai saat warga meminta kode akses baru. Mengubahnya tidak mencabut kode lama yang sudah diterbitkan.</p></div>
+          <div className="flex items-center gap-2"><label className="sr-only" htmlFor="rw-code-prefix">Awalan alfanumerik, 3 sampai 4 karakter</label><input id="rw-code-prefix" autoCapitalize="characters" maxLength={4} value={codePrefix} onChange={(event) => setCodePrefix(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder="SAP" className="min-h-11 w-32 rounded-lg border border-[#c9bda7] bg-[#fffdf8] px-3 text-center font-mono font-bold tracking-widest text-[#183b2d] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20" /><button type="button" onClick={() => void saveCodePrefix()} disabled={savingPrefix || !/^[A-Z0-9]{3,4}$/.test(codePrefix)} className="min-h-11 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d] disabled:opacity-50">{savingPrefix ? "Menyimpan…" : "Simpan awalan"}</button></div>
+        </div>
+        <p className="mt-2 text-xs text-[#625f54]">3–4 karakter huruf/angka, contoh: K12, 99X, SPN1. Kode lengkap berbentuk AWALAN-RW-RT.</p>
+      </section>
+
       <section className="rounded-xl border border-[#E5E7EB] bg-white p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
