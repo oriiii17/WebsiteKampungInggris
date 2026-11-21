@@ -13,12 +13,12 @@ import {
   Search,
   ShieldAlert,
   Trash2,
-  UserCheck,
   Users,
 } from "lucide-react";
-import { WargaRecord, LoginLogEntry } from "@/lib/types";
+import { WargaRecord } from "@/lib/types";
 import { useAppDialog } from "@/components/AppDialogProvider";
 import SixBoxCodeInput, { toCodeString } from "@/components/SixBoxCodeInput";
+import ReportDownloadDialog from "@/components/admin/ReportDownloadDialog";
 
 interface RwCodeItem {
   id: string;
@@ -31,13 +31,11 @@ interface RwCodeItem {
 
 interface AdminWargaManagerProps {
   warga: WargaRecord[];
-  loginLog: LoginLogEntry[];
   stats: {
     totalWarga?: number;
     wargaRw06?: number;
     wargaRw07?: number;
     wargaRw08?: number;
-    activeToday?: number;
     activeThisWeek?: number;
     mostPlayedGame?: string;
   };
@@ -47,7 +45,6 @@ interface AdminWargaManagerProps {
 
 export default function AdminWargaManager({
   warga,
-  loginLog,
   stats,
   onRefresh,
   notify,
@@ -73,7 +70,7 @@ export default function AdminWargaManager({
   const [savingCode, setSavingCode] = useState(false);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [codes, setCodes] = useState<RwCodeItem[]>([]);
-  const [exportFormat, setExportFormat] = useState<"excel" | "csv">("excel");
+  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -226,26 +223,15 @@ export default function AdminWargaManager({
     } catch (error) { notify(error instanceof Error ? error.message : "Kode gagal dihapus."); }
   }
 
-  async function exportParticipants() {
-    try {
-      const response = await fetch(`/api/admin/export?type=warga&format=${exportFormat}`);
-      if (!response.ok) throw new Error("Ekspor peserta gagal.");
-      const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a"); link.href = url;
-      link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `data-warga.${exportFormat === "excel" ? "xlsx" : "csv"}`;
-      link.click(); URL.revokeObjectURL(url);
-    } catch (error) { notify(error instanceof Error ? error.message : "Ekspor peserta gagal."); }
-  }
-
   return (
     <div className="space-y-8 mt-6">
       {/* Stats Row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
-        <StatCard label="Total Warga" value={stats.totalWarga || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Terdaftar aktif" />
-        <StatCard label="Warga RW 06" value={stats.wargaRw06 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Akun terdaftar" />
-        <StatCard label="Warga RW 07" value={stats.wargaRw07 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Akun terdaftar" />
-        <StatCard label="Warga RW 08" value={stats.wargaRw08 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Akun terdaftar" />
-        <StatCard label="Aktif Hari Ini" value={stats.activeToday || 0} icon={UserCheck} iconColor="text-[#F59E0B]" subLabel={`${stats.activeThisWeek || 0} minggu ini`} />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+        <StatCard label="Total Warga" value={stats.totalWarga || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Total login kode RW" />
+        <StatCard label="Warga RW 06" value={stats.wargaRw06 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Login kode RW 06" />
+        <StatCard label="Warga RW 07" value={stats.wargaRw07 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Login kode RW 07" />
+        <StatCard label="Warga RW 08" value={stats.wargaRw08 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Login kode RW 08" />
+        <StatCard label="Aktif Minggu Ini" value={stats.activeThisWeek || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Sejak Senin pekan ini" />
         <StatCard label="Game Terpopuler" value={stats.mostPlayedGame || "Belum ada"} icon={ShieldAlert} iconColor="text-gray-400" subLabel="Paling sering dimainkan" isText />
       </div>
 
@@ -297,7 +283,7 @@ export default function AdminWargaManager({
             <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><Users className="h-5 w-5 text-[#14532D]" /> Daftar Warga Terdaftar ({filteredWarga.length})</h3>
             <p className="text-xs text-gray-500 mt-0.5">Kelola nama panggilan warga, reset skor, atau blokir akun yang melanggar aturan.</p>
           </div>
-          <div className="flex items-center gap-2"><select aria-label="Format ekspor peserta" value={exportFormat} onChange={(event) => setExportFormat(event.target.value as "excel" | "csv")} className="min-h-11 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs font-bold"><option value="excel">Excel (.xlsx)</option><option value="csv">CSV (.csv)</option></select><button type="button" onClick={exportParticipants} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#F59E0B] px-4 py-2.5 text-xs font-extrabold text-gray-950 transition hover:bg-[#D97706] shrink-0"><Download className="h-4 w-4" /> Ekspor Peserta</button></div>
+          <button type="button" onClick={() => setShowReport(true)} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#F59E0B] px-4 py-2.5 text-xs font-extrabold text-gray-950 transition hover:bg-[#D97706] shrink-0"><Download className="h-4 w-4" /> Download</button>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 mb-5">
@@ -315,11 +301,7 @@ export default function AdminWargaManager({
 
       {editingWarga && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingWarga(null); }}><section role="dialog" aria-modal="true" aria-labelledby="edit-warga-title" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"><h3 id="edit-warga-title" className="text-lg font-extrabold text-gray-900">Ubah nama warga</h3><p className="mt-1 text-sm text-gray-600">Perbarui nama panggilan {editingWarga.namaPanggilan}.</p><label htmlFor="warga-name" className="mt-5 block text-xs font-bold text-gray-700">Nama panggilan baru</label><input id="warga-name" autoFocus value={editedName} onChange={(event) => setEditedName(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-lg border border-[#E5E7EB] px-3 text-sm focus:border-[#14532D] focus:outline-none" /><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setEditingWarga(null)} className="min-h-10 rounded-lg border border-[#E5E7EB] px-4 text-sm font-bold">Batal</button><button type="button" disabled={savingName} onClick={handleRename} className="min-h-10 rounded-lg bg-[#14532D] px-4 text-sm font-bold text-white disabled:opacity-60">{savingName ? "Menyimpan..." : "Konfirmasi"}</button></div></section></div>}
 
-      {/* Riwayat Login */}
-      <section className="rounded-xl border border-[#E5E7EB] bg-white p-6">
-        <h3 className="text-lg font-extrabold text-gray-900 mb-3 flex items-center gap-2"><UserCheck className="h-5 w-5 text-[#14532D]" /> Riwayat Login Terbaru ({loginLog.length})</h3>
-        <div className="overflow-x-auto rounded-lg border border-[#E5E7EB]"><table className="w-full text-left text-xs text-gray-700"><thead className="border-b border-[#E5E7EB] bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-2.5">Waktu</th><th className="px-4 py-2.5">Nama Panggilan</th><th className="px-4 py-2.5">RW</th></tr></thead><tbody className="divide-y divide-[#E5E7EB]">{loginLog.length === 0 ? (<tr><td colSpan={3} className="py-6 text-center text-xs text-gray-400">Belum ada aktivitas login yang tercatat.</td></tr>) : (loginLog.slice(0, 15).map((log) => (<tr key={log.id} className="hover:bg-gray-50/50"><td className="px-4 py-2 text-gray-500 text-[11px]">{new Date(log.loginAt).toLocaleString("id-ID")}</td><td className="px-4 py-2 font-bold text-gray-900">{log.namaPanggilan}</td><td className="px-4 py-2"><span className="font-semibold text-[#14532D]">{log.rw}</span></td></tr>)))}</tbody></table></div>
-      </section>
+      {showReport && <ReportDownloadDialog type="warga" onClose={() => setShowReport(false)} />}
     </div>
   );
 }

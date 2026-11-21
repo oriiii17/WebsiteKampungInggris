@@ -19,6 +19,12 @@ function MasukContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showWargaPrompt, setShowWargaPrompt] = useState(false);
+  const [wargaEmail, setWargaEmail] = useState("");
+  const [wargaPassword, setWargaPassword] = useState("");
+  const [wargaPasswordConfirm, setWargaPasswordConfirm] = useState("");
+  const [savingWargaAccount, setSavingWargaAccount] = useState(false);
+  const [wargaAccountError, setWargaAccountError] = useState("");
 
   async function handleWargaSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -44,12 +50,33 @@ function MasukContent() {
         wargaRefs.current[0]?.focus();
         return;
       }
-      router.push(nextUrl.startsWith("/") && !nextUrl.startsWith("//") ? nextUrl : "/kelas");
-      router.refresh();
+      setLoading(false);
+      setShowWargaPrompt(true);
     } catch (requestError) {
       console.error("[login warga] Permintaan tidak mencapai server", requestError);
       setError("Server tidak terjangkau. Periksa koneksi internet lalu coba lagi.");
       setLoading(false);
+    }
+  }
+
+  async function createPermanentWargaAccount(event: React.FormEvent) {
+    event.preventDefault();
+    setWargaAccountError("");
+    setSavingWargaAccount(true);
+    try {
+      const response = await fetch("/api/auth/warga-permanent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: wargaEmail, password: wargaPassword, confirmPassword: wargaPasswordConfirm }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Akun permanen belum dapat dibuat.");
+      router.replace("/kelas");
+      router.refresh();
+    } catch (reason) {
+      setWargaAccountError(reason instanceof Error ? reason.message : "Akun permanen belum dapat dibuat. Coba lagi.");
+    } finally {
+      setSavingWargaAccount(false);
     }
   }
 
@@ -110,6 +137,7 @@ function MasukContent() {
           )}
         </section>
         <footer className="mt-4 border-t border-rule pt-3 text-center"><Link href="/admin/masuk" className="text-xs text-muted underline underline-offset-4 hover:text-leaf">Khusus pengurus</Link></footer>
+      {showWargaPrompt && <div className="fixed inset-0 z-[100] grid place-items-center bg-[#20251f]/55 p-4"><section role="dialog" aria-modal="true" aria-labelledby="warga-account-title" className="w-full max-w-md rounded-2xl border border-rule bg-paper-light p-5 shadow-xl sm:p-7"><h2 id="warga-account-title" className="font-display text-2xl font-bold text-forest-deep">Simpan akses ini sebagai akun permanen?</h2><p className="mt-2 text-sm leading-6 text-body">Pilihan ini opsional. Akses kelas gratis dengan kode warga tetap aktif jika kamu melewatinya.</p>{wargaAccountError && <p role="alert" className="mt-4 rounded-lg border border-earth/30 bg-[#f8e8e1] p-3 text-sm font-semibold text-earth-dark">{wargaAccountError}</p>}<form onSubmit={createPermanentWargaAccount} className="mt-5 space-y-3"><label className="block text-sm font-bold text-body">Email<input required type="email" autoComplete="email" value={wargaEmail} onChange={(event) => setWargaEmail(event.target.value)} placeholder="nama@email.com" className="mt-1.5 min-h-12 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm" /></label><label className="block text-sm font-bold text-body">Kata sandi<input required type="password" minLength={8} autoComplete="new-password" value={wargaPassword} onChange={(event) => setWargaPassword(event.target.value)} placeholder="Minimal 8 karakter" className="mt-1.5 min-h-12 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm" /></label><label className="block text-sm font-bold text-body">Ulangi kata sandi<input required type="password" minLength={8} autoComplete="new-password" value={wargaPasswordConfirm} onChange={(event) => setWargaPasswordConfirm(event.target.value)} placeholder="Ulangi kata sandi" className="mt-1.5 min-h-12 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm" /></label><button type="submit" disabled={savingWargaAccount} className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-earth px-4 text-sm font-extrabold text-white hover:bg-earth-dark disabled:opacity-60">{savingWargaAccount ? "Menyimpan akun…" : "Buat akun permanen"}</button></form><button type="button" onClick={() => { setShowWargaPrompt(false); router.replace("/kelas"); router.refresh(); }} className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-rule-strong px-4 text-sm font-bold text-leaf hover:bg-forest-soft">Nanti Saja, lanjut ke kelas</button></section></div>}
     </AuthShell>
   );
 }

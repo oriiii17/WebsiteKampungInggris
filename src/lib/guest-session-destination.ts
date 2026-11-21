@@ -2,9 +2,9 @@ import type { SessionPayload } from "@/lib/types";
 import { getClassByIdOrSlug, readLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 
-/** Resolve the public destination for a guest without ever exposing the paid class catalog. */
+/** Resolve the destination for an approved session participant without exposing the paid class catalog. */
 export async function getGuestSessionDestination(session: SessionPayload | null): Promise<string> {
-  if (session?.role !== "guest" || !session.guestSessionId || !session.guestRegistrationId) return "/";
+  if (!session?.guestSessionId || !session.guestRegistrationId) return "/";
   if (session.guestClassHref?.startsWith("/kelas/") && !session.guestClassHref.startsWith("//")) return session.guestClassHref;
 
   const supabase = await getSupabaseServerClient();

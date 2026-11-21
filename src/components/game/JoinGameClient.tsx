@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Bird, BookOpen, Gamepad2, KeyRound, Leaf, Sun, User, Loader2 } from "lucide-react";
+import { ArrowLeft, Bird, BookOpen, Gamepad2, Leaf, Sun, User, Loader2 } from "lucide-react";
+import PinCodeInput from "@/components/game/PinCodeInput";
 
 const AVATARS = [
   { id: "leaf", label: "Daun", Icon: Leaf },
@@ -98,6 +99,7 @@ export default function JoinGameClient({ defaultName = "", isGuest = false }: { 
         avatarId: data.avatarId,
         team: data.team,
         entry: searchParams.get("entry") === "scan" ? "scan" : null,
+        guestMode: isGuest,
       }));
       if (searchParams.get("entry") === "scan") sessionStorage.removeItem("sapen_scan_guest_name");
 
@@ -124,31 +126,15 @@ export default function JoinGameClient({ defaultName = "", isGuest = false }: { 
       </div>
 
       {error && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-800 font-medium">
+        <div id="join-game-error" role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-800 font-medium">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
-            Kode PIN Sesi
-          </label>
-          <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted">
-              <KeyRound className="h-5 w-5" />
-            </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="Contoh: 849201"
-              required
-              className="min-h-[48px] w-full rounded-md border border-rule-strong bg-white py-3 pl-11 pr-4 text-center font-mono text-xl font-bold tracking-widest text-ink placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-muted focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/20"
-            />
-          </div>
+          <label htmlFor="join-game-pin" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-700">Kode PIN Sesi</label>
+          <PinCodeInput id="join-game-pin" label="PIN sesi, 6 angka" value={pin} onChange={setPin} invalid={Boolean(error && pin.length !== 6)} describedBy={error ? "join-game-error" : undefined} />
         </div>
 
         <fieldset>

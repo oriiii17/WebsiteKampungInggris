@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
 import { readLocalDb } from "@/lib/db";
 import * as XLSX from "xlsx";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
@@ -11,6 +12,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "all";
   const format = searchParams.get("format") || "excel";
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
 
   let exportData: Record<string, any[]> = {};
   let filename = "sapen-english-export";
@@ -32,9 +35,7 @@ export async function GET(req: NextRequest) {
     }
     case "warga": {
       const warga = data.warga || [];
-      const loginLog = data.loginLog || [];
-      exportData = {
-        Warga: warga.map((w) => ({
+      const rows = warga.map((w) => ({
           ID: w.id,
           "Nama Panggilan": w.namaPanggilan,
           RW: w.rw,
@@ -43,16 +44,31 @@ export async function GET(req: NextRequest) {
           "Diblokir": w.isBlocked ? "Ya" : "Tidak",
           "Total Main Game": w.totalGamesPlayed || 0,
           "Skor Tertinggi": w.highScore || 0,
-        })),
-        "Log Login": loginLog.map((l) => ({
-          ID: l.id,
-          "Nama Panggilan": l.namaPanggilan,
-          RW: l.rw,
-          "Login At": l.loginAt,
-          "IP Hint": l.ipHint || "-",
-        })),
-      };
+        }));
+      let loginRows = (data.loginLog || []).map((entry) => ({ ID: entry.id, Nama: entry.namaPanggilan, RW: entry.rw, "Waktu Login": entry.loginAt }));
+      try {
+        const supabase = createSupabaseAdminClient();
+        const { data: events } = await supabase.from("rw_access_login_events").select("id,rw,occurred_at").order("occurred_at", { ascending: false });
+        if (events) loginRows = events.map((event) => ({ ID: event.id, Nama: "—", RW: event.rw, "Waktu Login": event.occurred_at }));
+      } catch { /* Local login history remains an available fallback. */ }
+      exportData = { Warga: rows, "Riwayat Login Kode RW": loginRows };
       filename = "data-warga-kampung-sapen";
+      break;
+    }
+
+    case "participants": {
+      const sessions = data.classSessions || [];
+      const sessionById = new Map(sessions.map((item) => [item.id, item]));
+      const guests = (data.classSessionGuests || []).map((guest) => {
+        const session = sessionById.get(guest.sessionId);
+        return { ID: guest.id, "Nama Lengkap": guest.name, WhatsApp: guest.whatsapp || "", "Nama Sesi": session?.title || "", Kode: session?.code || "", Status: guest.status, "Tanggal Daftar": guest.registeredAt };
+      });
+      const userRows = (data.externalUsers || []).map((user) => {
+        const enrollments = (data.enrollments || []).filter((item) => (item.userEmail || "").toLowerCase() === String(user.email || "").toLowerCase());
+        return { ID: user.id, Nama: user.name, Email: user.email, "Kelas yang Diakses": enrollments.map((item) => `${(data.classes || []).find((itemClass) => itemClass.id === item.classId)?.title || item.classId} (${Number(item.paidAmountIdr || 0) === 0 ? "Gratis" : "Berbayar"})`).join("; "), "Dibuat": user.createdAt };
+      });
+      exportData = { "Peserta Guest": guests, "User Reguler": userRows };
+      filename = "laporan-peserta";
       break;
     }
 
@@ -153,7 +169,6 @@ export async function GET(req: NextRequest) {
     case "all":
     default: {
       const warga = data.warga || [];
-      const loginLog = data.loginLog || [];
       const users = data.externalUsers || [];
       const subscriptions = data.subscriptions || [];
       const enrollments = data.enrollments || [];
@@ -174,13 +189,6 @@ export async function GET(req: NextRequest) {
           "Diblokir": w.isBlocked ? "Ya" : "Tidak",
           "Total Main Game": w.totalGamesPlayed || 0,
           "Skor Tertinggi": w.highScore || 0,
-        })),
-        "Log Login": loginLog.map((l) => ({
-          ID: l.id,
-          "Nama Panggilan": l.namaPanggilan,
-          RW: l.rw,
-          "Login At": l.loginAt,
-          "IP Hint": l.ipHint || "-",
         })),
         "Peserta Umum": users.map((u) => ({
           ID: u.id,
@@ -243,8 +251,42 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const startMs = from ? Date.parse(`${from}T00:00:00`) : null;
+  const endMs = to ? Date.parse(`${to}T23:59:59.999`) : null;
+  if ((from && Number.isNaN(startMs)) || (to && Number.isNaN(endMs))) return NextResponse.json({ error: "Rentang tanggal tidak valid." }, { status: 400 });
+  if (startMs !== null || endMs !== null) {
+    const dateKeys = ["Dibuat", "Login Terakhir", "Waktu Login", "Tanggal Daftar", "Mulai"];
+    exportData = Object.fromEntries(Object.entries(exportData).map(([name, rows]) => [name, rows.filter((row) => {
+      const rawDate = dateKeys.map((key) => row[key]).find((value) => value);
+      const timestamp = rawDate ? Date.parse(String(rawDate)) : NaN;
+      return Number.isNaN(timestamp) || (startMs === null || timestamp >= startMs) && (endMs === null || timestamp <= endMs);
+    })]));
+  }
+
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const finalFilename = `${filename}-${timestamp}`;
+
+  if (format === "pdf") {
+    const lines = Object.entries(exportData).flatMap(([sheetName, rows]) => [sheetName, ...rows.map((row) => Object.values(row).map((value) => String(value ?? "").replace(/\s+/g, " ")).join(" | ")), ""]);
+    const escapePdf = (value: string) => value.normalize("NFKD").replace(/[^\x20-\x7E]/g, "?").replace(/([\\()])/g, "\\$1");
+    const pages: string[][] = [];
+    for (let index = 0; index < lines.length || index === 0; index += 46) pages.push(lines.slice(index, index + 46));
+    const objects: string[] = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [" + pages.map((_, index) => `${3 + index * 2} 0 R`).join(" ") + `] /Count ${pages.length} >>`];
+    pages.forEach((page, index) => {
+      const pageId = 3 + index * 2;
+      const contentId = pageId + 1;
+      const stream = ["BT", "/F1 9 Tf", "48 790 Td", ...page.flatMap((line, lineIndex) => [`(${escapePdf(line).slice(0, 110)}) Tj`, lineIndex < page.length - 1 ? "0 -16 Td" : ""]), "ET"].join("\n");
+      objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents ${contentId} 0 R >>`);
+      objects.push(`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`);
+    });
+    const chunks = ["%PDF-1.4\n"];
+    const offsets = [0];
+    let offset = new TextEncoder().encode(chunks[0]).length;
+    objects.forEach((object, index) => { offsets.push(offset); const chunk = `${index + 1} 0 obj\n${object}\nendobj\n`; chunks.push(chunk); offset += new TextEncoder().encode(chunk).length; });
+    const xrefOffset = offset;
+    chunks.push(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map((entry) => `${String(entry).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+    return new NextResponse(new TextEncoder().encode(chunks.join("")), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${finalFilename}.pdf"` } });
+  }
 
   if (format === "csv") {
     const csvParts: string[] = [];

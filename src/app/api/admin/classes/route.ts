@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
-import { getClasses, getClassByIdOrSlug, upsertClass, deleteClass } from "@/lib/db";
+import { getClasses, getClassByIdOrSlug, upsertClass, deleteClass, readLocalDb } from "@/lib/db";
 import { ClassItem, ClassModule, ClassQuiz } from "@/lib/types";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { formatIDR, MAX_PRICE_IDR } from "@/lib/currency";
+import { normalizeGameBlueprint } from "@/lib/game-blueprint";
 
 async function withInstalledGames(items: ClassItem[]) {
   const supabase = await getSupabaseServerClient();
@@ -13,19 +14,30 @@ async function withInstalledGames(items: ClassItem[]) {
   return items.map((item) => ({ ...item, gameBlueprintIds: (data || []).filter((row) => row.class_id === item.id).map((row) => row.game_id) }));
 }
 
-async function saveInstalledGames(classId: string, ids: unknown) {
+async function validateIndependentGameIds(ids: unknown): Promise<string[]> {
   const gameIds = Array.isArray(ids) ? [...new Set(ids.filter((id): id is string => typeof id === "string"))].slice(0, 100) : [];
+  if (!gameIds.length) return [];
+  const supabase = await getSupabaseServerClient();
+  if (supabase) {
+    const { data: published, error: validateError } = await supabase.from("game_blueprints").select("id,status,destination").in("id", gameIds);
+    if (validateError) throw new Error("Game terbit belum dapat diverifikasi.");
+    const validIds = new Set((published || []).filter((game) => game.status === "independent" && (!game.destination || game.destination === "independent")).map((game) => game.id));
+    if (validIds.size !== gameIds.length) throw new Error("Pilih hanya game terbit dengan kategori Latihan Mandiri.");
+    return gameIds;
+  }
+  const db = await readLocalDb();
+  const validIds = new Set((db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => game.status === "independent" && game.destination === "independent").map((game) => game.id));
+  if (gameIds.some((id) => !validIds.has(id))) throw new Error("Pilih hanya game terbit dengan kategori Latihan Mandiri.");
+  return gameIds;
+}
+
+async function saveInstalledGames(classId: string, ids: string[]) {
   const supabase = await getSupabaseServerClient();
   if (!supabase) return;
-  if (gameIds.length) {
-    const { data: published, error: validateError } = await supabase.from("game_blueprints").select("id").in("id", gameIds).in("status", ["published", "session"]);
-    if (validateError) throw new Error("Game terbit belum dapat diverifikasi.");
-    if ((published || []).length !== gameIds.length) throw new Error("Pilih hanya game berstatus Publik atau Sesi.");
-  }
   const { error: deleteError } = await supabase.from("class_games").delete().eq("class_id", classId);
   if (deleteError) throw new Error(`Relasi game kelas gagal diperbarui (${deleteError.code}).`);
-  if (gameIds.length) {
-    const { error } = await supabase.from("class_games").insert(gameIds.map((game_id) => ({ class_id: classId, game_id })));
+  if (ids.length) {
+    const { error } = await supabase.from("class_games").insert(ids.map((game_id) => ({ class_id: classId, game_id })));
     if (error) throw new Error(`Game kelas gagal disimpan (${error.code}).`);
   }
 }
@@ -152,6 +164,7 @@ export async function POST(req: NextRequest) {
     if (!String(body.title || "").trim()) return NextResponse.json({ ok: false, error: "Judul kelas wajib diisi." }, { status: 400 });
     if (!hasValidPrice(body.priceIdr)) return NextResponse.json({ ok: false, error: `Harga harus berupa bilangan bulat dari Rp 0 sampai ${formatIDR(MAX_PRICE_IDR)}.` }, { status: 400 });
     const toSave = buildClass(body);
+    toSave.gameBlueprintIds = await validateIndependentGameIds(toSave.gameBlueprintIds);
     await upsertClass(toSave);
     await saveInstalledGames(toSave.id, toSave.gameBlueprintIds);
     const verified = await getClassByIdOrSlug(toSave.id);
@@ -181,6 +194,7 @@ export async function PATCH(req: NextRequest) {
     if (!existing) return NextResponse.json({ ok: false, error: `Kelas dengan ID ${body.id} tidak ditemukan di database.` }, { status: 404 });
     if (!hasValidPrice(body.priceIdr ?? existing.priceIdr)) return NextResponse.json({ ok: false, error: `Harga harus berupa bilangan bulat dari Rp 0 sampai ${formatIDR(MAX_PRICE_IDR)}.` }, { status: 400 });
     const toSave = buildClass(body, existing);
+    toSave.gameBlueprintIds = await validateIndependentGameIds(toSave.gameBlueprintIds);
     await upsertClass(toSave);
     await saveInstalledGames(toSave.id, toSave.gameBlueprintIds);
     const verified = await getClassByIdOrSlug(toSave.id);

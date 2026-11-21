@@ -20,6 +20,8 @@ import {
   Unlock,
   Upload,
   FileDown,
+  Gamepad2,
+  X,
 } from "lucide-react";
 import { ClassItem, ClassModule } from "@/lib/types";
 import { useAppDialog } from "@/components/AppDialogProvider";
@@ -49,6 +51,7 @@ export default function AdminClassesManager({ notify }: Props) {
   const dialog = useAppDialog();
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [publishedGames, setPublishedGames] = useState<GameBlueprint[]>([]);
+  const [gamePickerOpen, setGamePickerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<ClassItem>(emptyClass());
@@ -70,7 +73,7 @@ export default function AdminClassesManager({ notify }: Props) {
       const gameResponse = await fetch("/api/admin/game-builder", { cache: "no-store" });
       if (gameResponse.ok) {
         const availableGames = (await gameResponse.json()).games || [];
-        setPublishedGames(availableGames.filter((game: GameBlueprint) => game.status === "published" || game.status === "session"));
+        setPublishedGames(availableGames.filter((game: GameBlueprint) => game.status === "independent" && game.destination === "independent"));
       }
     } catch {}
     finally { setLoading(false); }
@@ -263,7 +266,7 @@ export default function AdminClassesManager({ notify }: Props) {
             <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75 sm:col-span-2">Deskripsi<textarea rows={3} value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3.5 py-2.5 text-sm font-normal" placeholder="Deskripsi singkat kelas..." /></label>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Tingkat<select value={form.tingkat||"Pemula"} onChange={(e)=>setForm({...form,tingkat:e.target.value as any})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm font-normal"><option>Pemula</option><option>Menengah</option><option>Lanjutan</option></select></label>
             <CurrencyInput label="Harga kelas" value={form.priceIdr} onChange={(priceIdr) => setForm((current) => ({ ...current, priceIdr }))} onValidityChange={setPriceInputValid} />
-            <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Game untuk kelas ini</legend><p className="mt-1 text-xs font-normal normal-case text-muted">Peserta Guest yang disetujui akan menemukan game terpilih di halaman Games. Game Sesi disiapkan khusus untuk pertemuan tatap muka.</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{publishedGames.length ? publishedGames.map((game) => <label key={game.id} className="flex min-h-11 items-center gap-3 rounded-lg border border-rule px-3 text-sm font-semibold normal-case"><input type="checkbox" checked={(form.gameBlueprintIds || []).includes(game.id)} onChange={(event) => setForm((current) => ({ ...current, gameBlueprintIds: event.target.checked ? [...new Set([...(current.gameBlueprintIds || []), game.id])] : (current.gameBlueprintIds || []).filter((id) => id !== game.id) }))} className="h-4 w-4 accent-[#244b3a]" />{game.title}<span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-bold ${game.status === "session" ? "bg-[#f2e5bf] text-[#6d5411]" : "bg-[#e6eadf] text-[#244b3a]"}`}>{game.status === "session" ? "Sesi" : "Publik"}</span></label>) : <p className="text-sm font-normal normal-case text-muted">Belum ada game Publik atau Sesi untuk dipasang.</p>}</div></fieldset>
+            <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Latihan mandiri kelas</legend><p className="mt-1 text-xs font-normal normal-case text-muted">Pilih game Latihan Mandiri yang sudah diterbitkan. Game Sesi dan draft tidak tersedia di sini.</p><div className="mt-3 flex flex-wrap items-center gap-3"><button type="button" onClick={() => setGamePickerOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white transition hover:bg-[#183b2d]"><Gamepad2 className="h-4 w-4" />Pilih latihan</button><span className="text-sm font-semibold text-[#514b3e]">{(form.gameBlueprintIds || []).filter((id) => publishedGames.some((game) => game.id === id)).length} game dipilih</span></div></fieldset>
           </div>}
 
           {formStep === 1 && <div className="border-t border-[#E5E7EB] pt-4">
@@ -308,6 +311,8 @@ export default function AdminClassesManager({ notify }: Props) {
             <h4 className="text-lg font-extrabold">Tinjau kelas</h4>
             <div className="grid gap-3 text-sm sm:grid-cols-2"><p><span className="text-muted">Nama kelas</span><br/><strong>{form.title || "Belum diisi"}</strong></p><p><span className="text-muted">Tingkat</span><br/><strong>{form.tingkat}</strong></p><p><span className="text-muted">Harga</span><br/><strong>{formatIDR(form.priceIdr)}</strong></p><p><span className="text-muted">Bab/materi</span><br/><strong>{(form.modules || []).length} bab</strong></p></div>
           </div>}
+
+          {gamePickerOpen && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setGamePickerOpen(false); }} className="fixed inset-0 z-[120] grid place-items-center bg-[#13271f]/60 p-3 sm:p-6"><section role="dialog" aria-modal="true" aria-labelledby="class-independent-games-title" className="flex max-h-[min(88dvh,680px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#c9bda7] bg-[#fdf9f0] shadow-2xl"><header className="flex items-start justify-between gap-4 border-b border-[#e2d8c7] p-5 sm:p-6"><div><h3 id="class-independent-games-title" className="text-xl font-bold text-[#183b2d]">Pilih latihan mandiri</h3><p className="mt-1 text-sm leading-6 text-[#514b3e]">Hanya game terbit dengan kategori Latihan Mandiri yang bisa dipasang ke kelas.</p></div><button type="button" aria-label="Tutup pemilih latihan" onClick={() => setGamePickerOpen(false)} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg border border-[#b8aa8e] bg-white text-[#244b3a] hover:bg-[#e8eee5]"><X className="h-4 w-4" /></button></header><div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">{publishedGames.length ? <ul className="space-y-2">{publishedGames.map((game) => <li key={game.id}><label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-[#c9bda7] bg-white px-4 py-3 text-sm font-semibold text-[#183b2d] transition hover:border-[#244b3a] hover:bg-[#f5f5ed]"><input type="checkbox" checked={(form.gameBlueprintIds || []).includes(game.id)} onChange={(event) => setForm((current) => ({ ...current, gameBlueprintIds: event.target.checked ? [...new Set([...(current.gameBlueprintIds || []), game.id])] : (current.gameBlueprintIds || []).filter((id) => id !== game.id) }))} className="h-4 w-4 accent-[#244b3a]" /><span className="min-w-0 flex-1">{game.title}<span className="mt-1 block text-xs font-normal text-[#514b3e]">{game.topic} · {game.level} · {game.items.length} soal</span></span><span className="rounded-full bg-[#e6eadf] px-2.5 py-1 text-xs font-bold text-[#183b2d]">Terbit</span></label></li>)}</ul> : <div className="rounded-xl border border-dashed border-[#b8aa8e] bg-white px-5 py-8 text-center"><Gamepad2 className="mx-auto h-8 w-8 text-[#244b3a]" /><p className="mt-3 font-bold text-[#183b2d]">Belum ada latihan mandiri terbit</p><p className="mt-1 text-sm leading-6 text-[#514b3e]">Terbitkan game dengan tujuan Latihan Mandiri di Kelola Game, lalu pilih di sini.</p></div>}</div><footer className="flex items-center justify-between gap-3 border-t border-[#e2d8c7] bg-white/60 p-4"><span className="text-sm font-semibold text-[#514b3e]">{(form.gameBlueprintIds || []).filter((id) => publishedGames.some((game) => game.id === id)).length} dipilih</span><button type="button" onClick={() => setGamePickerOpen(false)} className="min-h-11 rounded-lg bg-[#244b3a] px-5 text-sm font-bold text-white transition hover:bg-[#183b2d]">Selesai</button></footer></section></div>}
 
           <div className="flex flex-wrap justify-between gap-2 border-t border-[#E5E7EB] pt-4">
             <button type="button" onClick={() => setFormStep((s) => Math.max(0,s-1))} disabled={formStep===0} className="min-h-11 rounded-md border border-rule px-4 text-sm font-bold disabled:opacity-40">Sebelumnya</button>

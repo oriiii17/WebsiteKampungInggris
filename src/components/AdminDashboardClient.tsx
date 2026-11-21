@@ -30,7 +30,6 @@ import {
   MatchingPair,
   WordChallenge,
   WargaRecord,
-  LoginLogEntry,
   TestimoniRecord,
   ClassItem,
   ClassEnrollment,
@@ -66,7 +65,6 @@ interface AdminOverviewData {
     wargaRw06?: number;
     wargaRw07?: number;
     wargaRw08?: number;
-    activeToday?: number;
     activeThisWeek?: number;
     mostPlayedGame?: string;
     totalTestimoni?: number;
@@ -79,7 +77,6 @@ interface AdminOverviewData {
   matchingPairs: MatchingPair[];
   wordChallenges: WordChallenge[];
   warga?: WargaRecord[];
-  loginLog?: LoginLogEntry[];
   rwCodes?: Array<{
     id: string;
     rw: "RW 06" | "RW 07" | "RW 08";
@@ -394,10 +391,9 @@ export default function AdminDashboardClient() {
                   <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
                     <h2 className="text-lg font-bold text-leaf">Ikhtisar kegiatan</h2>
                     <p className="mt-1 text-sm text-muted">Status utama yang membantu Anda menentukan pekerjaan berikutnya.</p>
-                    <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+                    <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
                       <div><dt className="text-xs text-muted">Kelas</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.classes?.length ?? 0}</dd></div>
-                      <div><dt className="text-xs text-muted">Warga terdaftar</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.totalWarga ?? data.warga?.length ?? 0}</dd></div>
-                      <div><dt className="text-xs text-muted">Aktif hari ini</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.activeToday ?? 0}</dd></div>
+                      <div><dt className="text-xs text-muted">Login kode RW</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.totalWarga ?? 0}</dd></div>
                       <div><dt className="text-xs text-muted">Menunggu moderasi</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.pendingTestimoni ?? 0}</dd></div>
                     </dl>
                   </section>
@@ -431,7 +427,6 @@ export default function AdminDashboardClient() {
       {tab === "warga" && (
         <AdminWargaManager
           warga={data.warga || []}
-          loginLog={data.loginLog || []}
           stats={data.stats}
           onRefresh={fetchOverview}
           notify={notify}

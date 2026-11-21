@@ -4,15 +4,17 @@ import { canManageSessions, getServerSession } from "@/lib/auth";
 import { getClasses, readLocalDb, writeLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type { StoredClassSession } from "@/lib/class-session";
+import { closeExpiredClassSessions } from "@/lib/close-expired-class-sessions";
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function makeCode() { return Array.from({ length: 6 }, () => CODE_CHARS[randomInt(CODE_CHARS.length)]).join(""); }
 function fromRow(row: any): StoredClassSession {
   return { id: row.id, code: row.code, title: row.title, teacherId: row.teacher_id, teacherName: row.teacher_name,
-    status: row.status, requireApproval: row.require_approval, classId: row.class_id, startsAt: row.starts_at || undefined, createdAt: row.created_at, closedAt: row.closed_at || undefined };
+    status: row.status, requireApproval: row.require_approval, classId: row.class_id, startsAt: row.starts_at || undefined, autoCloseAt: row.auto_close_at || undefined, createdAt: row.created_at, closedAt: row.closed_at || undefined };
 }
 
 export async function GET() {
+  await closeExpiredClassSessions();
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: "Sesi admin sudah berakhir. Masuk kembali untuk melanjutkan." }, { status: 401 });
   if (!canManageSessions(session)) return NextResponse.json({ error: "Akun ini belum memiliki akses untuk mengelola sesi. Gunakan akun pengurus atau tutor." }, { status: 403 });
@@ -45,16 +47,23 @@ export async function POST(request: Request) {
   const classes = await getClasses(true);
   const parentClass = classes.find((item) => item.id === classId && item.isPublished && item.status !== "draft");
   if (!parentClass) return NextResponse.json({ error: "Pilih kelas terbit yang valid." }, { status: 400 });
-  const startsAt = body.startsAt ? new Date(body.startsAt).toISOString() : null;
+  const startsAtValue = body.startsAt ? Date.parse(String(body.startsAt)) : null;
+  if (body.startsAt && (startsAtValue === null || !Number.isFinite(startsAtValue))) return NextResponse.json({ error: "Waktu mulai sesi tidak valid." }, { status: 400 });
+  const startsAt = startsAtValue === null ? null : new Date(startsAtValue).toISOString();
+  const autoCloseValue = body.autoCloseAt ? Date.parse(String(body.autoCloseAt)) : null;
+  if (body.autoCloseAt && (autoCloseValue === null || !Number.isFinite(autoCloseValue))) return NextResponse.json({ error: "Waktu tutup otomatis tidak valid." }, { status: 400 });
+  const autoCloseAt = autoCloseValue === null ? null : new Date(autoCloseValue).toISOString();
+  if (autoCloseValue !== null && autoCloseValue <= Date.now()) return NextResponse.json({ error: "Waktu tutup otomatis harus di masa mendatang." }, { status: 400 });
+  if (startsAtValue !== null && autoCloseValue !== null && autoCloseValue <= startsAtValue) return NextResponse.json({ error: "Waktu tutup otomatis harus setelah waktu mulai sesi." }, { status: 400 });
   const id = randomUUID(); const createdAt = new Date().toISOString(); const code = makeCode();
   const newSession: StoredClassSession = { id, code, title, teacherId: session!.id, teacherName: session!.name,
-    status: "open", requireApproval: body.requireApproval === true, classId, startsAt: startsAt || undefined, createdAt };
+    status: "open", requireApproval: body.requireApproval === true, classId, startsAt: startsAt || undefined, autoCloseAt: autoCloseAt || undefined, createdAt };
   const supabase = await getSupabaseServerClient();
   if (supabase) {
     const { data, error } = await supabase.from("class_sessions").insert({
       id, code, title, teacher_id: newSession.teacherId, teacher_name: newSession.teacherName,
       status: "open", require_approval: newSession.requireApproval, class_id: classId,
-      starts_at: startsAt, created_at: createdAt,
+      starts_at: startsAt, auto_close_at: autoCloseAt, created_at: createdAt,
     }).select("*").single();
     if (error) return NextResponse.json({ error: "Sesi belum dapat dibuat. Terapkan migrasi presensi lalu coba lagi." }, { status: 503 });
     return NextResponse.json({ session: fromRow(data) }, { status: 201 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   encodeSessionToken,
+  GUEST_SESSION_COOKIE_NAME,
   SESSION_COOKIE_NAME,
 } from "@/lib/auth";
 import { getActiveSubscriptionForEmail } from "@/lib/db";
@@ -40,21 +41,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const profile = await authClient.from("profiles").select("full_name,role").eq("id", authData.user.id).maybeSingle();
+    const profile = await authClient.from("profiles").select("full_name,role,origin_type").eq("id", authData.user.id).maybeSingle();
     const role = profile.data?.role || authData.user.user_metadata?.role;
     if (role !== "umum" && role !== "peserta" && role !== "tutor") {
       return NextResponse.json({ error: "Akun ini tidak dapat masuk melalui Peserta Umum." }, { status: 403 });
     }
     const authName = profile.data?.full_name || String(authData.user.user_metadata?.full_name || email.split("@")[0]);
 
-    const activeSub = await getActiveSubscriptionForEmail(email);
+    const isWargaAccount = profile.data?.origin_type === "warga" || authData.user.user_metadata?.origin_type === "warga_kode";
+    const wargaId = typeof authData.user.user_metadata?.warga_id === "string" ? authData.user.user_metadata.warga_id : undefined;
+    const activeSub = isWargaAccount ? null : await getActiveSubscriptionForEmail(email);
+    const metadataRw = String(authData.user.user_metadata?.rw || "");
+    const rw = ["RW 06", "RW 07", "RW 08"].includes(metadataRw) ? metadataRw as SessionPayload["rw"] : undefined;
 
     const session: SessionPayload = {
-      id: authData.user.id,
+      id: isWargaAccount && wargaId ? wargaId : authData.user.id,
       name: authName,
       email,
       role,
-      origin: role === "tutor" ? "tutor" : activeSub ? "luar_langganan" : "luar_belum_aktif",
+      origin: role === "tutor" ? "tutor" : isWargaAccount ? "warga_kode" : activeSub ? "luar_langganan" : "luar_belum_aktif",
+      ...(isWargaAccount ? { rw, rtRw: typeof authData.user.user_metadata?.rt_rw === "string" ? authData.user.user_metadata.rt_rw : undefined } : {}),
       expiresAt: activeSub?.expiresAt,
       watermarkText: `${authName} • ${email}`,
     };
@@ -71,6 +77,7 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 30,
       secure: isHttpsRequest(req),
     });
+    res.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
     if (role === "tutor" && authData.session?.access_token) {
       res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, authData.session.access_token, {
         httpOnly: true,
@@ -79,6 +86,8 @@ export async function POST(req: NextRequest) {
         maxAge: 60 * 60,
         secure: isHttpsRequest(req),
       });
+    } else {
+      res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
     }
     return res;
   } catch (err) {

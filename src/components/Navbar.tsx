@@ -17,6 +17,8 @@ export default function Navbar({ session }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = session?.role === "admin" || session?.role === "pengurus" || session?.role === "developer";
+  const isWarga = session?.origin === "warga_kode";
+  const showCart = !isAdmin && !isWarga;
   const isAdminRoute = pathname.startsWith("/admin");
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -96,7 +98,7 @@ export default function Navbar({ session }: NavbarProps) {
         </nav>
 
         <div className={styles.desktopActions}>
-          {!isAdmin && <Link href="/keranjang" className={styles.cartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-4 w-4" /><span>Keranjang</span></Link>}
+          {showCart && <Link href="/keranjang" className={styles.cartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-4 w-4" /><span>Keranjang</span></Link>}
           {!session ? (
             <>
               <Link href="/masuk" className={styles.signIn}>
@@ -129,7 +131,7 @@ export default function Navbar({ session }: NavbarProps) {
         </div>
 
         <div className={styles.mobileActions}>
-          {!isAdmin && <Link href="/keranjang" className={styles.mobileCartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-5 w-5" /></Link>}
+          {showCart && <Link href="/keranjang" className={styles.mobileCartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-5 w-5" /></Link>}
           {session ? (
             <button type="button" onClick={() => setOpen((v) => !v)} className={styles.mobileAccountButton} aria-label="Menu akun" aria-expanded={open}>{initial}</button>
           ) : (

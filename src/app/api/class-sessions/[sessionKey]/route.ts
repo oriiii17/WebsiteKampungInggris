@@ -1,21 +1,26 @@
 import { NextResponse } from "next/server";
-import { getGuestServerSession, getServerSession, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, encodeSessionToken } from "@/lib/auth";
+import { getGuestServerSession, getServerSession, getSessionWithGuestContext, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, encodeSessionToken } from "@/lib/auth";
 import { readLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type { SessionPayload } from "@/lib/types";
 import { isHttpsRequest } from "@/lib/request-security";
 import type { NextRequest } from "next/server";
 import { resolveGuestEntry } from "@/lib/class-session";
+import { closeExpiredClassSessions } from "@/lib/close-expired-class-sessions";
 
 async function getPublicSession(request: NextRequest, context: { params: Promise<{ code: string }> }) {
+  await closeExpiredClassSessions();
   const { code: rawCode } = await context.params;
   const code = rawCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const session = (await getGuestServerSession()) || await getServerSession();
+  const session = await getSessionWithGuestContext();
   const viewerType = session?.role === "guest" ? "guest" : session ? "regular" : "visitor";
   const supabase = await getSupabaseServerClient();
   if (supabase) {
-    const registrationId = session?.role === "guest" && session.guestSessionId && session.guestRegistrationId ? session.guestRegistrationId : null;
+    const registrationId = session?.guestSessionId && session.guestRegistrationId ? session.guestRegistrationId : null;
     if (registrationId) {
+      if (!session) {
+        return NextResponse.json({ error: "Sesi peserta tidak ditemukan. Silakan masuk kembali." }, { status: 401 });
+      }
       const { data, error } = await supabase.rpc("get_guest_class_session", { p_code: code, p_registration_id: registrationId });
       const guestData = Array.isArray(data) ? data[0] : data;
       if (!error && guestData) {
@@ -24,14 +29,47 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
           ? await supabase.from("classes").select("slug,is_published").eq("id", guestData.class_id).maybeSingle()
           : { data: null };
         const classSlug = guestClass?.is_published ? guestClass.slug : undefined;
-        const response = NextResponse.json({ session: { id: guestData.id, code: guestData.code, title: guestData.title, status: guestData.status, registrationStatus: guestData.registration_status, classId: guestData.class_id, classTitle: guestData.class_title, classSlug, startsAt: guestData.starts_at, activeGamePin: guestData.status === "open" && linkedGame?.live_status !== "closed" ? linkedGame?.live_pin || null : null, participantName: session?.name || "Guest", viewerType: "guest" } });
-        if (session?.role === "guest" && classSlug) {
-          response.cookies.set(GUEST_SESSION_COOKIE_NAME, encodeSessionToken({ ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` }), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) });
+        if (guestData.id !== session.guestSessionId) return NextResponse.json({ error: "Pendaftaran ini tidak terhubung ke sesi yang sedang dibuka." }, { status: 404 });
+        const response = NextResponse.json({ session: { id: guestData.id, code: guestData.code, title: guestData.title, status: guestData.status, registrationStatus: guestData.registration_status, classId: guestData.class_id, classTitle: guestData.class_title, classSlug, startsAt: guestData.starts_at, activeGamePin: guestData.status === "open" && linkedGame?.live_status !== "closed" ? linkedGame?.live_pin || null : null, participantName: session.name || "Guest", viewerType: session.role === "guest" ? "guest" : "regular" } });
+        if (classSlug) {
+          const updated: SessionPayload = { ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` };
+          const cookieName = session.role === "guest" ? GUEST_SESSION_COOKIE_NAME : SESSION_COOKIE_NAME;
+          response.cookies.set(cookieName, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", path: "/", maxAge: session.role === "guest" ? 60 * 60 * 12 : 60 * 60 * 24 * 30, secure: isHttpsRequest(request) });
         }
         return response;
       }
+      // Keep the attendee on the pending screen if the summary RPC is stale or unavailable.
+      const [{ data: guest }, { data: parent }] = await Promise.all([
+        supabase.from("class_session_guests").select("id,session_id,full_name,status").eq("id", registrationId).eq("session_id", session.guestSessionId ?? "").maybeSingle(),
+        supabase.from("class_sessions").select("id,code,title,status,class_id,starts_at").eq("id", session.guestSessionId ?? "").eq("code", code).maybeSingle(),
+      ]);
+      if (guest && parent) {
+        const { data: klass } = guest.status === "approved" && parent.class_id
+          ? await supabase.from("classes").select("title,slug,is_published").eq("id", parent.class_id).maybeSingle()
+          : { data: null };
+        const classSlug = klass?.is_published ? klass.slug : undefined;
+        const response = NextResponse.json({ session: { id: parent.id, code: parent.code, title: parent.title, status: parent.status, registrationStatus: guest.status, classId: parent.class_id, classTitle: klass?.title, classSlug, startsAt: parent.starts_at, participantName: guest.full_name, viewerType: session.role === "guest" ? "guest" : "regular" } });
+        if (classSlug) {
+          const updated: SessionPayload = { ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` };
+          const cookieName = session.role === "guest" ? GUEST_SESSION_COOKIE_NAME : SESSION_COOKIE_NAME;
+          response.cookies.set(cookieName, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", path: "/", maxAge: session.role === "guest" ? 60 * 60 * 12 : 60 * 60 * 24 * 30, secure: isHttpsRequest(request) });
+        }
+        return response;
+      }
+      return NextResponse.json({ error: "Status pendaftaran belum dapat dimuat. Coba periksa kembali sebentar lagi." }, { status: 503 });
     }
-    if ((session?.role === "member" || session?.origin === "warga_kode") && session.guestSessionId) {
+    if (session?.guestSessionId && session.guestRegistrationId) {
+      const [{ data: guest }, { data: parent }] = await Promise.all([
+        supabase.from("class_session_guests").select("id,session_id,full_name,status").eq("id", session.guestRegistrationId).eq("session_id", session.guestSessionId).maybeSingle(),
+        supabase.from("class_sessions").select("id,code,title,status,class_id,starts_at").eq("id", session.guestSessionId).eq("code", code).maybeSingle(),
+      ]);
+      if (guest && parent) {
+        const { data: klass } = parent.class_id ? await supabase.from("classes").select("title,slug,is_published").eq("id", parent.class_id).maybeSingle() : { data: null };
+        return NextResponse.json({ session: { id: parent.id, code: parent.code, title: parent.title, status: parent.status, registrationStatus: guest.status, classId: parent.class_id, classTitle: klass?.title, classSlug: klass?.is_published ? klass.slug : undefined, startsAt: parent.starts_at, participantName: guest.full_name, viewerType: "regular" } });
+      }
+      return NextResponse.json({ error: "Status pendaftaran warga belum dapat dimuat. Coba periksa kembali sebentar lagi." }, { status: 503 });
+    }
+    if (session?.guestSessionId) {
       const { data, error } = await supabase.rpc("get_member_class_session", { p_code: code, p_participant_key: `${session.origin}:${session.id}` });
       const memberData = Array.isArray(data) ? data[0] : data;
       if (!error && memberData?.id === session.guestSessionId) return NextResponse.json({ session: { ...memberData, registrationStatus: "approved", viewerType: "regular" } });
@@ -39,26 +77,30 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
     const { data, error } = await supabase.rpc("get_class_session_info", { p_code: code });
     const row = Array.isArray(data) ? data[0] : data;
     if (error || !row) return NextResponse.json({ error: "Kode sesi tidak ditemukan." }, { status: 404 });
-    return NextResponse.json({ session: { id: row.id, code: row.code, title: row.title, status: row.status, requireApproval: row.require_approval, attendeeCount: row.attendee_count, classId: row.class_id, classTitle: row.class_title, classSlug: row.class_slug, startsAt: row.starts_at, canAttendAsMember: session?.role === "member" || session?.origin === "warga_kode", viewerType } });
+    return NextResponse.json({ session: { id: row.id, code: row.code, title: row.title, status: row.status, requireApproval: row.require_approval, attendeeCount: row.attendee_count, classId: row.class_id, classTitle: row.class_title, classSlug: row.class_slug, startsAt: row.starts_at, canAttendAsMember: Boolean(session && ["member", "peserta", "umum"].includes(session.role)), participantName: session?.name, viewerType } });
   }
   const db = await readLocalDb();
   const local = db.classSessions?.find((item) => item.code === code);
   if (!local) return NextResponse.json({ error: "Kode sesi tidak ditemukan." }, { status: 404 });
-  if (session?.role === "guest" && session.guestSessionId === local.id && session.guestRegistrationId) {
+  if (session?.guestSessionId === local.id && session.guestRegistrationId) {
     const guest = db.classSessionGuests?.find((item) => item.id === session.guestRegistrationId && item.sessionId === local.id);
     if (guest) {
       const linkedGame = db.classSessionGames?.find((item) => item.sessionId === local.id && item.livePin && item.liveStatus !== "closed");
       const guestClass = db.classes?.find((item) => item.id === local.classId && item.isPublished);
       const classSlug = guestClass?.slug;
-      const response = NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: guest.status, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug, activeGamePin: local.status === "open" ? linkedGame?.livePin || null : null, participantName: session.name, viewerType: "guest" } });
-      if (guest.status === "approved" && classSlug) response.cookies.set(GUEST_SESSION_COOKIE_NAME, encodeSessionToken({ ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` }), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) });
+      const response = NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: guest.status, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug, activeGamePin: local.status === "open" ? linkedGame?.livePin || null : null, participantName: guest.name || session.name, viewerType: session.role === "guest" ? "guest" : "regular" } });
+      if (guest.status === "approved" && classSlug) {
+        const updated: SessionPayload = { ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` };
+        const cookieName = session.role === "guest" ? GUEST_SESSION_COOKIE_NAME : SESSION_COOKIE_NAME;
+        response.cookies.set(cookieName, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", path: "/", maxAge: session.role === "guest" ? 60 * 60 * 12 : 60 * 60 * 24 * 30, secure: isHttpsRequest(request) });
+      }
       return response;
     }
   }
-  if ((session?.role === "member" || session?.origin === "warga_kode") && session.guestSessionId === local.id && db.classSessionAttendance?.some((item) => item.sessionId === local.id && item.participantKey === `${session.origin}:${session.id}`)) {
+  if (session?.guestSessionId === local.id && db.classSessionAttendance?.some((item) => item.sessionId === local.id && item.participantKey === `${session.origin}:${session.id}`)) {
     return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: "approved", classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, viewerType: "regular" } });
   }
-  return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, requireApproval: local.requireApproval, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, canAttendAsMember: session?.role === "member" || session?.origin === "warga_kode", viewerType } });
+  return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, requireApproval: local.requireApproval, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, canAttendAsMember: Boolean(session && ["member", "peserta", "umum"].includes(session.role)), participantName: session?.name, viewerType } });
 }
 
 async function joinPublicSession(request: Request, context: { params: Promise<{ code: string }> }) {
@@ -80,27 +122,6 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
     if (local.startsAt && new Date(local.startsAt).getTime() > Date.now()) return NextResponse.json({ error: `Sesi belum dibuka. Jadwalnya ${new Date(local.startsAt).toLocaleString("id-ID")}.` }, { status: 425 });
   }
 
-  if (current?.role === "member" || (current?.origin === "warga_kode" && current.role === "peserta")) {
-    if (supabase) {
-      const { data, error } = await supabase.rpc("mark_member_class_attendance", { p_code: code, p_participant_key: `${current.origin}:${current.id}`, p_participant_name: current.name });
-      const row = Array.isArray(data) ? data[0] : data;
-      if (error || !row) return NextResponse.json({ error: "Presensi belum dapat dicatat. Periksa kode sesi." }, { status: 400 });
-      const response = NextResponse.json({ ok: true, status: "approved", sessionId: row.session_id, title: row.session_title, participantType: "member" });
-      response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken({ ...current, guestSessionId: row.session_id }), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24, secure: isHttpsRequest(request) });
-      return response;
-    }
-    const db = await readLocalDb(); const local = db.classSessions?.find((item) => item.code === code && item.status === "open");
-    if (!local) return NextResponse.json({ error: "Sesi tidak terbuka atau kode tidak sesuai." }, { status: 400 });
-    const attendance = db.classSessionAttendance ||= [];
-    if (resolveGuestEntry(local.status, local.requireApproval) === "closed") return NextResponse.json({ error: "Sesi sudah ditutup." }, { status: 400 });
-    const participantKey = `${current.origin}:${current.id}`;
-    if (!attendance.some((item) => item.sessionId === local.id && item.participantKey === participantKey)) attendance.push({ id: crypto.randomUUID(), sessionId: local.id, participantKey, participantName: current.name, participantType: "member", attendedAt: new Date().toISOString() });
-    const { writeLocalDb } = await import("@/lib/db"); await writeLocalDb(db);
-    const response = NextResponse.json({ ok: true, status: "approved", title: local.title, participantType: "member" });
-    response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken({ ...current, guestSessionId: local.id }), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24, secure: isHttpsRequest(request) });
-    return response;
-  }
-
   const { checkApiRateLimit, getRequestIp } = await import("@/lib/api-rate-limit");
   const limit = checkApiRateLimit(`guest-session:${getRequestIp(request)}`, 5, 10 * 60 * 1000);
   if (!limit.allowed) return NextResponse.json({ error: "Terlalu banyak percobaan mendaftar. Coba lagi beberapa menit." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } });
@@ -111,6 +132,62 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
   if (body.consent !== true) return NextResponse.json({ error: "Setujui penggunaan data untuk pendaftaran dan presensi terlebih dahulu." }, { status: 400 });
   const guest = validateGuestRegistration(body.name, body.whatsapp);
   if (!guest) return NextResponse.json({ error: "Periksa nama (2–80 karakter) dan pastikan nomor WhatsApp berisi 9–15 digit jika diisi." }, { status: 400 });
+  const isAccountParticipant = Boolean(current && ["member", "peserta", "umum"].includes(current.role));
+  if (isAccountParticipant && current) {
+    let registrationId: string | undefined;
+    let sessionId = "";
+    let title = "";
+    let registrationStatus: "pending" | "approved" = "pending";
+    if (supabase) {
+      const { data: target, error: targetError } = await supabase.from("class_sessions").select("id,title,status,starts_at,class_id").eq("code", code).maybeSingle();
+      if (targetError || !target || target.status !== "open") return NextResponse.json({ error: "Sesi tidak terbuka atau kode tidak sesuai." }, { status: 410 });
+      if (target.starts_at && new Date(target.starts_at).getTime() > Date.now()) return NextResponse.json({ error: "Sesi belum dibuka sesuai jadwal." }, { status: 425 });
+      sessionId = target.id; title = target.title;
+      const existing = current.guestSessionId === sessionId && current.guestRegistrationId
+        ? await supabase.from("class_session_guests").select("id,status,full_name").eq("id", current.guestRegistrationId).eq("session_id", sessionId).maybeSingle()
+        : { data: null };
+      if (existing.data) {
+        registrationId = existing.data.id;
+        registrationStatus = existing.data.status === "approved" ? "approved" : "pending";
+      } else {
+        const { data: created, error: createError } = await supabase.from("class_session_guests").insert({ session_id: sessionId, full_name: guest.name, whatsapp: guest.whatsapp || null, status: "pending" }).select("id,status").single();
+        if (createError || !created) return NextResponse.json({ error: createError?.code === "23505" ? "Nomor ini sudah terdaftar pada sesi. Muat ulang untuk melihat statusnya." : "Permintaan bergabung belum tersimpan. Coba lagi." }, { status: 409 });
+        registrationId = created.id; registrationStatus = "pending";
+      }
+    } else {
+      const db = await readLocalDb();
+      const target = db.classSessions?.find((item) => item.code === code && item.status === "open");
+      if (!target) return NextResponse.json({ error: "Sesi tidak terbuka atau kode tidak sesuai." }, { status: 410 });
+      if (target.startsAt && new Date(target.startsAt).getTime() > Date.now()) return NextResponse.json({ error: "Sesi belum dibuka sesuai jadwal." }, { status: 425 });
+      sessionId = target.id; title = target.title;
+      const guests = db.classSessionGuests ||= [];
+      const existing = current.guestSessionId === sessionId && current.guestRegistrationId ? guests.find((item) => item.id === current.guestRegistrationId && item.sessionId === sessionId) : undefined;
+      if (existing) { registrationId = existing.id; registrationStatus = existing.status === "approved" ? "approved" : "pending"; }
+      else {
+        const created = { id: crypto.randomUUID(), sessionId, name: guest.name, whatsapp: guest.whatsapp, status: "pending" as const, registeredAt: new Date().toISOString() };
+        guests.push(created); registrationId = created.id;
+      }
+      const { writeLocalDb } = await import("@/lib/db"); await writeLocalDb(db);
+    }
+    if (!registrationId) return NextResponse.json({ error: "Permintaan bergabung belum tersimpan. Coba lagi." }, { status: 503 });
+    let guestClassHref: string | undefined;
+    if (supabase) {
+      const { data: target } = await supabase.from("class_sessions").select("class_id").eq("id", sessionId).maybeSingle();
+      if (target?.class_id) {
+        const { data: klass } = await supabase.from("classes").select("slug,is_published").eq("id", target.class_id).maybeSingle();
+        if (klass?.is_published && klass.slug) guestClassHref = `/kelas/${encodeURIComponent(klass.slug)}`;
+      }
+    } else {
+      const db = await readLocalDb();
+      const target = db.classSessions?.find((item) => item.id === sessionId);
+      const klass = db.classes?.find((item) => item.id === target?.classId && item.isPublished);
+      if (klass) guestClassHref = `/kelas/${encodeURIComponent(klass.slug || klass.id)}`;
+    }
+    const updatedMember: SessionPayload = { ...current, guestSessionId: sessionId, guestRegistrationId: registrationId, guestClassHref };
+    const response = NextResponse.json({ ok: true, status: registrationStatus, sessionId, title, participantType: "account", participantName: guest.name });
+    response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updatedMember), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30, secure: isHttpsRequest(request) });
+    return response;
+  }
   let result: { registrationId: string; sessionId: string; title: string; status: "pending" | "approved" | "rejected" } | null = null;
   if (supabase) {
     const { data, error } = await supabase.rpc("register_class_session_guest", { p_code: code, p_name: guest.name, p_whatsapp: guest.whatsapp });

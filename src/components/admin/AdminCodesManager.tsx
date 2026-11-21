@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppDialog } from "@/components/AppDialogProvider";
-import { RefreshCw, Search, UserCheck, Users } from "lucide-react";
+import { Download, RefreshCw, Search, Trash2, UserCheck, Users } from "lucide-react";
+import ReportDownloadDialog from "@/components/admin/ReportDownloadDialog";
 
 type Participant = {
   key: string;
@@ -23,6 +24,8 @@ type GuestParticipant = {
   sessionTitle: string;
   sessionCode: string;
   classTitle: string;
+  canDelete: boolean;
+  deleteBlockedReason?: string;
 };
 
 const guestCountries = [
@@ -55,8 +58,6 @@ export default function AdminCodesManager(props: Props) {
   const { data, onRefresh, notify } = props;
   const dialog = useAppDialog();
   const [query, setQuery] = useState("");
-  const [grantClassId, setGrantClassId] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
   const [activeList, setActiveList] = useState<"users" | "guests">("users");
   const [guestRows, setGuestRows] = useState<GuestParticipant[]>([]);
   const [guestQuery, setGuestQuery] = useState("");
@@ -67,6 +68,9 @@ export default function AdminCodesManager(props: Props) {
   const [guestYear, setGuestYear] = useState("all");
   const [guestLoading, setGuestLoading] = useState(false);
   const [guestError, setGuestError] = useState("");
+  const [selectedGuests, setSelectedGuests] = useState<Set<string>>(new Set());
+  const [deletingGuests, setDeletingGuests] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   const loadGuestParticipants = useCallback(async () => {
     setGuestLoading(true);
@@ -76,6 +80,7 @@ export default function AdminCodesManager(props: Props) {
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Daftar Guest belum dapat dimuat.");
       setGuestRows(Array.isArray(result.guests) ? result.guests : []);
+      setSelectedGuests(new Set());
     } catch (error) {
       setGuestError(error instanceof Error ? error.message : "Daftar Guest belum dapat dimuat.");
     } finally {
@@ -91,9 +96,6 @@ export default function AdminCodesManager(props: Props) {
 
   const participants: Participant[] = useMemo(() => {
     const list: Participant[] = [];
-    for (const w of (data.warga || [])) {
-      list.push({ key: `w:${w.id}`, type: "warga", name: w.namaPanggilan || "", email: "", rw: w.rw, blocked: w.isBlocked });
-    }
     for (const u of (data.externalUsers || [])) {
       if (!u?.email) continue;
       list.push({ key: `u:${u.id}`, type: "umum", name: u.name || u.email, email: (u.email || "").toLowerCase() });
@@ -111,12 +113,12 @@ export default function AdminCodesManager(props: Props) {
       if (!list.some(p => p.email === email)) list.push({ key: `e:${email}`, type: "umum", name: e.userName || email, email });
     }
     return list.sort((a,b)=>a.name.localeCompare(b.name));
-  }, [data.warga, data.externalUsers, subscriptions, enrollments]);
+  }, [data.externalUsers, subscriptions, enrollments]);
 
   const filtered = participants.filter(p => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
-    return p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || (p.rw||"").toLowerCase().includes(q);
+    return p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
   });
   const guestSessionOptions = [...new Set(guestRows.map((guest) => guest.sessionTitle).filter(Boolean))].sort((a, b) => a.localeCompare(b, "id"));
   const guestYears = [...new Set(guestRows.map((guest) => guest.sessionDate ? new Date(guest.sessionDate).getFullYear() : NaN).filter(Number.isFinite))].sort((a, b) => b - a);
@@ -131,41 +133,19 @@ export default function AdminCodesManager(props: Props) {
       && (guestYear === "all" || sessionDate?.getFullYear() === Number(guestYear));
   });
 
-  function statusFor(p: Participant) {
-    if (p.type === "warga") {
-      if (p.blocked) return { label: "Diblokir", tone: "bg-red-100 text-red-800" };
-      return { label: "Warga (kode RW aktif)", tone: "bg-emerald-100 text-emerald-800" };
-    }
-    const now = Date.now();
-    const subs = subscriptions.filter((s:any)=> (s.userEmail||"").toLowerCase()===p.email && s.status==="active" && (!s.expiresAt || new Date(s.expiresAt).getTime()>now));
-    const enrs = enrollments.filter((e:any)=> (e.userEmail||"").toLowerCase()===p.email && e.status==="active" && (!e.expiresAt || new Date(e.expiresAt).getTime()>now));
-    if (subs.length || enrs.length) return { label: `Aktif (${enrs.length} kelas)`, tone: "bg-emerald-100 text-emerald-800" };
-    return { label: "Belum ada akses aktif", tone: "bg-amber-100 text-amber-800" };
-  }
-
-  async function grantClass(p: Participant) {
-    if (p.type !== "umum" || !p.email) { notify("Ubah akses kelas hanya untuk peserta umum (ber-email). Warga dikelola via kode RW."); return; }
-    if (!grantClassId) { notify("Pilih kelas terlebih dahulu."); return; }
-    setBusy(p.key);
+  async function deleteSelectedGuests() {
+    const deletable = guestRows.filter((guest) => selectedGuests.has(guest.id) && guest.canDelete);
+    if (!deletable.length) { notify("Pilih peserta yang sudah memenuhi syarat penghapusan."); return; }
+    if (!(await dialog.confirm(`Hapus ${deletable.length} peserta Guest?`, "Penghapusan hanya tersedia setelah sesi ditutup dan peserta tidak aktif selama 3 jam."))) return;
+    setDeletingGuests(true);
     try {
-      const res = await fetch("/api/admin/enrollments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: p.email, name: p.name, classId: grantClassId }) });
-      const json = await res.json().catch(()=>({}));
-      if (!res.ok || !json.ok) throw new Error(json.error || `Gagal (HTTP ${res.status})`);
-      notify(`Akses kelas diberikan ke ${p.email} & tersimpan di database.`);
-      onRefresh();
-    } catch (e:any) { await dialog.alert(`Gagal ubah akses:\n${e?.message || e}`); }
-    finally { setBusy(null); }
-  }
-
-  async function revokeEnrollment(id: string) {
-    if (!(await dialog.confirm("Cabut akses kelas ini?", "Cabut akses?"))) return;
-    try {
-      const res = await fetch(`/api/admin/enrollments?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      const json = await res.json().catch(()=>({}));
-      if (!res.ok || !json.ok) throw new Error(json.error || `Gagal (HTTP ${res.status})`);
-      notify("Akses kelas dicabut.");
-      onRefresh();
-    } catch (e:any) { notify(`Gagal cabut akses: ${e?.message || e}`); }
+      const response = await fetch("/api/admin/session-guests", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: deletable.map((guest) => guest.id) }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Peserta belum dapat dihapus.");
+      notify(`${deletable.length} peserta Guest dihapus.`);
+      await loadGuestParticipants();
+    } catch (cause) { notify(cause instanceof Error ? cause.message : "Peserta belum dapat dihapus."); }
+    finally { setDeletingGuests(false); }
   }
 
   return (
@@ -176,7 +156,7 @@ export default function AdminCodesManager(props: Props) {
             <h2 className="flex items-center gap-2 text-lg font-extrabold text-[#183b2d]"><UserCheck className="h-5 w-5 text-[#244b3a]" /> Peserta &amp; Akses Kelas</h2>
             <p className="mt-1 text-sm leading-5 text-[#625f54]">Kelola user reguler dan lihat peserta yang bergabung lewat sesi tatap muka secara terpisah.</p>
           </div>
-          <button type="button" onClick={() => { onRefresh(); if (activeList === "guests") void loadGuestParticipants(); }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#c9bda7] px-3 py-2 text-sm font-bold text-[#244b3a] transition hover:bg-[#f8f3e9]"><RefreshCw className="h-4 w-4" />Segarkan</button>
+          <div className="flex gap-2"><button type="button" onClick={() => setShowReport(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#c9bda7] px-3 py-2 text-sm font-bold text-[#244b3a] transition hover:bg-[#f8f3e9]"><Download className="h-4 w-4" />Download</button><button type="button" onClick={() => { onRefresh(); if (activeList === "guests") void loadGuestParticipants(); }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#c9bda7] px-3 py-2 text-sm font-bold text-[#244b3a] transition hover:bg-[#f8f3e9]"><RefreshCw className="h-4 w-4" />Segarkan</button></div>
         </div>
 
         <div role="group" aria-label="Jenis peserta" className="mt-5 flex gap-2 overflow-x-auto border-b border-[#e5dfd3] pb-px">
@@ -186,37 +166,31 @@ export default function AdminCodesManager(props: Props) {
 
         {activeList === "users" && <div id="admin-participants-panel-users">
         <div className="mt-4 grid gap-3 sm:grid-cols-12">
-          <div className="relative sm:col-span-5"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Cari peserta by nama/email/RW..." className="w-full rounded-lg border border-[#E5E7EB] py-2.5 pl-9 pr-3 text-sm focus:border-[#14532D] focus:outline-none" /></div>
-          <div className="sm:col-span-4"><select value={grantClassId} onChange={(e)=>setGrantClassId(e.target.value)} className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm"><option value="">Pilih kelas untuk beri/ubah akses…</option>{classes.map((c:any)=> <option key={c.id} value={c.id}>{c.title}</option>)}</select></div>
+          <div className="relative sm:col-span-5"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Cari nama atau email peserta" className="w-full rounded-lg border border-[#E5E7EB] py-2.5 pl-9 pr-3 text-sm focus:border-[#14532D] focus:outline-none" /></div>
+          <p className="self-center text-sm text-[#625f54] sm:col-span-4">Daftar user reguler dan akses kelas (hanya baca).</p>
         </div>
 
-        <div className="mt-4 overflow-x-auto rounded-lg border border-[#E5E7EB]">
-          <table className="w-full text-left text-xs text-gray-700">
-            <thead className="border-b border-[#E5E7EB] bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-3">Peserta</th><th className="px-4 py-3">Tipe</th><th className="px-4 py-3">Status Akses</th><th className="px-4 py-3">Akses Kelas Aktif</th><th className="px-4 py-3 text-right">Aksi</th></tr></thead>
+        <div className="mt-4 overflow-x-auto rounded-xl border border-[#e5dfd3]">
+          <table className="w-full min-w-[700px] text-left text-sm text-[#34362f]">
+            <thead className="border-b border-[#e5dfd3] bg-[#f8f3e9] text-xs font-bold uppercase tracking-wide text-[#514b3e]"><tr><th className="px-4 py-3">Nama lengkap</th><th className="px-4 py-3">Username / Email</th><th className="px-4 py-3">Kelas yang diakses</th></tr></thead>
             <tbody className="divide-y divide-[#E5E7EB]">
-              {filtered.length === 0 ? (<tr><td colSpan={5} className="py-8 text-center text-xs text-gray-400">Tidak ada peserta yang cocok.</td></tr>) : filtered.map((p)=>{
-                const st = statusFor(p);
+              {filtered.length === 0 ? (<tr><td colSpan={3} className="py-8 text-center text-sm text-[#625f54]">Tidak ada peserta yang cocok.</td></tr>) : filtered.map((p)=>{
                 const myEnr = p.email ? enrollments.filter((e:any)=> (e.userEmail||"").toLowerCase()===p.email) : [];
                 return (
-                  <tr key={p.key} className="hover:bg-gray-50/70">
-                    <td className="px-4 py-3"><p className="font-extrabold text-gray-900">{p.name || "(tanpa nama)"}</p><p className="text-[11px] text-gray-500">{p.email || p.rw || "-"}</p></td>
-                    <td className="px-4 py-3"><span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">{p.type === "warga" ? `Warga ${p.rw||""}` : "Peserta Umum"}</span></td>
-                    <td className="px-4 py-3"><span className={`rounded px-2 py-0.5 text-[11px] font-bold ${st.tone}`}>{st.label}</span></td>
-                    <td className="px-4 py-3">
-                      {p.type !== "umum" ? <span className="text-[11px] text-gray-400">Akses via kode RW</span> : (
+                  <tr key={p.key} className="align-top transition-colors hover:bg-[#fbf8f1]">
+                    <td className="px-4 py-4"><p className="font-bold text-[#20251f]">{p.name || "(tanpa nama)"}</p><p className="mt-1 text-xs text-[#625f54]">{p.type === "warga" ? `Warga ${p.rw || ""}` : "User reguler"}</p></td>
+                    <td className="px-4 py-4 text-[#34362f]">{p.email || <span className="text-[#625f54]">—</span>}</td>
+                    <td className="px-4 py-4">
+                      {p.type !== "umum" ? <span className="text-sm text-[#625f54]">Akses program melalui kode RW</span> : (
                         <div className="flex flex-wrap gap-1.5">
-                          {myEnr.length === 0 ? <span className="text-[11px] text-gray-400">-</span> : myEnr.map((e:any)=>{
+                          {myEnr.length === 0 ? <span className="text-sm text-[#625f54]">Belum ada kelas</span> : myEnr.map((e:any)=>{
                             const cls = classes.find((c:any)=>c.id===e.classId);
                             const active = e.status==="active" && (!e.expiresAt || new Date(e.expiresAt).getTime()>Date.now());
-                            return <span key={e.id} className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-bold ${active?"bg-emerald-50 text-emerald-800 border border-emerald-200":"bg-gray-100 text-gray-600"}`}>{cls?.title || e.classId}{active && <button type="button" onClick={()=>revokeEnrollment(e.id)} className="ml-1 text-red-600 hover:underline">cabut</button>}</span>;
+                            const free = Number(e.paidAmountIdr || 0) === 0;
+                            return <span key={e.id} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${active?"border-emerald-200 bg-emerald-50 text-emerald-800":"border-[#e5dfd3] bg-[#f5f1e8] text-[#514b3e]"}`}>{cls?.title || e.classId} · {free ? "Gratis" : "Berbayar"}</span>;
                           })}
                         </div>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {p.type === "umum" ? (
-                        <button type="button" title={!grantClassId ? "Pilih kelas dulu" : undefined} disabled={!grantClassId || busy===p.key} onClick={()=>grantClass(p)} className="rounded-lg bg-[#14532D] px-3 py-2 text-[11px] font-bold text-white disabled:opacity-40">{busy===p.key?"Menyimpan...":"Beri/Ubah Akses Kelas"}</button>
-                      ) : <span className="text-[11px] text-gray-400">Kelola via RW</span>}
                     </td>
                   </tr>
                 );
@@ -229,7 +203,7 @@ export default function AdminCodesManager(props: Props) {
         {activeList === "guests" && <div id="admin-participants-panel-guests" className="mt-4 space-y-4">
           <div className="flex flex-col gap-3 border-b border-[#e5dfd3] pb-4 sm:flex-row sm:items-end sm:justify-between">
             <div><h3 className="flex items-center gap-2 font-bold text-[#183b2d]"><Users className="h-4 w-4" />Peserta Guest · {filteredGuests.length} orang</h3><p className="mt-1 text-sm text-[#625f54]">Daftar ini hanya berisi peserta sesi; user reguler ada di tab terpisah.</p></div>
-            <label className="relative block w-full sm:max-w-xs"><span className="sr-only">Cari peserta Guest</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#625f54]" /><input value={guestQuery} onChange={(event) => setGuestQuery(event.target.value)} placeholder="Cari nama, nomor, atau sesi" className="min-h-11 w-full rounded-lg border border-[#c9bda7] bg-[#fffdf8] py-2.5 pl-9 pr-3 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20" /></label>
+            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => void deleteSelectedGuests()} disabled={deletingGuests || !guestRows.some((guest) => selectedGuests.has(guest.id) && guest.canDelete)} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#a23b27] px-3 text-sm font-bold text-white hover:bg-[#842f20] disabled:cursor-not-allowed disabled:opacity-50"><Trash2 className="h-4 w-4" />{deletingGuests ? "Menghapus…" : "Hapus peserta"}</button><label className="relative block w-full sm:max-w-xs"><span className="sr-only">Cari peserta Guest</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#625f54]" /><input value={guestQuery} onChange={(event) => setGuestQuery(event.target.value)} placeholder="Cari nama, nomor, atau sesi" className="min-h-11 w-full rounded-lg border border-[#c9bda7] bg-[#fffdf8] py-2.5 pl-9 pr-3 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20" /></label></div>
           </div>
           <div className="grid gap-3 rounded-xl border border-[#e5dfd3] bg-[#faf7ef] p-3 sm:grid-cols-2 xl:grid-cols-5 xl:p-4">
             <label className="space-y-1 text-xs font-bold text-[#514b3e]"><span>Negara</span><select value={guestCountry} onChange={(event) => setGuestCountry(event.target.value)} className={guestSelectClass}><option value="all">Semua negara</option>{guestCountries.map((country) => <option key={country.dial} value={country.dial}>{country.name} (+{country.dial})</option>)}<option value="other">Prefiks lainnya</option></select></label>
@@ -242,15 +216,15 @@ export default function AdminCodesManager(props: Props) {
           {guestError && <p role="alert" className="rounded-lg border border-[#943520]/30 bg-[#fff5f0] p-3 text-sm text-[#7c2d1c]">{guestError}</p>}
           <div className="overflow-x-auto rounded-xl border border-[#e5dfd3]">
             <table className="w-full min-w-[700px] text-left text-sm text-[#34362f]">
-              <thead className="border-b border-[#e5dfd3] bg-[#f8f3e9] text-xs font-bold uppercase tracking-wide text-[#514b3e]"><tr><th scope="col" className="px-4 py-3">Nama lengkap</th><th scope="col" className="px-4 py-3">WhatsApp / telepon</th><th scope="col" className="px-4 py-3">Sesi dan kelas</th><th scope="col" className="px-4 py-3">Tanggal sesi</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Terdaftar</th></tr></thead>
+              <thead className="border-b border-[#e5dfd3] bg-[#f8f3e9] text-xs font-bold uppercase tracking-wide text-[#514b3e]"><tr><th scope="col" className="px-4 py-3"><input aria-label="Pilih peserta yang bisa dihapus" type="checkbox" checked={filteredGuests.some((guest) => guest.canDelete) && filteredGuests.filter((guest) => guest.canDelete).every((guest) => selectedGuests.has(guest.id))} onChange={(event) => setSelectedGuests((current) => { const next = new Set(current); filteredGuests.filter((guest) => guest.canDelete).forEach((guest) => event.target.checked ? next.add(guest.id) : next.delete(guest.id)); return next; })} /></th><th scope="col" className="px-4 py-3">Nama lengkap</th><th scope="col" className="px-4 py-3">WhatsApp / telepon</th><th scope="col" className="px-4 py-3">Sesi dan kelas</th><th scope="col" className="px-4 py-3">Tanggal sesi</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Terdaftar</th></tr></thead>
               <tbody className="divide-y divide-[#eee8dc] bg-white">
-                {guestLoading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-[#625f54]">Memuat peserta Guest…</td></tr> : filteredGuests.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-[#625f54]">{guestRows.length ? "Tidak ada peserta Guest yang cocok dengan filter." : "Belum ada peserta Guest yang mendaftar melalui sesi."}</td></tr> : filteredGuests.map((guest) => {
+                {guestLoading ? <tr><td colSpan={7} className="px-4 py-8 text-center text-[#625f54]">Memuat peserta Guest…</td></tr> : filteredGuests.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-[#625f54]">{guestRows.length ? "Tidak ada peserta Guest yang cocok dengan filter." : "Belum ada peserta Guest yang mendaftar melalui sesi."}</td></tr> : filteredGuests.map((guest) => {
                   const status = guest.status === "approved" ? { label: "Disetujui", tone: "bg-emerald-50 text-emerald-800" } : guest.status === "rejected" ? { label: "Ditolak", tone: "bg-rose-50 text-rose-800" } : { label: "Menunggu", tone: "bg-amber-50 text-amber-900" };
                   const phone = String(guest.whatsapp || "");
                   const sessionDate = guest.sessionDate ? new Date(guest.sessionDate) : null;
                   const prefix = phone ? phoneCountryPrefix(phone) : "";
                   const country = guestCountries.find((item) => item.dial === prefix);
-                  return <tr key={guest.id} className="align-top transition-colors hover:bg-[#fbf8f1]"><td className="px-4 py-4"><p className="font-bold text-[#20251f]">{guest.name || "(tanpa nama)"}</p><p className="mt-1 text-xs text-[#625f54]">Peserta Guest</p></td><td className="px-4 py-4">{phone ? <><a href={`tel:${phone.replace(/[^+\d]/g, "")}`} className="font-semibold text-[#244b3a] underline decoration-[#c9bda7] underline-offset-2">{phone}</a><p className="mt-1 text-xs text-[#625f54]">{country ? `${country.name} · +${country.dial}` : prefix === "other" ? "Prefiks negara lainnya" : "Indonesia · +62"}</p></> : <span className="text-[#625f54]">Tidak dicantumkan</span>}</td><td className="px-4 py-4"><p className="font-semibold text-[#20251f]">{guest.sessionTitle} <span className="font-normal text-[#625f54]">· {guest.sessionCode}</span></p><p className="mt-1 text-xs text-[#625f54]">{guest.classTitle}</p></td><td className="whitespace-nowrap px-4 py-4 text-sm text-[#34362f]">{sessionDate && !Number.isNaN(sessionDate.getTime()) ? sessionDate.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "Jadwal belum ditentukan"}</td><td className="px-4 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${status.tone}`}>{status.label}</span></td><td className="whitespace-nowrap px-4 py-4 text-xs text-[#625f54]">{new Date(guest.registeredAt).toLocaleString("id-ID")}</td></tr>;
+                  return <tr key={guest.id} className="align-top transition-colors hover:bg-[#fbf8f1]"><td className="px-4 py-4"><input type="checkbox" aria-label={`Pilih ${guest.name}`} disabled={!guest.canDelete} checked={selectedGuests.has(guest.id)} title={guest.deleteBlockedReason || "Peserta siap dihapus"} onChange={(event) => setSelectedGuests((current) => { const next = new Set(current); event.target.checked ? next.add(guest.id) : next.delete(guest.id); return next; })} /></td><td className="px-4 py-4"><p className="font-bold text-[#20251f]">{guest.name || "(tanpa nama)"}</p><p className="mt-1 text-xs text-[#625f54]">Peserta Guest</p></td><td className="px-4 py-4">{phone ? <><a href={`tel:${phone.replace(/[^+\d]/g, "")}`} className="font-semibold text-[#244b3a] underline decoration-[#c9bda7] underline-offset-2">{phone}</a><p className="mt-1 text-xs text-[#625f54]">{country ? `${country.name} · +${country.dial}` : prefix === "other" ? "Prefiks negara lainnya" : "Indonesia · +62"}</p></> : <span className="text-[#625f54]">Tidak dicantumkan</span>}</td><td className="px-4 py-4"><p className="font-semibold text-[#20251f]">{guest.sessionTitle} <span className="font-normal text-[#625f54]">· {guest.sessionCode}</span></p><p className="mt-1 text-xs text-[#625f54]">{guest.classTitle}</p></td><td className="whitespace-nowrap px-4 py-4 text-sm text-[#34362f]">{sessionDate && !Number.isNaN(sessionDate.getTime()) ? sessionDate.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "Jadwal belum ditentukan"}</td><td className="px-4 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${status.tone}`}>{status.label}</span>{guest.deleteBlockedReason && <p className="mt-1 max-w-48 text-xs text-[#625f54]">{guest.deleteBlockedReason}</p>}</td><td className="whitespace-nowrap px-4 py-4 text-xs text-[#625f54]">{new Date(guest.registeredAt).toLocaleString("id-ID")}</td></tr>;
                 })}
               </tbody>
             </table>
@@ -258,6 +232,7 @@ export default function AdminCodesManager(props: Props) {
         </div>}
       </section>
 
+      {showReport && <ReportDownloadDialog type="participants" onClose={() => setShowReport(false)} />}
     </div>
   );
 }

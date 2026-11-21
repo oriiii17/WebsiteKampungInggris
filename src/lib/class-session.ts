@@ -11,6 +11,7 @@ export interface StoredClassSession {
   requireApproval: boolean;
   classId: string;
   startsAt?: string;
+  autoCloseAt?: string;
   createdAt: string;
   closedAt?: string;
 }

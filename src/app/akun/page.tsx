@@ -4,7 +4,7 @@ import { getServerSession } from "@/lib/auth";
 import { readLocalDb } from "@/lib/db";
 import AccountClient from "./AccountClient";
 
-export default async function AkunPage() {
+export default async function AkunPage({ searchParams }: { searchParams?: Promise<{ warga?: string }> }) {
   const session = await getServerSession();
   if (!session) {
     redirect("/masuk?next=/akun");
@@ -13,5 +13,6 @@ export default async function AkunPage() {
   const storedPhoto = session.email
     ? (db.externalUsers || []).find((user) => user.email.toLowerCase() === session.email?.toLowerCase())?.avatarDataUrl
     : (db.warga || []).find((warga) => warga.id === session.id)?.avatarDataUrl;
-  return <AccountClient initialSession={{ ...session, avatarDataUrl: storedPhoto || session.avatarDataUrl }} />;
+  const params = (await searchParams) || {};
+  return <AccountClient initialSession={{ ...session, avatarDataUrl: storedPhoto || session.avatarDataUrl }} wargaDeferred={params.warga === "deferred"} />;
 }

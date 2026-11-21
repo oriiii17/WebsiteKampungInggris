@@ -1,13 +1,14 @@
 ﻿"use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ImagePlus, LogOut, Save, User, Lock } from "lucide-react";
 import type { SessionPayload } from "@/lib/types";
 
 const MAX_PHOTO = 10 * 1024 * 1024;
 
-export default function AccountClient({ initialSession }: { initialSession: SessionPayload }) {
+export default function AccountClient({ initialSession, wargaDeferred = false }: { initialSession: SessionPayload; wargaDeferred?: boolean }) {
   const router = useRouter();
   const [session, setSession] = useState<SessionPayload>(initialSession);
   const [name, setName] = useState(initialSession.name || "");
@@ -90,6 +91,8 @@ export default function AccountClient({ initialSession }: { initialSession: Sess
 
   const isWarga = session.origin === "warga_kode";
   const initial = (name.trim()[0] || "U").toUpperCase();
+
+  if (isWarga && wargaDeferred) return <main className="grid min-h-[calc(100dvh-5rem)] place-items-center bg-[#FDFBF7] px-4 py-10"><section className="w-full max-w-md rounded-2xl border border-[#d2c5ad] bg-white p-6 shadow-sm sm:p-8"><p className="text-xs font-extrabold uppercase tracking-wide text-[#625f54]">Warga Sapen</p><h1 className="mt-2 font-display text-3xl font-bold text-[#183b2d]">Akses warga aktif</h1><p className="mt-3 text-sm leading-6 text-[#3d4038]">Kamu bisa terus masuk dengan kode warga, atau membuat akun email dan kata sandi agar lebih mudah masuk berikutnya.</p><Link href="/masuk?mode=warga&account=1" className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ba472f] px-4 text-sm font-extrabold text-white hover:bg-[#943520]">Daftar Akun</Link><button type="button" onClick={logout} disabled={loggingOut} className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#b8aa8e] px-4 text-sm font-bold text-[#244b3a] hover:bg-[#f3e9d5] disabled:opacity-60"><LogOut className="h-4 w-4" />{loggingOut ? "Keluar…" : "Logout"}</button>{err && <p role="alert" className="mt-3 text-sm text-red-700">{err}</p>}</section></main>;
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] pb-24 md:pb-16">

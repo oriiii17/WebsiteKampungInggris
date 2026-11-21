@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BookOpen, Clock, Gamepad2, KeyRound, Layers, Sparkles, Trophy, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, Clock, Gamepad2, Layers, Sparkles, Trophy, Zap } from "lucide-react";
+import PinCodeInput from "@/components/game/PinCodeInput";
 
 const GAME_TYPES = [
   { id: "telling-time", title: "Telling the Time", subtitle: "Waktu & Jam", desc: "Membaca jam dalam Bahasa Inggris: o'clock, half past, quarter to/past.", icon: Clock },
@@ -58,14 +59,11 @@ export default function GameIndexPage() {
             </div>
             <form onSubmit={handleJoinSubmit} className="max-w-lg">
               <label htmlFor="game-pin" className="text-sm font-bold text-body">PIN 6 angka</label>
-              <div className="mt-2 flex flex-col gap-3 sm:flex-row">
-                <div className="relative min-w-0 flex-1">
-                  <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-leaf" />
-                  <input id="game-pin" type="text" inputMode="numeric" maxLength={6} value={pin} onChange={(e) => { const val = e.target.value.replace(/\D/g, "").slice(0, 6); setPin(val); if (error) setError(""); }} placeholder="Contoh: 482615" className="min-h-14 w-full rounded-md border border-rule-strong bg-white py-3 pl-12 pr-4 text-lg font-bold tracking-[.18em] text-ink placeholder:text-sm placeholder:font-normal placeholder:tracking-normal" />
-                </div>
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end">
+                <PinCodeInput id="game-pin" label="PIN game, 6 angka" value={pin} onChange={(value) => { setPin(value); if (error) setError(""); }} invalid={Boolean(error && pin.length !== 6)} describedBy={error ? "game-pin-error" : undefined} className="sm:flex-1 sm:max-w-[22rem]" />
                 <button type="submit" className="inline-flex min-h-14 items-center justify-center gap-2 rounded-md bg-earth px-5 py-3 text-sm font-extrabold text-white transition hover:bg-earth-dark">Gabung kuis <ArrowRight className="h-4 w-4" /></button>
               </div>
-              {error && <p role="alert" className="mt-3 text-sm font-bold text-earth">{error}</p>}
+              {error && <p id="game-pin-error" role="alert" className="mt-3 text-sm font-bold text-earth">{error}</p>}
               <p className="mt-3 text-xs text-muted">PIN diberikan oleh pengajar atau host sesi.</p>
             </form>
           </div>

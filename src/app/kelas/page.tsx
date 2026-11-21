@@ -27,7 +27,8 @@ async function KelasIndexContent({
 }) {
   const sp = (await searchParams) || {};
   const session = await getSessionWithGuestContext();
-  if (session?.role === "guest") redirect(await getGuestSessionDestination(session));
+  if (session?.guestSessionId) redirect(await getGuestSessionDestination(session));
+  const isWarga = session?.origin === "warga_kode";
   const [classes, modules] = await Promise.all([getClasses(false), getModules(false)]);
   const moduleMap = new Map(modules.map((m) => [m.id, m]));
 
@@ -40,10 +41,10 @@ async function KelasIndexContent({
             <p>Materi hanya dapat dibuka melalui <strong>Kelas</strong>. Silakan pilih kelas di bawah untuk mengakses Bab &amp; Materi.</p>
           </div>
         )}
-        <div className="mb-8 flex items-start gap-3 rounded-xl border border-rule bg-white/80 px-4 py-3 text-sm text-body">
+        {!isWarga && <div className="mb-8 flex items-start gap-3 rounded-xl border border-rule bg-white/80 px-4 py-3 text-sm text-body">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-leaf" />
           <p>Pendaftaran melalui pembayaran online belum tersedia sementara. Kelas yang Anda pilih tetap dapat disimpan di keranjang untuk ditinjau.</p>
-        </div>
+        </div>}
         <div className="mb-12 grid gap-8 border-b-2 border-ink pb-8 md:grid-cols-[1fr_auto] md:items-end">
           <div>
             <p className="workbook-print-note">Program belajar · daftar kelas</p>
@@ -76,10 +77,10 @@ async function KelasIndexContent({
                       <span className="flex items-center gap-2"><Gamepad2 className="h-4 w-4 shrink-0 text-earth" />{gameCount > 0 ? `${gameCount} sesi` : "Game kelas"}</span>
                     </div>
                     <div className="grid gap-3 border-t border-rule pt-4">
-                      <div><span className="block text-xs font-semibold text-muted">Investasi belajar</span><strong className="font-display text-2xl">{formatIDR(cls.priceIdr)}</strong></div>
+                      {!isWarga && <div><span className="block text-xs font-semibold text-muted">Investasi belajar</span><strong className="font-display text-2xl">{formatIDR(cls.priceIdr)}</strong></div>}
                       <div className="flex min-w-0 flex-col items-stretch gap-3">
                         <Link href={`/kelas/${cls.slug}`} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-earth px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-earth-dark">Detail kelas <ArrowRight className="h-4 w-4" /></Link>
-                        <AddToCartButton classId={cls.id} compact />
+                        {!isWarga && <AddToCartButton classId={cls.id} compact />}
                       </div>
                     </div>
                   </div>
@@ -94,11 +95,11 @@ async function KelasIndexContent({
               </div>
             )}
           </div>
-          <aside className="h-fit rounded-2xl border border-rule bg-white p-6 shadow-card">
+          {!isWarga && <aside className="h-fit rounded-2xl border border-rule bg-white p-6 shadow-card">
             <h2 className="text-xl">Sebelum memilih</h2>
             <p className="mt-3 text-sm leading-6 text-body">Pilih kelas satuan sesuai tujuan belajarmu. Tambahkan satu atau beberapa kelas ke keranjang, lalu daftar sekaligus.</p>
             <div className="mt-6 border-t border-rule pt-4 text-xs leading-5 text-muted"><Clock className="mb-2 h-4 w-4 text-earth" />Akses kelas berlaku selamanya, kecuali akun peserta dihapus.</div>
-          </aside>
+          </aside>}
         </div>
       </section>
     </div>

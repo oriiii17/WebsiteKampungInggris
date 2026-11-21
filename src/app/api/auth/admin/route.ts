@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { encodeSessionToken, SESSION_COOKIE_NAME } from "@/lib/auth";
-import { createPublicSupabaseClient, isSupabaseConfigured } from "@/lib/supabase";
+import { encodeSessionToken, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { createPublicSupabaseClient, getSupabasePublicConfig, isSupabaseConfigured } from "@/lib/supabase";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { SessionPayload, UserRole } from "@/lib/types";
 import { checkApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import { isHttpsRequest } from "@/lib/request-security";
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
       );
     }
     const sb = createPublicSupabaseClient();
+    const publicConfig = getSupabasePublicConfig();
     if (!sb) {
       return NextResponse.json(
         { error: "Konfigurasi Supabase belum terpasang, cek .env.local dan restart server" },
@@ -45,9 +47,7 @@ export async function POST(req: NextRequest) {
     let profile: { role?: string; full_name?: string } | null = null;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
     if (serviceKey) {
-      const adminDb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
+      const adminDb = createSupabaseAdminClient();
       const { data, error } = await adminDb
         .from("profiles")
         .select("role,full_name")
@@ -58,7 +58,8 @@ export async function POST(req: NextRequest) {
       }
       profile = data;
     } else {
-      const userDb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      if (!publicConfig) return NextResponse.json({ error: "Konfigurasi Supabase belum lengkap. Periksa URL proyek dan anon key di .env.local lalu restart server." }, { status: 503 });
+      const userDb = createClient(publicConfig.url, publicConfig.anonKey, {
         auth: { autoRefreshToken: false, persistSession: false },
         global: { headers: { Authorization: `Bearer ${accessToken}` } },
       });
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 7,
       secure: isHttpsRequest(req),
     });
+    res.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
     res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, accessToken, {
       httpOnly: true,
       sameSite: "lax",

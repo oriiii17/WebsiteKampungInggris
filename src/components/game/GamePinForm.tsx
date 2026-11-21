@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, KeyRound } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import PinCodeInput from "@/components/game/PinCodeInput";
 
 export default function GamePinForm({ initialName }: { initialName?: string }) {
   const router = useRouter();
@@ -22,38 +23,18 @@ export default function GamePinForm({ initialName }: { initialName?: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className="rounded-2xl border-2 border-[#14532D] bg-white p-2 shadow-lg sm:p-2.5">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
-              <KeyRound className="h-5 w-5" />
-            </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={pin}
-              onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, "").slice(0, 6);
-                setPin(val);
-                if (error) setError("");
-              }}
-              placeholder="Masukkan PIN 6 Angka"
-              className="w-full rounded-xl border border-gray-200 py-3.5 pl-11 pr-4 text-center sm:text-left text-lg font-bold tracking-widest text-[#111827] placeholder:text-sm placeholder:tracking-normal placeholder:font-normal placeholder:text-gray-400 focus:border-[#14532D] focus:outline-none focus:ring-2 focus:ring-[#14532D]/20 min-h-[48px]"
-            />
-          </div>
-
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          <PinCodeInput id="games-join-pin" label="PIN kuis, 6 angka" value={pin} onChange={(value) => { setPin(value); if (error) setError(""); }} invalid={Boolean(error)} describedBy={error ? "game-pin-error" : undefined} className="sm:flex-1 sm:max-w-[22rem]" />
           <button
             type="submit"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#F59E0B] px-6 py-3.5 text-base font-bold text-gray-950 hover:bg-[#D97706] transition active:scale-[0.98] min-h-[48px]"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#ba472f] px-6 py-3.5 text-base font-bold text-white transition duration-150 hover:bg-[#943520] active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#244b3a] sm:w-auto"
           >
-            <span>Gabung Kuis</span>
+            <span>Gabung</span>
             <ArrowRight className="h-5 w-5" />
           </button>
         </div>
-      </div>
       {error && (
-        <p className="mt-2 text-xs font-semibold text-red-600 text-center">
+        <p id="game-pin-error" role="alert" className="mt-2 text-left text-sm font-semibold text-[#943520]">
           {error}
         </p>
       )}

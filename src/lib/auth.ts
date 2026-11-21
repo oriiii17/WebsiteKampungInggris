@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import { getSupabasePublicConfig } from "./supabase";
 import { SessionPayload } from "./types";
 
 const SESSION_COOKIE_NAME = "sapen_session";
@@ -47,7 +48,7 @@ export async function getServerSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const raw = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const session = decodeSessionToken(raw);
-  if (session && !(session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now())) {
+  if (session && session.role !== "guest" && session.origin !== "guest" && !(session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now())) {
     const hasSupabaseUserId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(session.id);
     if (!(session.origin === "admin" || session.origin === "tutor" || session.origin === "luar_belum_aktif" || session.origin === "luar_langganan") || hasSupabaseUserId) return session;
   }
@@ -56,11 +57,10 @@ export async function getServerSession(): Promise<SessionPayload | null> {
 
 /** Rebuilds the app session from Supabase's verified access token when the app cookie is stale. */
 async function getVerifiedSupabaseSession(accessToken?: string): Promise<SessionPayload | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  if (!accessToken || !url || !anonKey) return null;
+  const config = getSupabasePublicConfig();
+  if (!accessToken || !config) return null;
   try {
-    const supabase = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const supabase = createClient(config.url, config.anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: { user }, error } = await supabase.auth.getUser(accessToken);
     if (error || !user) return null;
     const { data: profile } = await supabase.from("profiles").select("role,full_name").eq("id", user.id).maybeSingle();
@@ -89,9 +89,9 @@ export async function getGuestServerSession(): Promise<SessionPayload | null> {
   return session;
 }
 
-/** Prefer guest identity on public learning routes while preserving the account cookie for admin tabs. */
+/** Account identities always win; use Guest context only when no account session is active. */
 export async function getSessionWithGuestContext(): Promise<SessionPayload | null> {
-  return (await getGuestServerSession()) || await getServerSession();
+  return (await getServerSession()) || await getGuestServerSession();
 }
 
 export function hasActiveMaterialAccess(session: SessionPayload | null): boolean {

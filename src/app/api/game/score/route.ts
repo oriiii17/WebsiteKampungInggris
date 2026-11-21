@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionWithGuestContext } from "@/lib/auth";
-import { saveGameScore } from "@/lib/db";
+import { readLocalDb, saveGameScore } from "@/lib/db";
+
+export async function GET() {
+  const session = await getSessionWithGuestContext();
+  if (!session) {
+    return NextResponse.json({ error: "Masuk atau bergabung ke sesi untuk melihat riwayat skor." }, { status: 401 });
+  }
+
+  const db = await readLocalDb();
+  const entries = (db.leaderboard || [])
+    .filter((entry) => entry.participantKey === session.id)
+    .sort((a, b) => b.score - a.score || b.createdAt.localeCompare(a.createdAt))
+    .map(({ id, moduleId, moduleTitle, gameType, score, createdAt }) => ({
+      id, gameId: moduleId, gameTitle: moduleTitle, gameType, score, createdAt,
+    }));
+
+  return NextResponse.json({ entries });
+}
 
 export async function POST(req: NextRequest) {
   try {

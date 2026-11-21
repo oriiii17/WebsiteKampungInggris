@@ -7,6 +7,8 @@ import { getGuestServerSession, getServerSession } from "@/lib/auth";
 import { SITE_CONFIG } from "@/config/site";
 import AppDialogProvider from "@/components/AppDialogProvider";
 import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
+import GuestApprovalGate from "@/components/guest/GuestApprovalGate";
+import { getGuestApprovalStatus } from "@/lib/guest-approval";
 
 export const metadata: Metadata = {
   title: `${SITE_CONFIG.name} | ${SITE_CONFIG.tagline}`,
@@ -42,17 +44,16 @@ const organizationSchema = {
   areaServed: ["RW 06 Demangan", "RW 07 Demangan", "RW 08 Demangan", "Yogyakarta"],
 };
 
-async function NavbarWithSession() {
-  const [session, guestSession] = await Promise.all([getServerSession(), getGuestServerSession()]);
-  const guestClassHref = guestSession?.guestClassHref;
-  return <><PublicChrome session={session} guestSession={guestSession} guestClassHref={guestClassHref} /><PublicFooter isGuest={Boolean(guestSession)} /></>;
-}
-
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const [session, guestSession] = await Promise.all([getServerSession(), getGuestServerSession()]);
+  const sessionParticipant = session?.guestSessionId ? session : !session && guestSession ? guestSession : null;
+  const guestApprovalStatus = sessionParticipant ? await getGuestApprovalStatus(sessionParticipant) : null;
+  const participantIsPending = Boolean(sessionParticipant?.guestSessionId && guestApprovalStatus !== "approved");
+
   return (
     <html lang="id">
       <head>
@@ -68,10 +69,9 @@ export default function RootLayout({
         <ConfirmDialogProvider>
         <AppDialogProvider>
         <a href="#main-content" className="skip-link">Lewati ke konten utama</a>
-        <Suspense fallback={null}>
-          <NavbarWithSession />
-        </Suspense>
-        <main id="main-content" tabIndex={-1} className="flex-1">{children}</main>
+        <Suspense fallback={null}><PublicChrome session={session} guestSession={guestSession} guestClassHref={sessionParticipant?.guestClassHref || guestSession?.guestClassHref} initialParticipantPending={participantIsPending} /></Suspense>
+        <main id="main-content" tabIndex={-1} className="flex-1">{participantIsPending ? <GuestApprovalGate scope="attendance" initialStatus={guestApprovalStatus || "pending"} /> : children}</main>
+        {!participantIsPending && <Suspense fallback={null}><PublicFooter isGuest={Boolean(guestSession && !session)} /></Suspense>}
         </AppDialogProvider>
         </ConfirmDialogProvider>
       </body>

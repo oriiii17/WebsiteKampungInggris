@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { readLocalDb, writeLocalDb } from "@/lib/db";
 import { checkApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseProjectUrl } from "@/lib/supabase";
 
 export async function POST(request: NextRequest) {
   const limit = checkApiRateLimit(`register:${getRequestIp(request)}`, 5, 10 * 60 * 1000);
@@ -16,15 +17,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Lengkapi data dengan email valid dan password minimal 6 karakter." }, { status: 400 });
     }
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !serviceKey) {
+    if (!getSupabaseProjectUrl() || !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
       return NextResponse.json({ error: "Pendaftaran belum dapat diproses. Konfigurasi Supabase belum lengkap." }, { status: 503 });
     }
 
-    const supabase = createClient(url, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const supabase = createSupabaseAdminClient();
     const db = await readLocalDb();
     const { data, error } = await supabase.auth.admin.createUser({
       email,

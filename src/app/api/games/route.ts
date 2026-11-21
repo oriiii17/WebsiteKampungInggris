@@ -44,12 +44,19 @@ export async function GET(request: Request) {
 
     const supabase = await getSupabaseServerClient();
     if (supabase) {
-      const { data, error } = await supabase.from("game_blueprints").select("*").eq("status", "independent").order("updated_at", { ascending: false });
+      const [{ data: links, error: linksError }, { data, error }] = await Promise.all([
+        supabase.from("class_games").select("game_id").eq("class_id", classId),
+        supabase.from("game_blueprints").select("*").eq("status", "independent").order("updated_at", { ascending: false }),
+      ]);
+      if (linksError) return NextResponse.json({ error: "Daftar latihan kelas belum dapat dimuat." }, { status: 503 });
       if (error) return NextResponse.json({ error: "Latihan mandiri belum dapat dimuat." }, { status: 503 });
-      return NextResponse.json({ games: (data || []).map(fromRow) }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+      const linkedIds = new Set((links || []).map((link) => link.game_id));
+      const games = (data || []).map(fromRow).filter((game) => linkedIds.has(game.id) && game.status === "independent" && game.destination === "independent");
+      return NextResponse.json({ games }, { headers: { "Cache-Control": "no-store, max-age=0" } });
     }
     const db = await readLocalDb();
-    return NextResponse.json({ games: (db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => game.status === "independent") }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    const linkedIds = new Set(db.classes?.find((item) => item.id === classId)?.gameBlueprintIds || []);
+    return NextResponse.json({ games: (db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => linkedIds.has(game.id) && game.status === "independent" && game.destination === "independent") }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
   let allowedGuestGameIds: string[] | null = null;
   if (session?.role === "guest") {

@@ -2,6 +2,7 @@
 import {
   encodeSessionToken,
   GUEST_SESSION_COOKIE_NAME,
+  getGuestServerSession,
   getServerSession,
   SESSION_COOKIE_NAME,
 } from "@/lib/auth";
@@ -10,8 +11,23 @@ import { createPublicSupabaseClient } from "@/lib/supabase";
 import { SessionPayload } from "@/lib/types";
 import { isHttpsRequest } from "@/lib/request-security";
 import { SUPABASE_ACCESS_TOKEN_COOKIE } from "@/lib/supabase-server";
+import { getGuestApprovalStatus } from "@/lib/guest-approval";
 
 export async function GET(req: Request) {
+  const scope = new URL(req.url).searchParams.get("scope");
+  if (scope === "attendance") {
+    const session = (await getServerSession()) || await getGuestServerSession();
+    const approvalStatus = session?.guestSessionId
+      ? await getGuestApprovalStatus(session)
+      : null;
+    return NextResponse.json({ session, approvalStatus }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  }
+  if (scope === "guest") {
+    const guestSession = await getGuestServerSession();
+    const approvalStatus = guestSession ? await getGuestApprovalStatus(guestSession) : null;
+    return NextResponse.json({ session: guestSession, approvalStatus }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  }
+
   const session = await getServerSession();
   if (!session) return NextResponse.json({ session: null });
 

@@ -1,16 +1,26 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 export function isSupabaseConfigured(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  if (!url || !anonKey) return false;
+  return getSupabasePublicConfig() !== null;
+}
+
+export function getSupabaseProjectUrl(): string | null {
+  const value = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!value) return null;
 
   try {
-    const parsed = new URL(url);
-    return (parsed.protocol === "https:" || parsed.protocol === "http:") && Boolean(parsed.hostname);
+    const parsed = new URL(value);
+    if (!(parsed.protocol === "https:" || parsed.protocol === "http:") || !parsed.hostname) return null;
+    return parsed.toString().replace(/\/$/, "");
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function getSupabasePublicConfig(): { url: string; anonKey: string } | null {
+  const url = getSupabaseProjectUrl();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  return url && anonKey ? { url, anonKey } : null;
 }
 
 export function isMidtransConfigured(): boolean {
@@ -20,31 +30,19 @@ export function isMidtransConfigured(): boolean {
 }
 
 export function createPublicSupabaseClient(): SupabaseClient | null {
-  if (!isSupabaseConfigured()) return null;
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
+  const config = getSupabasePublicConfig();
+  if (!config) return null;
+  return createClient(config.url, config.anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }
 
 export function createBrowserSupabaseClient(): SupabaseClient | null {
-  if (typeof window === "undefined" || !isSupabaseConfigured()) return null;
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-      },
-    }
-  );
+  if (typeof window === "undefined") return null;
+  const config = getSupabasePublicConfig();
+  if (!config) return null;
+  return createClient(config.url, config.anonKey, {
+    auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
+  });
 }
 

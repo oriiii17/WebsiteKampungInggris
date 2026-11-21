@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Heart, Loader2, RotateCcw, Volume2, X } from "lucide-react";
 import { GAME_TEMPLATES, type GameBlueprint, type GameBlueprintItem } from "@/lib/game-blueprint";
 import { evaluateBlueprintAnswer, initialGameProgress, submitBlueprintAnswer, type GameProgress } from "@/lib/game-engine";
 import TagInput from "@/components/ui/TagInput";
+import { markGuestGameCompleted } from "@/lib/guest-game-progress";
 
 function shuffled<T>(values: T[]): T[] { return [...values].sort(() => Math.random() - 0.5); }
 
-export default function BlueprintGameClient({ gameId, classId }: { gameId: string; classId?: string }) {
+export default function BlueprintGameClient({ gameId, classId, guestParticipantId }: { gameId: string; classId?: string; guestParticipantId?: string }) {
   const [game, setGame] = useState<GameBlueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,8 +23,23 @@ export default function BlueprintGameClient({ gameId, classId }: { gameId: strin
   const [sentenceWords, setSentenceWords] = useState<string[]>([]);
   const [wordGuess, setWordGuess] = useState<string[]>([]);
   const [bankIndex, setBankIndex] = useState(0);
+  const scoreSavedForGame = useRef<string | null>(null);
   const item = game?.items[itemIndex];
   const options = useMemo(() => item?.options ? game?.settings.randomizeOptions ? shuffled(item.options) : item.options : [], [game?.settings.randomizeOptions, item]);
+
+  useEffect(() => {
+    if (guestParticipantId && game && finished) markGuestGameCompleted(guestParticipantId, game.id);
+  }, [finished, game, guestParticipantId]);
+
+  useEffect(() => {
+    if (!finished || !game || !progress || scoreSavedForGame.current === game.id) return;
+    scoreSavedForGame.current = game.id;
+    void fetch("/api/game/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gameId: game.id, gameTitle: game.title, score: progress.score }),
+    }).catch(() => undefined);
+  }, [finished, game, progress]);
 
   useEffect(() => {
     const gamesUrl = classId ? `/api/games?purpose=independent&classId=${encodeURIComponent(classId)}` : "/api/games";
@@ -91,6 +107,7 @@ export default function BlueprintGameClient({ gameId, classId }: { gameId: strin
   }
   function startAgain() {
     if (!game) return;
+    scoreSavedForGame.current = null;
     setItemIndex(0); setProgress(initialGameProgress(game)); setAnswer(null); setOutcome(null); setFinished(false); setSentenceWords([]); setWordGuess([]); setBankIndex(0); setTimeLeft(game.settings.timeLimitSec || null);
   }
   function chooseOption(index: number) { setAnswer(index); }

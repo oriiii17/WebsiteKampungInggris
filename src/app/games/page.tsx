@@ -6,5 +6,7 @@ export const metadata: Metadata = { title: "Games Bahasa Inggris | Sapen English
 
 export default async function GamesPage() {
   const session = await getSessionWithGuestContext();
-  return <GameCatalogClient isGuest={session?.role === "guest" || session?.origin === "guest"} />;
+  const isGuest = session?.role === "guest" || session?.origin === "guest";
+  const isSessionParticipant = Boolean(session?.guestSessionId);
+  return <GameCatalogClient isGuest={isSessionParticipant} guestParticipantId={isGuest ? session?.guestRegistrationId : undefined} />;
 }

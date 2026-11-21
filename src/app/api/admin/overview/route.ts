@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
 import { getSystemDiagnostics, readLocalDb, resetLocalDbToSeed } from "@/lib/db";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
 
 export async function GET() {
   const session = await getServerSession();
@@ -9,19 +10,6 @@ export async function GET() {
 
   const db = await readLocalDb();
   const diagnostics = getSystemDiagnostics();
-
-  // Hitung pemain aktif hari ini & minggu ini
-  const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
-  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-  const activeTodaySet = new Set<string>();
-  const activeWeekSet = new Set<string>();
-
-  (db.loginLog || []).forEach((log) => {
-    if (log.loginAt.startsWith(todayStr)) activeTodaySet.add(log.wargaId);
-    if (new Date(log.loginAt) >= oneWeekAgo) activeWeekSet.add(log.wargaId);
-  });
 
   // Game paling sering dimainkan
   const gameCounts: Record<string, number> = {};
@@ -32,6 +20,31 @@ export async function GET() {
   const mostPlayedGame = Object.entries(gameCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "Belum ada";
 
   const wargaList = db.warga || [];
+  const now = new Date();
+  const weekStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
+  const supabase = await getSupabaseServerClient();
+  let rwLoginStats = { totalWarga: 0, wargaRw06: 0, wargaRw07: 0, wargaRw08: 0, activeThisWeek: 0 };
+  if (supabase) {
+    const base = supabase.from("rw_access_login_events").select("id", { count: "exact", head: true });
+    const [total, rw06, rw07, rw08, weekly] = await Promise.all([
+      base,
+      supabase.from("rw_access_login_events").select("id", { count: "exact", head: true }).eq("rw", "RW 06"),
+      supabase.from("rw_access_login_events").select("id", { count: "exact", head: true }).eq("rw", "RW 07"),
+      supabase.from("rw_access_login_events").select("id", { count: "exact", head: true }).eq("rw", "RW 08"),
+      supabase.from("rw_access_login_events").select("id", { count: "exact", head: true }).gte("occurred_at", weekStart.toISOString()),
+    ]);
+    rwLoginStats = { totalWarga: total.count || 0, wargaRw06: rw06.count || 0, wargaRw07: rw07.count || 0, wargaRw08: rw08.count || 0, activeThisWeek: weekly.count || 0 };
+  } else {
+    const loginEvents = (db.loginLog || []).filter((entry) => new Date(entry.loginAt).getTime() >= weekStart.getTime());
+    rwLoginStats = {
+      totalWarga: db.loginLog?.length || 0,
+      wargaRw06: (db.loginLog || []).filter((entry) => entry.rw === "RW 06").length,
+      wargaRw07: (db.loginLog || []).filter((entry) => entry.rw === "RW 07").length,
+      wargaRw08: (db.loginLog || []).filter((entry) => entry.rw === "RW 08").length,
+      activeThisWeek: loginEvents.length,
+    };
+  }
 
   return NextResponse.json({
     session,
@@ -45,12 +58,7 @@ export async function GET() {
         .reduce((sum, s) => sum + s.amountIdr, 0),
       totalQuizQuestions: db.quizzes.length,
       totalFlashcards: db.flashcards.length,
-      totalWarga: wargaList.length,
-      wargaRw06: wargaList.filter((w) => w.rw === "RW 06").length,
-      wargaRw07: wargaList.filter((w) => w.rw === "RW 07").length,
-      wargaRw08: wargaList.filter((w) => w.rw === "RW 08").length,
-      activeToday: activeTodaySet.size,
-      activeThisWeek: activeWeekSet.size,
+      ...rwLoginStats,
       mostPlayedGame,
       totalTestimoni: (db.testimoni || []).length,
       pendingTestimoni: (db.testimoni || []).filter((t) => !t.isApproved).length,
@@ -64,7 +72,6 @@ export async function GET() {
     matchingPairs: db.matchingPairs,
     wordChallenges: db.wordChallenges,
     warga: wargaList,
-    loginLog: (db.loginLog || []).slice(-50).reverse(),
     rwCodes: (db.rwCodes || []).map((c) => ({
       id: c.id,
       rw: c.rw,
