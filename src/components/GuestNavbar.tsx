@@ -37,7 +37,7 @@ export default function GuestNavbar({ guestClassHref, displayName = "Guest", isG
   const initial = (displayName.trim()[0] || "G").toUpperCase();
   const roleLabel = isGuest ? "Peserta sesi" : "Dalam sesi kelas";
   const classLink = <Link href={guestClassHref} aria-current={classActive ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.navLink} ${classActive ? styles.navLinkActive : ""}`}><BookOpen aria-hidden="true" className="mr-2 h-4 w-4" />Kelas</Link>;
-  const gamesLink = <Link href="/games" aria-current={gamesActive ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.navLink} ${gamesActive ? styles.navLinkActive : ""}`}><Gamepad2 aria-hidden="true" className="mr-2 h-4 w-4" />Games</Link>;
+  const gamesLink = <Link href="/games" aria-current={gamesActive ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.navLink} ${gamesActive ? styles.navLinkActive : ""}`}><Gamepad2 aria-hidden="true" className="mr-2 h-4 w-4" />Kuis</Link>;
 
   return <header className={`${styles.navbar} ${styles.navbarGuest}`}>
     <div className={styles.inner}>
@@ -58,7 +58,7 @@ export default function GuestNavbar({ guestClassHref, displayName = "Guest", isG
     {open && <div className={`${styles.mobileAccountPanel} flex-wrap`}><div className={styles.mobileIdentity}><span className={styles.avatar}>{initial}</span><span>{isGuest ? "Guest" : displayName} · {roleLabel}</span></div><div className={styles.mobileAccountLinks}><button type="button" disabled={loggingOut} onClick={() => void logoutGuest()} className={styles.mobileLogout}><LogOut aria-hidden="true" />{loggingOut ? "Keluar…" : "Logout"}</button></div>{logoutError && <p role="alert" className="basis-full text-xs font-semibold text-[#943520]">{logoutError}</p>}</div>}
     <nav className={styles.bottomNav} aria-label="Navigasi ruang Guest">
       <Link href={guestClassHref} aria-current={classActive ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${classActive ? styles.bottomLinkActive : ""}`}><BookOpen aria-hidden="true" />Kelas</Link>
-      <Link href="/games" aria-current={gamesActive ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${gamesActive ? styles.bottomLinkActive : ""}`}><Gamepad2 aria-hidden="true" />Games</Link>
+      <Link href="/games" aria-current={gamesActive ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${gamesActive ? styles.bottomLinkActive : ""}`}><Gamepad2 aria-hidden="true" />Kuis</Link>
     </nav>
   </header>;
 }

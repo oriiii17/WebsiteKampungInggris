@@ -86,7 +86,11 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       if (session.viewerType === "guest") {
         const response = await fetch("/api/auth/session?scope=guest", { method: "DELETE" });
         if (!response.ok) throw new Error("Sesi tamu belum berhasil dibersihkan. Coba tekan OK lagi.");
+      } else if (session.viewerType === "regular") {
+        const response = await fetch("/api/auth/session", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear_class_session" }) });
+        if (!response.ok) throw new Error("Konteks sesi belum berhasil dibersihkan. Coba tekan OK lagi.");
       }
+      window.dispatchEvent(new Event("sapen:guest-session-updated"));
       router.replace("/");
     } catch (reason) {
       setLeaveError(reason instanceof Error ? reason.message : "Belum dapat kembali ke beranda. Coba lagi.");
@@ -102,8 +106,11 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       if (session?.viewerType === "guest") {
         const response = await fetch("/api/auth/session?scope=guest", { method: "DELETE", cache: "no-store" });
         if (!response.ok) throw new Error("Sesi Guest belum berhasil dibersihkan. Coba lagi.");
-        window.dispatchEvent(new Event("sapen:guest-session-updated"));
+      } else if (session?.viewerType === "regular") {
+        const response = await fetch("/api/auth/session", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear_class_session" }) });
+        if (!response.ok) throw new Error("Konteks sesi belum berhasil dibersihkan. Coba lagi.");
       }
+      window.dispatchEvent(new Event("sapen:guest-session-updated"));
       router.replace("/");
     } catch (reason) {
       setLeaveError(reason instanceof Error ? reason.message : "Belum dapat kembali ke beranda. Coba lagi.");
@@ -146,7 +153,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
   const isPending = session?.registrationStatus === "pending";
   const isRejected = session?.registrationStatus === "rejected";
   const isFuture = Boolean(session?.startsAt && new Date(session.startsAt).getTime() > Date.now());
-  if (isPending) return <main className="grid min-h-[calc(100dvh-4rem)] place-items-center bg-[#f3e9d5] px-4 py-10 text-[#20251f]"><section className="w-full max-w-lg rounded-2xl border border-[#c9bda7] bg-[#fdf9f0] p-6 text-center shadow-[0_18px_48px_rgba(32,37,31,.09)] sm:p-9"><span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#e6eadf] text-[#244b3a]"><Loader2 className="h-7 w-7 animate-spin" aria-hidden="true" /></span><p className="mt-5 text-xs font-extrabold uppercase tracking-wide text-[#625f54]">Sesi {session.code}</p><h1 className="mt-2 font-display text-3xl font-bold leading-tight text-[#183b2d]">Menunggu persetujuan pengurus</h1><p className="mt-3 text-sm leading-6 text-[#3d4038]">Permintaanmu untuk bergabung ke {session.title} sudah diterima. Kelas dan Games akan terbuka setelah pengurus menyetujui aksesmu.</p>{notice && <p role="status" className="mt-4 rounded-lg bg-[#e6eadf] p-3 text-sm font-semibold text-[#183b2d]">{notice}</p>}{leaveError && <p role="alert" className="mt-4 rounded-lg bg-[#fff1eb] p-3 text-sm font-semibold text-[#8e321f]">{leaveError}</p>}<div className="mt-5 flex flex-wrap justify-center gap-2"><button type="button" onClick={() => void refresh()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#b8aa8e] px-4 text-sm font-bold text-[#244b3a] hover:bg-[#e6eadf]"><RefreshCw className="h-4 w-4" />Periksa status</button><button type="button" onClick={() => void returnToHome()} disabled={leavingSession} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d] disabled:opacity-60"><ArrowLeft className="h-4 w-4" />{leavingSession ? "Kembali…" : "Kembali ke Beranda"}</button></div></section></main>;
+  if (isPending) return <main className="grid min-h-[calc(100dvh-4rem)] place-items-center bg-[#f3e9d5] px-4 py-10 text-[#20251f]"><section className="w-full max-w-lg rounded-2xl border border-[#c9bda7] bg-[#fdf9f0] p-6 text-center shadow-[0_18px_48px_rgba(32,37,31,.09)] sm:p-9"><span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#e6eadf] text-[#244b3a]"><Loader2 className="h-7 w-7 animate-spin" aria-hidden="true" /></span><p className="mt-5 text-xs font-extrabold uppercase tracking-wide text-[#625f54]">Sesi {session.code}</p><h1 className="mt-2 font-display text-3xl font-bold leading-tight text-[#183b2d]">Menunggu persetujuan pengurus</h1><p className="mt-3 text-sm leading-6 text-[#3d4038]">Permintaanmu untuk bergabung ke {session.title} sudah diterima. Kelas dan Kuis akan terbuka setelah pengurus menyetujui aksesmu.</p>{notice && <p role="status" className="mt-4 rounded-lg bg-[#e6eadf] p-3 text-sm font-semibold text-[#183b2d]">{notice}</p>}{leaveError && <p role="alert" className="mt-4 rounded-lg bg-[#fff1eb] p-3 text-sm font-semibold text-[#8e321f]">{leaveError}</p>}<div className="mt-5 flex flex-wrap justify-center gap-2"><button type="button" onClick={() => void refresh()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#b8aa8e] px-4 text-sm font-bold text-[#244b3a] hover:bg-[#e6eadf]"><RefreshCw className="h-4 w-4" />Periksa status</button><button type="button" onClick={() => void returnToHome()} disabled={leavingSession} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d] disabled:opacity-60"><ArrowLeft className="h-4 w-4" />{leavingSession ? "Kembali…" : "Kembali ke Beranda"}</button></div></section></main>;
   return <main className="min-h-screen bg-[#f3e9d5] px-4 py-10 text-[#20251f] sm:px-8"><div className="mx-auto max-w-2xl">
     <button type="button" onClick={() => void returnToHome()} disabled={leavingSession} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] px-4 text-sm font-bold text-[#244b3a] hover:bg-[#e8eee5] disabled:opacity-60"><ArrowLeft className="h-4 w-4" />{leavingSession ? "Kembali…" : "Kembali ke Beranda"}</button>
     {leaveError && <p role="alert" className="mt-3 rounded-lg bg-[#fff1eb] p-3 text-sm font-semibold text-[#8e321f]">{leaveError}</p>}

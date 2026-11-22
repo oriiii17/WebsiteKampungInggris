@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Heart, Loader2, RotateCcw, Volume2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Heart, Loader2, RotateCcw, Trophy, Volume2, X } from "lucide-react";
 import { GAME_TEMPLATES, type GameBlueprint, type GameBlueprintItem } from "@/lib/game-blueprint";
 import { evaluateBlueprintAnswer, initialGameProgress, submitBlueprintAnswer, type GameProgress } from "@/lib/game-engine";
 import TagInput from "@/components/ui/TagInput";
@@ -10,7 +10,7 @@ import { markGuestGameCompleted } from "@/lib/guest-game-progress";
 
 function shuffled<T>(values: T[]): T[] { return [...values].sort(() => Math.random() - 0.5); }
 
-export default function BlueprintGameClient({ gameId, classId, guestParticipantId }: { gameId: string; classId?: string; guestParticipantId?: string }) {
+export default function BlueprintGameClient({ gameId, classId, guestParticipantId, saveHistory = false }: { gameId: string; classId?: string; guestParticipantId?: string; saveHistory?: boolean }) {
   const [game, setGame] = useState<GameBlueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -23,6 +23,8 @@ export default function BlueprintGameClient({ gameId, classId, guestParticipantI
   const [sentenceWords, setSentenceWords] = useState<string[]>([]);
   const [wordGuess, setWordGuess] = useState<string[]>([]);
   const [bankIndex, setBankIndex] = useState(0);
+  const [scoreSaveStatus, setScoreSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [scoreSaveAttempt, setScoreSaveAttempt] = useState(0);
   const scoreSavedForGame = useRef<string | null>(null);
   const item = game?.items[itemIndex];
   const options = useMemo(() => item?.options ? game?.settings.randomizeOptions ? shuffled(item.options) : item.options : [], [game?.settings.randomizeOptions, item]);
@@ -32,26 +34,31 @@ export default function BlueprintGameClient({ gameId, classId, guestParticipantI
   }, [finished, game, guestParticipantId]);
 
   useEffect(() => {
-    if (!finished || !game || !progress || scoreSavedForGame.current === game.id) return;
-    scoreSavedForGame.current = game.id;
+    if (!finished || !saveHistory || !game || !progress || scoreSavedForGame.current === `${game.id}:${scoreSaveAttempt}`) return;
+    scoreSavedForGame.current = `${game.id}:${scoreSaveAttempt}`;
+    setScoreSaveStatus("saving");
     void fetch("/api/game/score", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ gameId: game.id, gameTitle: game.title, score: progress.score }),
-    }).catch(() => undefined);
-  }, [finished, game, progress]);
+    }).then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Hasil kuis belum tersimpan.");
+      setScoreSaveStatus("saved");
+    }).catch(() => setScoreSaveStatus("error"));
+  }, [finished, game, progress, saveHistory, scoreSaveAttempt]);
 
   useEffect(() => {
     const gamesUrl = classId ? `/api/games?purpose=independent&classId=${encodeURIComponent(classId)}` : "/api/games";
     fetch(gamesUrl, { cache: "no-store" }).then(async (response) => {
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Game belum tersedia.");
+      if (!response.ok) throw new Error(data.error || "Kuis belum tersedia.");
       const selected = (data.games as GameBlueprint[]).find((candidate) => candidate.id === gameId);
-      if (!selected) throw new Error("Game tidak ditemukan atau belum diterbitkan.");
+      if (!selected) throw new Error("Kuis tidak ditemukan atau belum diterbitkan.");
       const ready = selected.settings.randomizeQuestions ? { ...selected, items: shuffled(selected.items) } : selected;
       setGame(ready); setProgress(initialGameProgress(ready));
       void fetch(`/api/games/${encodeURIComponent(ready.id)}/play`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(classId ? { classId } : {}) }).catch(() => undefined);
-    }).catch((reason) => setError(reason instanceof Error ? reason.message : "Game belum tersedia.")).finally(() => setLoading(false));
+    }).catch((reason) => setError(reason instanceof Error ? reason.message : "Kuis belum tersedia.")).finally(() => setLoading(false));
   }, [classId, gameId]);
 
   useEffect(() => {
@@ -108,12 +115,15 @@ export default function BlueprintGameClient({ gameId, classId, guestParticipantI
   function startAgain() {
     if (!game) return;
     scoreSavedForGame.current = null;
+    setScoreSaveStatus("idle"); setScoreSaveAttempt(0);
     setItemIndex(0); setProgress(initialGameProgress(game)); setAnswer(null); setOutcome(null); setFinished(false); setSentenceWords([]); setWordGuess([]); setBankIndex(0); setTimeLeft(game.settings.timeLimitSec || null);
   }
   function chooseOption(index: number) { setAnswer(index); }
 
-  if (loading) return <main className="grid min-h-screen place-items-center bg-[#f3e9d5] text-[#244b3a]"><p className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin" />Memuat game…</p></main>;
-  if (error || !game || !progress || !item) return <main className="grid min-h-screen place-items-center bg-[#f3e9d5] px-4 text-center"><div><h1 className="text-2xl font-bold text-[#183b2d]">Game belum bisa dibuka</h1><p role="alert" className="mt-2 text-sm text-[#625f54]">{error || "Silakan coba lagi."}</p><Link href="/games" className="mt-5 inline-flex min-h-11 items-center gap-2 font-bold text-[#244b3a] underline"><ArrowLeft className="h-4 w-4" />Kembali ke katalog</Link></div></main>;
+  if (loading) return <main className="grid min-h-screen place-items-center bg-[#f3e9d5] text-[#244b3a]"><p className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin" />memuat kuis…</p></main>;
+  if (error || !game || !progress || !item) return <main className="grid min-h-screen place-items-center bg-[#f3e9d5] px-4 text-center"><div><h1 className="text-2xl font-bold text-[#183b2d]">Kuis belum bisa dibuka</h1><p role="alert" className="mt-2 text-sm text-[#625f54]">{error || "Silakan coba lagi."}</p><Link href="/games" className="mt-5 inline-flex min-h-11 items-center gap-2 font-bold text-[#244b3a] underline"><ArrowLeft className="h-4 w-4" />Kembali ke katalog</Link></div></main>;
+
+  if (finished && outcome === null && saveHistory && scoreSaveStatus !== "idle") return <main className="grid min-h-dvh place-items-center bg-[#f3e9d5] px-4 py-10 text-[#20251f]"><section aria-live="polite" className="w-full max-w-lg rounded-2xl border border-[#c9bda7] bg-[#fdf9f0] p-6 text-center shadow-sm sm:p-8"><Trophy className="mx-auto h-10 w-10 text-[#ba472f]" /><h1 className="mt-4 font-display text-3xl font-bold text-[#183b2d]">Bagus, kamu sudah berlatih!</h1><p className="mt-2 text-sm text-[#4e4a40]">Skor {progress.score} · {game.title}</p><p role="status" className={`mt-4 text-sm font-semibold ${scoreSaveStatus === "error" ? "text-[#943520]" : "text-[#244b3a]"}`}>{scoreSaveStatus === "saving" ? "Menyimpan skor ke riwayat akun…" : scoreSaveStatus === "saved" ? "Skor tersimpan di Riwayat Kuis akun Anda." : "Skor belum tersimpan. Periksa koneksi lalu coba lagi."}</p>{scoreSaveStatus === "error" && <button type="button" onClick={() => setScoreSaveAttempt((attempt) => attempt + 1)} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-[#244b3a] px-5 text-sm font-bold text-white">Coba simpan lagi</button>}<Link href="/games" className="mx-auto mt-5 flex min-h-11 w-fit items-center gap-2 font-bold text-[#244b3a] underline"><ArrowLeft className="h-4 w-4" />Kembali ke Kuis</Link></section></main>;
 
   const templateTitle = GAME_TEMPLATES.find((entry) => entry.id === game.template)?.title;
   const practicedWords = (entry: GameBlueprintItem) => entry.vocabulary?.map((word) => word.term)
@@ -123,7 +133,7 @@ export default function BlueprintGameClient({ gameId, classId, guestParticipantI
     || entry.options?.map((option) => option.text)
     || [entry.prompt];
 
-  if (finished && outcome === null) return <main className="min-h-screen bg-[#f3e9d5] px-4 py-12 text-[#20251f] sm:px-8"><div className="mx-auto max-w-3xl"><Link href="/games" className="inline-flex min-h-10 items-center gap-2 text-sm font-bold text-[#244b3a] underline"><ArrowLeft className="h-4 w-4" />Kembali ke Games</Link><div className="mt-6 border-y border-[#d2c5ad] py-8"><h1 className="font-display text-4xl font-bold text-[#183b2d]">Bagus, kamu sudah berlatih!</h1><p className="mt-3 text-[#3d4038]">{game.title} · {progress.correct} dari {progress.answered} jawaban benar</p><div className="mt-5 flex flex-wrap gap-5 text-sm font-bold"><span>Skor {progress.score}</span><span>Streak terbaik {progress.bestStreak}</span><span>Sisa nyawa {progress.hearts}</span></div></div><section className="mt-8"><h2 className="text-xl font-bold text-[#183b2d]">Kata yang dilatih</h2><ul className="mt-3 divide-y divide-[#d2c5ad]">{game.items.map((entry, index) => <li key={entry.id} className="py-3"><p className="text-sm font-bold text-[#244b3a]">{index + 1}. {entry.prompt}</p><p className="mt-1 text-sm text-[#3d4038]">{practicedWords(entry).filter(Boolean).join(" · ")}</p></li>)}</ul></section><div className="mt-7 flex flex-wrap gap-3"><button type="button" onClick={startAgain} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#ba472f] px-5 text-sm font-bold text-white"><RotateCcw className="h-4 w-4" />Main lagi</button><Link href="/games" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#b8aa8e] px-5 text-sm font-bold text-[#244b3a]">Kembali ke menu</Link></div></div></main>;
+  if (finished && outcome === null) return <main className="min-h-screen bg-[#f3e9d5] px-4 py-12 text-[#20251f] sm:px-8"><div className="mx-auto max-w-3xl"><Link href="/games" className="inline-flex min-h-10 items-center gap-2 text-sm font-bold text-[#244b3a] underline"><ArrowLeft className="h-4 w-4" />Kembali ke Kuis</Link><div className="mt-6 border-y border-[#d2c5ad] py-8"><h1 className="font-display text-4xl font-bold text-[#183b2d]">Bagus, kamu sudah berlatih!</h1><p className="mt-3 text-[#3d4038]">{game.title} · {progress.correct} dari {progress.answered} jawaban benar</p><div className="mt-5 flex flex-wrap gap-5 text-sm font-bold"><span>Skor {progress.score}</span><span>Streak terbaik {progress.bestStreak}</span><span>Sisa nyawa {progress.hearts}</span></div></div><section className="mt-8"><h2 className="text-xl font-bold text-[#183b2d]">Kata yang dilatih</h2><ul className="mt-3 divide-y divide-[#d2c5ad]">{game.items.map((entry, index) => <li key={entry.id} className="py-3"><p className="text-sm font-bold text-[#244b3a]">{index + 1}. {entry.prompt}</p><p className="mt-1 text-sm text-[#3d4038]">{practicedWords(entry).filter(Boolean).join(" · ")}</p></li>)}</ul></section><div className="mt-7 flex flex-wrap gap-3"><button type="button" onClick={startAgain} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#ba472f] px-5 text-sm font-bold text-white"><RotateCcw className="h-4 w-4" />Main lagi</button><Link href="/games" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#b8aa8e] px-5 text-sm font-bold text-[#244b3a]">Kembali ke menu</Link></div></div></main>;
 
   return <main className="min-h-screen bg-[#f3e9d5] px-4 py-6 text-[#20251f] sm:px-8 sm:py-10"><div className="mx-auto max-w-4xl">
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d2c5ad] pb-4"><Link href="/games" className="inline-flex min-h-10 items-center gap-2 text-sm font-bold text-[#244b3a]"><ArrowLeft className="h-4 w-4" />Keluar</Link><div className="text-center"><h1 className="font-bold text-[#183b2d]">{game.title}</h1><p className="text-xs text-[#625f54]">{templateTitle} · {game.level}</p></div><div className="flex items-center gap-1" aria-label={`${progress.hearts} nyawa tersisa`}>{Array.from({ length: game.settings.hearts }, (_, index) => <Heart key={index} aria-hidden="true" className={`h-5 w-5 ${index < progress.hearts ? "fill-[#ba472f] text-[#ba472f]" : "text-[#b8aa8e]"}`} />)}</div></header>

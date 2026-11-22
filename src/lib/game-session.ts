@@ -11,7 +11,6 @@ export interface LiveQuestion {
   type: GameKind;
   prompt: string;
   context?: string;
-  mediaUrl?: string;
   timeLimitSec: number;
   points: "standard" | "double" | "none";
   choiceMode: "single" | "multiple";
@@ -107,7 +106,7 @@ function normLoose(s: string) { return norm(s).replace(/[\p{P}\p{S}]/gu,"").repl
 
 export function toLiveQuestions(game: GameRecord): LiveQuestion[] {
   return (game.questions || []).map((q: GameQuestion) => {
-    const base = { id: q.id, type: q.type, prompt: q.prompt, mediaUrl: (q as any).mediaUrl, timeLimitSec: q.timeLimitSec || 20, points: q.points || "standard", choiceMode: q.choiceMode || "single", explanation: q.explanation };
+    const base = { id: q.id, type: q.type, prompt: q.prompt, timeLimitSec: q.timeLimitSec || 20, points: q.points || "standard", choiceMode: q.choiceMode || "single", explanation: q.explanation };
     if (q.type === "kuis_live") return { ...base, options: q.options || [], correctIndexes: q.correctIndexes || [0] };
     if (q.type === "tebak_kata") return { ...base, answer: q.answer, acceptAlternatives: q.acceptAlternatives||[], hint: q.hint };
     if (q.type === "pasangkan_kata") return { ...base, pairs: q.pairs || [] };
@@ -206,7 +205,7 @@ export function sanitizeSessionForClient(session: LiveGameSession) {
   let clientQuestion: any = null;
   if (currentQ) {
     clientQuestion = {
-      id: currentQ.id, type: currentQ.type, question: currentQ.prompt, prompt: currentQ.prompt, context: currentQ.context, mediaUrl: currentQ.mediaUrl,
+      id: currentQ.id, type: currentQ.type, question: currentQ.prompt, prompt: currentQ.prompt, context: currentQ.context,
       options: currentQ.options || [], choiceMode: currentQ.choiceMode,
       hint: currentQ.hint, sentence: currentQ.sentence, pairs: currentQ.pairs, words: currentQ.words,
       timeLimitSec: currentQ.timeLimitSec, points: currentQ.points,

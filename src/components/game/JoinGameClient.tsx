@@ -187,7 +187,7 @@ export default function JoinGameClient({ defaultName = "", isGuest = false }: { 
           className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-muted hover:text-ink"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>{isGuest ? "Kembali ke beranda" : "Kembali ke Informasi Game"}</span>
+          <span>{isGuest ? "Kembali ke beranda" : "Kembali ke Informasi Kuis"}</span>
         </Link>
       </div>
     </div>

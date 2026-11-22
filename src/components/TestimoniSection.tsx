@@ -65,7 +65,7 @@ export default function TestimoniSection({
   return (
     <div className="space-y-8">
       {list.length === 0 ? (
-        <div className="border-y border-rule-strong bg-paper-light p-8 text-center sm:p-12">
+        <div className="home-empty-review border border-rule bg-paper-light p-8 text-center sm:p-12">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-leaf text-sunshine">
             <MessageSquarePlus className="h-6 w-6" />
           </div>
@@ -75,7 +75,7 @@ export default function TestimoniSection({
             <button
               type="button"
               onClick={() => setShowForm(!showForm)}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-earth px-5 py-2.5 text-xs sm:text-sm font-extrabold text-white shadow-sm transition hover:bg-earth-dark"
+              className="home-review-action mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-earth px-5 py-2.5 text-xs sm:text-sm font-extrabold text-white shadow-sm transition hover:bg-earth-dark"
             >
               <MessageSquarePlus className="h-4 w-4" /> Tulis Ulasan Pertama
             </button>
@@ -90,7 +90,7 @@ export default function TestimoniSection({
             {list.map((item) => (
               <article
                 key={item.id}
-                className="grid gap-5 border-b border-rule py-6 sm:grid-cols-[1fr_auto] sm:items-end sm:gap-10"
+                className="grid gap-5 border-b border-rule py-6 md:grid-cols-[1fr_auto] md:items-end md:gap-10"
               >
                 <div className="flex-shrink-0">
                   <div className="mb-3 flex items-center gap-1 text-earth">

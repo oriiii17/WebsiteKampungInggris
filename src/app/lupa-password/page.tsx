@@ -19,7 +19,7 @@ export default function LupaPasswordPage() {
     setMessage("");
     const supabase = createPublicSupabaseClient();
     if (!supabase) {
-      setError("Layanan reset password belum dikonfigurasi.");
+      setError("Layanan pengaturan ulang kata sandi belum dikonfigurasi.");
       return;
     }
     setLoading(true);
@@ -31,7 +31,7 @@ export default function LupaPasswordPage() {
         setError("Link reset belum dapat dikirim. Periksa email dan coba lagi.");
         return;
       }
-      setMessage("Jika email terdaftar, link untuk mengatur ulang password akan segera dikirim.");
+      setMessage("Jika email terdaftar, tautan untuk mengatur ulang kata sandi akan segera dikirim.");
     } catch {
       setError("Link reset belum dapat dikirim. Periksa koneksi lalu coba lagi.");
     } finally {
@@ -41,9 +41,9 @@ export default function LupaPasswordPage() {
 
   return (
     <AuthShell image="/images/community/belajar-taman.webp" imageAlt="Peserta belajar bersama di ruang terbuka" imageTitle="Kembali ke ruang belajar." imageDescription="Masukkan email akun Peserta Umum untuk menerima tautan pengaturan ulang kata sandi.">
-        <h1 className="workbook-auth-heading">Lupa Password?</h1>
+        <h1 className="workbook-auth-heading">Lupa kata sandi?</h1>
         <form onSubmit={sendResetLink} className="workbook-auth-card max-w-none space-y-4">
-          <p className="text-sm leading-6 text-body">Masukkan email Peserta Umum untuk menerima link reset password.</p>
+          <p className="text-sm leading-6 text-body">Masukkan email Peserta Umum untuk menerima tautan pengaturan ulang kata sandi.</p>
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
           {message && <p role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">{message}</p>}
           <label className="block text-xs font-bold text-body">Email<span className="relative mt-1.5 block"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"/><input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@email.com" className="min-h-12 w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none" /></span></label>

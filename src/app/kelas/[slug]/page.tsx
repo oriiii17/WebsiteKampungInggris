@@ -5,8 +5,7 @@ import { getClassByIdOrSlug, getModules, getUserEnrollments } from "@/lib/db";
 import ClassDetailClient from "./ClassDetailClient";
 import type { Metadata } from "next";
 import { canonicalUrl } from "@/lib/seo";
-import { readLocalDb } from "@/lib/db";
-import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { getApprovedActiveClassSession } from "@/lib/active-class-session";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -38,25 +37,10 @@ export default async function ClassDetailPage({
   }
   if (!classItem.isPublished && session?.role !== "pengurus" && session?.role !== "developer") notFound();
 
-  // Guest access is bound server-side to the class of the attended session.
+  const activeClassSession = await getApprovedActiveClassSession(session);
+  // Session access is bound server-side to the class of the active, approved session.
   if (session?.role === "guest") {
-    let allowed = false;
-    if (session.guestSessionId && session.guestRegistrationId) {
-      const supabase = await getSupabaseServerClient();
-      if (supabase) {
-        const { data } = await supabase.from("class_session_guests").select("session_id,status").eq("id", session.guestRegistrationId).maybeSingle();
-        if (data?.status === "approved" && data.session_id === session.guestSessionId) {
-          const { data: parent } = await supabase.from("class_sessions").select("class_id").eq("id", session.guestSessionId).maybeSingle();
-          allowed = parent?.class_id === classItem.id;
-        }
-      } else {
-        const db = await readLocalDb();
-        const guest = db.classSessionGuests?.find((entry) => entry.id === session.guestRegistrationId && entry.sessionId === session.guestSessionId && entry.status === "approved");
-        const parent = db.classSessions?.find((entry) => entry.id === session.guestSessionId);
-        allowed = Boolean(guest && parent?.classId === classItem.id);
-      }
-    }
-    if (!allowed) notFound();
+    if (activeClassSession?.classId !== classItem.id) notFound();
   }
 
   const includedModules = allModules.filter((m) => (classItem.moduleIds || []).includes(m.id));
@@ -67,13 +51,15 @@ export default async function ClassDetailPage({
     isEnrolled = true;
   } else if (session?.role === "guest") {
     isEnrolled = true;
+  } else if (activeClassSession?.classId === classItem.id) {
+    isEnrolled = true;
   } else if (session?.email) {
     const activeEnrs = await getUserEnrollments(session.email);
     isEnrolled = activeEnrs.some((e) => e.classId === classItem.id);
   }
 
   return (
-    <div className={`bg-[#FDFBF7] pt-8 pb-24 sm:pt-12 sm:pb-24 lg:py-14${session?.role === "guest" ? " lg:pb-14" : ""}`}>
+    <div className={`pt-8 pb-24 sm:pt-12 sm:pb-24 lg:py-14${session?.role === "guest" ? " lg:pb-14" : ""}`}>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <ClassDetailClient
           classItem={classItem}

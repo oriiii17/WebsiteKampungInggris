@@ -29,7 +29,12 @@ async function KelasIndexContent({
   const session = await getSessionWithGuestContext();
   if (session?.guestSessionId) redirect(await getGuestSessionDestination(session));
   const isWarga = session?.origin === "warga_kode";
-  const [classes, modules] = await Promise.all([getClasses(false), getModules(false)]);
+  const [classesUnsorted, modules] = await Promise.all([getClasses(false), getModules(false)]);
+  const classes = [...classesUnsorted].sort((a, b) => {
+    const createdA = Date.parse(a.createdAt || "");
+    const createdB = Date.parse(b.createdAt || "");
+    return (Number.isFinite(createdB) ? createdB : 0) - (Number.isFinite(createdA) ? createdA : 0);
+  });
   const moduleMap = new Map(modules.map((m) => [m.id, m]));
 
   return (
@@ -57,24 +62,22 @@ async function KelasIndexContent({
           <div className="grid gap-5">
             {classes.length > 0 ? classes.map((cls, index) => {
               const modCount = cls.modules?.filter((module) => module.status === "terbit").length || cls.moduleIds?.length || 0;
-              const gameCount = cls.gameTemplateIds?.length || 0;
               const associatedModules = cls.modules?.length
                 ? cls.modules.filter((module) => module.status === "terbit").length
                 : cls.moduleIds?.map((id) => moduleMap.get(id)).filter(Boolean).length || modCount;
-              const moduleLabel = `${associatedModules} modul`;
+              const moduleLabel = `${associatedModules} Modul`;
               return (
-                <article key={cls.id} className="grid min-w-0 gap-5 rounded-2xl border border-rule bg-white p-5 shadow-card sm:grid-cols-[minmax(0,1fr)_15rem] sm:gap-6 sm:p-6 lg:items-center">
+                <article key={cls.id} className="grid min-w-0 gap-5 rounded-2xl border border-rule bg-white p-5 shadow-card md:grid-cols-[minmax(0,1fr)_15rem] md:gap-6 md:p-6 lg:items-center">
                   <div className="min-w-0">
                     <p className="mb-2 text-xs font-bold text-earth">LEMBAR {String(index + 1).padStart(2, "0")}</p>
                     <h2 className="break-words text-2xl leading-tight sm:text-3xl">{cls.title}</h2>
                     {cls.subtitle && <p className="mt-1 break-words text-sm font-bold text-leaf">{cls.subtitle}</p>}
                     <p className="mt-3 max-w-2xl break-words text-sm leading-6 text-body">{cls.description}</p>
                   </div>
-                  <div className="flex min-w-0 flex-col items-stretch gap-4 border-t border-rule pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+                  <div className="flex min-w-0 flex-col items-stretch gap-4 border-t border-rule pt-4 md:border-l md:border-t-0 md:pl-5 md:pt-0">
                     <div className="grid gap-2 text-sm text-body">
-                      <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-leaf" />Akses selamanya</span>
                       <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 shrink-0 text-leaf" />{moduleLabel}</span>
-                      <span className="flex items-center gap-2"><Gamepad2 className="h-4 w-4 shrink-0 text-earth" />{gameCount > 0 ? `${gameCount} sesi` : "Game kelas"}</span>
+                      <span className="flex items-center gap-2"><Gamepad2 className="h-4 w-4 shrink-0 text-earth" />Latihan Mandiri</span>
                     </div>
                     <div className="grid gap-3 border-t border-rule pt-4">
                       {!isWarga && <div><span className="block text-xs font-semibold text-muted">Investasi belajar</span><strong className="font-display text-2xl">{formatIDR(cls.priceIdr)}</strong></div>}
@@ -98,7 +101,7 @@ async function KelasIndexContent({
           {!isWarga && <aside className="h-fit rounded-2xl border border-rule bg-white p-6 shadow-card">
             <h2 className="text-xl">Sebelum memilih</h2>
             <p className="mt-3 text-sm leading-6 text-body">Pilih kelas satuan sesuai tujuan belajarmu. Tambahkan satu atau beberapa kelas ke keranjang, lalu daftar sekaligus.</p>
-            <div className="mt-6 border-t border-rule pt-4 text-xs leading-5 text-muted"><Clock className="mb-2 h-4 w-4 text-earth" />Akses kelas berlaku selamanya, kecuali akun peserta dihapus.</div>
+            <div className="mt-6 border-t border-rule pt-4 text-xs leading-5 text-muted"><Clock className="mb-2 h-4 w-4 text-earth" />Akses kelas berlaku selamanya</div>
           </aside>}
         </div>
       </section>

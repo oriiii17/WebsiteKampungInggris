@@ -20,8 +20,7 @@ export interface GameBlueprintItem {
   id: string;
   prompt: string;
   explanation?: string;
-  mediaUrl?: string;
-  options?: { id: string; text: string; image?: string }[];
+  options?: { id: string; text: string }[];
   correctIndex?: number;
   audioText?: string;
   answer?: string;
@@ -40,7 +39,6 @@ export interface GameBlueprint {
   level: GameLevel;
   topic: string;
   language: "id" | "en" | "id-en";
-  coverImage?: string;
   status: GameBlueprintStatus;
   destination?: GameBlueprintDestination;
   plays?: number;
@@ -80,10 +78,9 @@ export function normalizeGameBlueprint(value: unknown): GameBlueprint {
       prompt: String(item.prompt || ""),
     };
     if (item.explanation !== undefined) normalized.explanation = String(item.explanation || "");
-    if (item.mediaUrl !== undefined) normalized.mediaUrl = String(item.mediaUrl || "");
     if (item.answer !== undefined) normalized.answer = String(item.answer || "");
     if (template === "multiple-choice-quiz" || template === "listen-and-choose") {
-      normalized.options = Array.isArray(item.options) ? item.options : [];
+      normalized.options = Array.isArray(item.options) ? item.options.map((option: any, index: number) => ({ id: String(option?.id || `option-${index + 1}`), text: String(option?.text || "") })) : [];
       if (item.correctIndex !== undefined) normalized.correctIndex = item.correctIndex;
       if (template === "listen-and-choose" || item.audioText !== undefined) normalized.audioText = String(item.audioText || "");
     } else if (template === "drag-and-sort") {
@@ -105,7 +102,8 @@ export function normalizeGameBlueprint(value: unknown): GameBlueprint {
   const destination = ["public", "session", "independent"].includes(String(game.destination))
     ? game.destination as GameBlueprintDestination
     : status === "session" ? "session" : status === "independent" ? "independent" : "public";
-  return { ...game, status, destination, items } as GameBlueprint;
+  const gameWithoutCover = Object.fromEntries(Object.entries(game).filter(([key]) => key !== "coverImage"));
+  return { ...gameWithoutCover, status, destination, items } as GameBlueprint;
 }
 
 const validator = new Ajv({ allErrors: true, jsonPointers: true }).compile(schema);

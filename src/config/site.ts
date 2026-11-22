@@ -34,7 +34,7 @@ export const SITE_CONFIG = {
   navLinks: [
     { href: "/", label: "Beranda" },
     { href: "/materi", label: "Materi" },
-    { href: "/game", label: "Game" },
+    { href: "/game", label: "Kuis" },
     { href: "/paket", label: "Paket" },
     { href: "/#tentang", label: "Tentang" },
     { href: "/#faq", label: "FAQ" },

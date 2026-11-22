@@ -3,12 +3,14 @@ import type { SessionPayload } from "@/lib/types";
 import { readLocalDb } from "@/lib/db";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { getApprovedActiveClassSession } from "@/lib/active-class-session";
 
 export type GuestApprovalStatus = "pending" | "approved" | "rejected";
 
 /** Fail closed: a Guest gets the public shell only after an explicit approval. */
 export async function getGuestApprovalStatus(session: SessionPayload): Promise<GuestApprovalStatus> {
-  if (!session.guestSessionId || !session.guestRegistrationId) return "pending";
+  if (!session.guestSessionId) return "pending";
+  if (!session.guestRegistrationId) return await getApprovedActiveClassSession(session) ? "approved" : "pending";
 
   try {
     const supabase = await getSupabaseServerClient();

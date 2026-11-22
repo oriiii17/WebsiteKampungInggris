@@ -19,6 +19,8 @@ import { WargaRecord } from "@/lib/types";
 import { useAppDialog } from "@/components/AppDialogProvider";
 import SixBoxCodeInput, { toCodeString } from "@/components/SixBoxCodeInput";
 import ReportDownloadDialog from "@/components/admin/ReportDownloadDialog";
+import ResponsiveTable from "@/components/admin/ResponsiveTable";
+import { AdminSectionHeader, AdminToolbar } from "@/components/admin/AdminSectionHeader";
 
 interface RwCodeItem {
   id: string;
@@ -93,8 +95,8 @@ export default function AdminWargaManager({
       const result = await response.json().catch(() => ({}));
       if (!active) return;
       if (response.ok && typeof result.prefix === "string") setCodePrefix(result.prefix);
-      else notify(result.error || "Awalan kode warga belum dapat dimuat.");
-    }).catch(() => { if (active) notify("Awalan kode warga belum dapat dimuat."); });
+      else notify(result.error || "Awalan kode akses belum dapat dimuat.");
+    }).catch(() => { if (active) notify("Awalan kode akses belum dapat dimuat."); });
     return () => { active = false; };
   }, [notify]);
 
@@ -107,7 +109,7 @@ export default function AdminWargaManager({
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Awalan belum dapat disimpan.");
       setCodePrefix(result.prefix);
-      notify(`Awalan kode warga diperbarui menjadi ${result.prefix}.`);
+      notify(`Awalan kode akses diperbarui menjadi ${result.prefix}.`);
     } catch (error) { notify(error instanceof Error ? error.message : "Awalan belum dapat disimpan."); }
     finally { setSavingPrefix(false); }
   }
@@ -167,7 +169,7 @@ export default function AdminWargaManager({
   }
 
   async function handleResetStats(w: WargaRecord) {
-    if (!(await dialog.confirm(`Reset skor dan riwayat game untuk "${w.namaPanggilan}"?`, "Reset riwayat game?"))) return;
+    if (!(await dialog.confirm(`Reset skor dan riwayat kuis untuk "${w.namaPanggilan}"?`, "Reset Riwayat kuis?"))) return;
     const res = await fetch("/api/admin/warga", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -238,7 +240,7 @@ export default function AdminWargaManager({
   }
 
   async function handleDeleteRwCode(code: RwCodeItem) {
-    if (!(await dialog.confirm(`Hapus kode ${code.codeDisplay} untuk ${code.rw}? Warga tidak dapat menggunakannya lagi.`, "Hapus kode RW?"))) return;
+    if (!(await dialog.confirm(`Hapus kode ${code.codeDisplay} untuk ${code.rw}? Warga tidak dapat menggunakannya lagi.`, "Hapus kode akses?"))) return;
     try {
       const res = await fetch(`/api/admin/rw-codes?id=${encodeURIComponent(code.id)}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
@@ -254,15 +256,15 @@ export default function AdminWargaManager({
     <div className="space-y-8 mt-6">
       {/* Stats Row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Total Warga" value={stats.totalWarga || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Total login kode RW" />
-        <StatCard label="Warga RW 06" value={stats.wargaRw06 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Login kode RW 06" />
-        <StatCard label="Warga RW 07" value={stats.wargaRw07 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Login kode RW 07" />
-        <StatCard label="Warga RW 08" value={stats.wargaRw08 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Login kode RW 08" />
+        <StatCard label="Total Warga" value={stats.totalWarga || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Total login kode akses" />
+        <StatCard label="Warga RW 06" value={stats.wargaRw06 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Login kode akses 06" />
+        <StatCard label="Warga RW 07" value={stats.wargaRw07 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Login kode akses 07" />
+        <StatCard label="Warga RW 08" value={stats.wargaRw08 || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Login kode akses 08" />
         <StatCard label="Aktif Minggu Ini" value={stats.activeThisWeek || 0} icon={Users} iconColor="text-[#14532D]" subLabel="Sejak Senin pekan ini" />
-        <StatCard label="Game Terpopuler" value={stats.mostPlayedGame || "Belum ada"} icon={ShieldAlert} iconColor="text-gray-400" subLabel="Paling sering dimainkan" isText />
+        <StatCard label="Kuis Terpopuler" value={stats.mostPlayedGame || "Belum ada"} icon={ShieldAlert} iconColor="text-gray-400" subLabel="Paling sering dimainkan" isText />
       </div>
 
-      {/* Kelola Kode RW */}
+      {/* Kelola Kode Akses */}
       <section className="rounded-xl border border-[#d8d0c2] bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div><h3 className="text-lg font-extrabold text-[#183b2d]">Awalan Kode Verifikasi Warga</h3><p className="mt-1 max-w-2xl text-sm leading-6 text-[#625f54]">Awalan ini dipakai saat warga meminta kode akses baru. Mengubahnya tidak mencabut kode lama yang sudah diterbitkan.</p></div>
@@ -313,23 +315,44 @@ export default function AdminWargaManager({
 
       {/* Daftar Warga */}
       <section className="rounded-xl border border-[#E5E7EB] bg-white p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-          <div>
-            <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><Users className="h-5 w-5 text-[#14532D]" /> Daftar Warga Terdaftar ({filteredWarga.length})</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Kelola nama panggilan warga, reset skor, atau blokir akun yang melanggar aturan.</p>
-          </div>
-          <button type="button" onClick={() => setShowReport(true)} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#F59E0B] px-4 py-2.5 text-xs font-extrabold text-gray-950 transition hover:bg-[#D97706] shrink-0"><Download className="h-4 w-4" /> Download</button>
-        </div>
+        <AdminSectionHeader
+          title={<h3 className="flex items-center gap-2 text-lg font-extrabold text-gray-900"><Users className="h-5 w-5 text-[#14532D]" /> Daftar Warga Terdaftar ({filteredWarga.length})</h3>}
+          description="Kelola nama panggilan warga, reset skor, atau blokir akun yang melanggar aturan."
+          actions={<button type="button" onClick={() => setShowReport(true)} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#F59E0B] px-4 py-2.5 text-xs font-extrabold text-gray-950 transition hover:bg-[#D97706] sm:w-auto"><Download className="h-4 w-4" /> Download</button>}
+          className="mb-5"
+        />
 
-        <div className="flex flex-wrap items-center gap-3 mb-5">
-          <div className="relative flex-1 min-w-[200px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Cari nama panggilan..." className="w-full rounded-lg border border-[#E5E7EB] py-2 pl-9 pr-3 text-xs focus:border-[#14532D] focus:outline-none" /></div>
-          <select value={filterRw} onChange={(e) => { setFilterRw(e.target.value); setPage(1); }} className="rounded-lg border border-[#E5E7EB] px-3 py-2 text-xs font-semibold bg-white"><option value="ALL">Semua RW</option><option value="RW 06">RW 06</option><option value="RW 07">RW 07</option><option value="RW 08">RW 08</option></select>
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="rounded-lg border border-[#E5E7EB] px-3 py-2 text-xs font-semibold bg-white"><option value="newest">Terbaru Terdaftar</option><option value="name">Nama Panggilan</option><option value="score">Skor Tertinggi</option><option value="games">Paling Banyak Main</option></select>
-        </div>
+        <AdminToolbar className="mb-5 sm:justify-start">
+          <div className="relative col-span-2 min-w-0 sm:col-span-1 sm:min-w-[220px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Cari nama panggilan..." className="min-h-11 w-full rounded-lg border border-[#E5E7EB] py-2 pl-9 pr-3 text-xs focus:border-[#14532D] focus:outline-none" /></div>
+          <select aria-label="Filter berdasarkan RW" value={filterRw} onChange={(e) => { setFilterRw(e.target.value); setPage(1); }} className="min-h-11 w-full min-w-0 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs font-semibold"><option value="ALL">Semua RW</option><option value="RW 06">RW 06</option><option value="RW 07">RW 07</option><option value="RW 08">RW 08</option></select>
+          <select aria-label="Urutkan warga" value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="min-h-11 w-full min-w-0 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs font-semibold"><option value="newest">Terbaru Terdaftar</option><option value="name">Nama Panggilan</option><option value="score">Skor Tertinggi</option><option value="games">Paling Banyak Main</option></select>
+        </AdminToolbar>
 
-        <div className="overflow-x-auto rounded-lg border border-[#E5E7EB]">
-          <table className="w-full text-left text-xs text-gray-700"><thead className="border-b border-[#E5E7EB] bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-3">Nama Panggilan</th><th className="px-4 py-3">Wilayah</th><th className="px-4 py-3">Tgl Daftar</th><th className="px-4 py-3">Login Terakhir</th><th className="px-4 py-3 text-center">Game Dimainkan</th><th className="px-4 py-3 text-center">Skor Tertinggi</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Aksi</th></tr></thead><tbody className="divide-y divide-[#E5E7EB]">{paginatedWarga.length === 0 ? (<tr><td colSpan={8} className="py-8 text-center text-xs text-gray-400">Tidak ada warga yang sesuai dengan kriteria pencarian.</td></tr>) : (paginatedWarga.map((w) => (<tr key={w.id} className="hover:bg-gray-50/70 transition"><td className="px-4 py-3 font-extrabold text-gray-900">{w.namaPanggilan}</td><td className="px-4 py-3"><span className="rounded bg-green-50 px-2 py-0.5 text-[11px] font-bold text-[#14532D] border border-green-200">{w.rw}</span></td><td className="px-4 py-3 text-gray-500 text-[11px]">{new Date(w.createdAt).toLocaleDateString("id-ID")}</td><td className="px-4 py-3 text-gray-500 text-[11px]">{new Date(w.lastLoginAt).toLocaleDateString("id-ID")}</td><td className="px-4 py-3 text-center font-bold text-gray-700">{w.totalGamesPlayed || 0}</td><td className="px-4 py-3 text-center font-bold text-[#F59E0B]">{w.highScore || 0}</td><td className="px-4 py-3">{w.isBlocked ? (<span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">Diblokir</span>) : (<span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Aktif</span>)}</td><td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-1"><button type="button" onClick={() => { setEditingWarga(w); setEditedName(w.namaPanggilan); }} title="Ubah Nama Panggilan" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900"><Edit2 className="h-3.5 w-3.5" /></button><button type="button" onClick={() => handleResetStats(w)} title="Reset Skor" className="rounded p-1.5 text-amber-600 hover:bg-amber-50"><RotateCcw className="h-3.5 w-3.5" /></button><button type="button" onClick={() => handleToggleBlock(w)} title={w.isBlocked ? "Buka Blokir" : "Blokir Akun"} className={`rounded p-1.5 ${w.isBlocked ? "text-emerald-600 hover:bg-emerald-50" : "text-red-500 hover:bg-red-50"}`}><Ban className="h-3.5 w-3.5" /></button><button type="button" onClick={() => handleDelete(w)} title="Hapus Akun" className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div></td></tr>)))}</tbody></table>
-        </div>
+        <ResponsiveTable
+          rows={paginatedWarga}
+          getRowKey={(w) => w.id}
+          ariaLabel="Daftar warga terdaftar"
+          emptyMessage="Tidak ada warga yang sesuai dengan kriteria pencarian."
+          tableMinWidthClassName="min-w-[900px]"
+          tableClassName="text-xs text-gray-700"
+          columns={[
+            { id: "name", label: "Nama Panggilan", cellClassName: "font-extrabold text-gray-900", render: (w) => w.namaPanggilan },
+            { id: "area", label: "Wilayah", render: (w) => <span className="inline-flex rounded border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-bold text-[#14532D]">{w.rw}</span> },
+            { id: "created", label: "Tgl Daftar", cellClassName: "text-[11px] text-gray-500", render: (w) => new Date(w.createdAt).toLocaleDateString("id-ID") },
+            { id: "last-login", label: "Login Terakhir", cellClassName: "text-[11px] text-gray-500", render: (w) => new Date(w.lastLoginAt).toLocaleDateString("id-ID") },
+            { id: "games", label: "Kuis Dimainkan", cellClassName: "text-center font-bold text-gray-700", headerClassName: "text-center", render: (w) => w.totalGamesPlayed || 0 },
+            { id: "score", label: "Skor Tertinggi", cellClassName: "text-center font-bold text-[#F59E0B]", headerClassName: "text-center", render: (w) => w.highScore || 0 },
+            { id: "status", label: "Status", render: (w) => w.isBlocked ? <span className="inline-flex rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">Diblokir</span> : <span className="inline-flex rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Aktif</span> },
+            { id: "actions", label: "Aksi", action: true, cellClassName: "text-right", headerClassName: "text-right", render: (w) => (
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                <button type="button" onClick={() => { setEditingWarga(w); setEditedName(w.namaPanggilan); }} title={`Ubah nama ${w.namaPanggilan}`} aria-label={`Ubah nama ${w.namaPanggilan}`} className="grid min-h-11 min-w-11 place-items-center rounded-lg text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"><Edit2 className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => handleResetStats(w)} title={`Reset skor ${w.namaPanggilan}`} aria-label={`Reset skor ${w.namaPanggilan}`} className="grid min-h-11 min-w-11 place-items-center rounded-lg text-amber-700 transition hover:bg-amber-50"><RotateCcw className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => handleToggleBlock(w)} title={w.isBlocked ? "Buka blokir akun" : "Blokir akun"} aria-label={`${w.isBlocked ? "Buka blokir" : "Blokir akun"} ${w.namaPanggilan}`} className={`grid min-h-11 min-w-11 place-items-center rounded-lg transition ${w.isBlocked ? "text-emerald-700 hover:bg-emerald-50" : "text-red-700 hover:bg-red-50"}`}><Ban className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => handleDelete(w)} title={`Hapus akun ${w.namaPanggilan}`} aria-label={`Hapus akun ${w.namaPanggilan}`} className="grid min-h-11 min-w-11 place-items-center rounded-lg bg-[#fff2ec] text-[#a23b27] transition hover:bg-[#f9e1d8]"><Trash2 className="h-3.5 w-3.5" /></button>
+              </div>
+            ) },
+          ]}
+        />
 
         {totalPages > 1 && (<div className="mt-4 flex items-center justify-between text-xs text-gray-500"><span>Halaman {page} dari {totalPages}</span><div className="flex gap-1"><button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded border border-[#E5E7EB] px-3 py-1 font-bold disabled:opacity-40">Sebelumnya</button><button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="rounded border border-[#E5E7EB] px-3 py-1 font-bold disabled:opacity-40">Berikutnya</button></div></div>)}
       </section>

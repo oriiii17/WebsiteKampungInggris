@@ -21,12 +21,12 @@ async function validateIndependentGameIds(ids: unknown): Promise<string[]> {
   if (supabase) {
     const { data: published, error: validateError } = await supabase.from("game_blueprints").select("id,status,destination").in("id", gameIds);
     if (validateError) throw new Error("Game terbit belum dapat diverifikasi.");
-    const validIds = new Set((published || []).filter((game) => game.status === "independent" && (!game.destination || game.destination === "independent")).map((game) => game.id));
+    const validIds = new Set((published || []).filter((game) => ["published", "independent"].includes(game.status) && game.destination === "independent").map((game) => game.id));
     if (validIds.size !== gameIds.length) throw new Error("Pilih hanya game terbit dengan kategori Latihan Mandiri.");
     return gameIds;
   }
   const db = await readLocalDb();
-  const validIds = new Set((db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => game.status === "independent" && game.destination === "independent").map((game) => game.id));
+  const validIds = new Set((db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => ["published", "independent"].includes(game.status) && game.destination === "independent").map((game) => game.id));
   if (gameIds.some((id) => !validIds.has(id))) throw new Error("Pilih hanya game terbit dengan kategori Latihan Mandiri.");
   return gameIds;
 }
@@ -34,11 +34,31 @@ async function validateIndependentGameIds(ids: unknown): Promise<string[]> {
 async function saveInstalledGames(classId: string, ids: string[]) {
   const supabase = await getSupabaseServerClient();
   if (!supabase) return;
-  const { error: deleteError } = await supabase.from("class_games").delete().eq("class_id", classId);
-  if (deleteError) throw new Error(`Relasi game kelas gagal diperbarui (${deleteError.code}).`);
-  if (ids.length) {
-    const { error } = await supabase.from("class_games").insert(ids.map((game_id) => ({ class_id: classId, game_id })));
-    if (error) throw new Error(`Game kelas gagal disimpan (${error.code}).`);
+  const desiredIds = [...new Set(ids)];
+  const { data: currentRows, error: readError } = await supabase.from("class_games").select("game_id").eq("class_id", classId);
+  if (readError) throw new Error(`Relasi latihan kelas belum dapat dibaca (${readError.code}).`);
+  const currentIds = new Set((currentRows || []).map((row) => String(row.game_id)));
+  const additions = desiredIds.filter((gameId) => !currentIds.has(gameId));
+  const removals = [...currentIds].filter((gameId) => !desiredIds.includes(gameId));
+
+  // Add before removing so a failed write cannot silently clear existing class practice links.
+  if (additions.length) {
+    const { error } = await supabase.from("class_games").upsert(
+      additions.map((game_id) => ({ class_id: classId, game_id })),
+      { onConflict: "class_id,game_id", ignoreDuplicates: true },
+    );
+    if (error) throw new Error(`Latihan kelas gagal disimpan (${error.code}).`);
+  }
+  if (removals.length) {
+    const { error } = await supabase.from("class_games").delete().eq("class_id", classId).in("game_id", removals);
+    if (error) throw new Error(`Latihan kelas gagal diperbarui (${error.code}).`);
+  }
+
+  const { data: savedRows, error: verifyError } = await supabase.from("class_games").select("game_id").eq("class_id", classId);
+  if (verifyError) throw new Error(`Perubahan latihan kelas belum dapat diverifikasi (${verifyError.code}).`);
+  const savedIds = new Set((savedRows || []).map((row) => String(row.game_id)));
+  if (savedIds.size !== desiredIds.length || desiredIds.some((gameId) => !savedIds.has(gameId))) {
+    throw new Error("Pilihan latihan kelas belum tersimpan seluruhnya. Silakan simpan kelas sekali lagi.");
   }
 }
 

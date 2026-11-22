@@ -12,7 +12,6 @@
     "level": { "enum": ["A1", "A2", "B1", "B2"] },
     "topic": { "type": "string", "minLength": 1, "maxLength": 80 },
     "language": { "enum": ["id", "en", "id-en"] },
-    "coverImage": { "type": "string", "maxLength": 2048 },
     "status": { "enum": ["draft", "published", "session", "independent"] },
     "destination": { "enum": ["public", "session", "independent"] },
     "plays": { "type": "integer", "minimum": 0 },
@@ -47,7 +46,7 @@
     "optionItem": {
       "type": "object", "additionalProperties": false,
       "required": ["id", "text"],
-      "properties": { "id": { "type": "string", "minLength": 1 }, "text": { "type": "string", "minLength": 1, "maxLength": 200 }, "image": { "type": "string", "maxLength": 2048 } }
+      "properties": { "id": { "type": "string", "minLength": 1 }, "text": { "type": "string", "minLength": 1, "maxLength": 200 } }
     },
     "item": {
       "type": "object", "additionalProperties": false,
@@ -56,7 +55,6 @@
         "id": { "type": "string", "minLength": 1, "maxLength": 100 },
         "prompt": { "type": "string", "minLength": 1, "maxLength": 500 },
         "explanation": { "type": "string", "maxLength": 1000 },
-        "mediaUrl": { "type": "string", "maxLength": 2048 },
     "options": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/definitions/optionItem" } },
         "correctIndex": { "type": "integer", "minimum": 0, "maximum": 5 },
         "audioText": { "type": "string", "maxLength": 500 },

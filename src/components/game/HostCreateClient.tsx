@@ -28,7 +28,7 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
       setGames(list);
       if (list.length) setSelected(`${list[0].source}:${list[0].id}`);
       else setSelected("");
-    } catch (error) { setError(error instanceof Error ? error.message : "Gagal memuat daftar game."); }
+    } catch (error) { setError(error instanceof Error ? error.message : "Gagal memuat daftar kuis."); }
     setLoadingGames(false);
   }
   useEffect(() => { loadGames(); }, []);
@@ -49,7 +49,7 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
-        <Link href="/admin?tab=game-builder" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4" /><span>Kembali ke Kelola Game</span></Link>
+        <Link href="/admin?tab=game-builder" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4" /><span>Kembali ke Kelola Kuis</span></Link>
         <span className="text-xs font-bold text-[#14532D] bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">Mode Host & Layar Proyektor</span>
       </div>
 
@@ -58,7 +58,7 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#14532D] text-white"><Presentation className="h-6 w-6" /></div>
           <div>
             <h1 className="text-2xl font-bold text-[#111827]">Buka Sesi Live Baru</h1>
-            <p className="text-xs sm:text-sm text-[#6B7280] mt-1 leading-relaxed">Pilih game buatan admin (Kelola Game). Sistem akan membuat PIN 6 digit unik untuk peserta.</p>
+            <p className="text-xs sm:text-sm text-[#6B7280] mt-1 leading-relaxed">Pilih kuis buatan admin (Kelola Kuis). Sistem akan membuat PIN 6 digit unik untuk peserta.</p>
           </div>
           <button type="button" onClick={loadGames} className="ml-auto text-xs font-bold text-[#14532D] inline-flex items-center gap-1"><RefreshCw className="h-3.5 w-3.5"/>Muat</button>
         </div>
@@ -66,12 +66,12 @@ export default function HostCreateClient({ sessionUser }: { sessionUser: Session
         {error && <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-800 font-medium">{error}</div>}
 
         {loadingGames ? (
-          <div className="py-8 text-sm text-gray-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/>Memuat game...</div>
+          <div className="py-8 text-sm text-gray-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/>memuat kuis...</div>
         ) : games.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-600">Belum ada game. Buat dulu di <strong>Admin &gt; Kelola Game</strong>.</div>
+          <div className="rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-600">Belum ada kuis. Buat dulu di <strong>Admin &gt; Kelola Kuis</strong>.</div>
         ) : (
           <div className="space-y-3 mb-8">
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">Pilih Game</label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">Pilih Kuis</label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {games.map((g) => {
                 const isSelected = selected === `${g.source}:${g.id}`;

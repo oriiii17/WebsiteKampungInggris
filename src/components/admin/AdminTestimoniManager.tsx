@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { TestimoniRecord } from "@/lib/types";
 import { useAppDialog } from "@/components/AppDialogProvider";
+import ResponsiveTable from "@/components/admin/ResponsiveTable";
+import { AdminSectionHeader } from "@/components/admin/AdminSectionHeader";
 
 interface AdminTestimoniManagerProps {
   testimoni: TestimoniRecord[];
@@ -81,25 +83,12 @@ export default function AdminTestimoniManager({
 
   return (
     <div className="mt-6 space-y-4 bg-[#FDFBF7] p-1 text-[#1A2E1A]">
-      <div className="flex flex-col gap-3 border-b border-[#E5E7EB] pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-2xl space-y-1">
-          <h3 className="flex items-center gap-2 text-lg font-extrabold text-[#1A2E1A]">
-            <MessageSquare className="h-5 w-5 text-[#14532D]" />
-            Kelola Testimoni & Cerita Warga
-          </h3>
-          <p className="text-xs text-[#1A2E1A]/70">
-            Tinjau ulasan warga, setujui untuk ditayangkan di beranda, atau tambahkan ulasan manual. Total: {testimoni.length}.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md border border-[#14532D] bg-[#14532D] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#0F3F22]"
-        >
-          <Plus className="h-4 w-4" />
-          Tambah Ulasan Warga
-        </button>
-      </div>
+      <AdminSectionHeader
+        title={<h3 className="flex items-center gap-2 text-lg font-extrabold text-[#1A2E1A]"><MessageSquare className="h-5 w-5 text-[#14532D]" />Kelola Testimoni & Cerita Warga</h3>}
+        description={<>Tinjau ulasan warga, setujui untuk ditayangkan di beranda, atau tambahkan ulasan manual. Total: {testimoni.length}.</>}
+        actions={<button type="button" onClick={() => setShowAddForm(!showAddForm)} className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md border border-[#14532D] bg-[#14532D] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#0F3F22] sm:w-auto"><Plus className="h-4 w-4" />Tambah Ulasan Warga</button>}
+        className="border-b border-[#E5E7EB] pb-4"
+      />
 
       {showAddForm && (
         <form onSubmit={handleCreate} className="max-w-2xl space-y-4 rounded-xl border border-[#E5E7EB] bg-white p-5">
@@ -159,83 +148,36 @@ export default function AdminTestimoniManager({
         </form>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-[#E5E7EB] bg-white">
-        <table className="w-full min-w-[720px] text-left text-xs text-[#1A2E1A]">
-          <thead className="border-b border-[#E5E7EB] bg-[#FDFBF7] text-[11px] font-bold uppercase tracking-wider text-[#1A2E1A]/70">
-            <tr>
-              <th className="px-4 py-3">No.</th>
-              <th className="px-4 py-3">Nama</th>
-              <th className="px-4 py-3">RW</th>
-              <th className="px-4 py-3">Cerita / Komentar</th>
-              <th className="px-4 py-3">Tanggal</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#E5E7EB]">
-            {testimoni.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-xs text-[#1A2E1A]/60">
-                  Belum ada ulasan yang masuk dari warga.
-                </td>
-              </tr>
-            ) : (
-              testimoni.map((t, index) => (
-                <tr key={t.id} className="align-top hover:bg-[#FDFBF7]/70">
-                  <td className="px-4 py-3 text-[#1A2E1A]/70">{index + 1}</td>
-                  <td className="px-4 py-3 font-extrabold text-[#1A2E1A]">{t.nama}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex rounded-md border border-[#E5E7EB] bg-[#FDFBF7] px-2 py-1 text-[11px] font-bold text-[#14532D]">
-                      {t.rw || "Warga Sapen"}
-                    </span>
-                  </td>
-                  <td className="max-w-sm px-4 py-3 text-[#1A2E1A]/80" title={t.komentar}>
-                    “{t.komentar}”
-                  </td>
-                  <td className="px-4 py-3 text-[11px] text-[#1A2E1A]/65">
-                    {new Date(t.createdAt).toLocaleDateString("id-ID")}
-                  </td>
-                  <td className="px-4 py-3">
-                    {t.isApproved ? (
-                      <span className="inline-flex items-center gap-1 rounded-md border border-[#E5E7EB] bg-[#14532D]/10 px-2 py-1 text-[10px] font-bold text-[#14532D]">
-                        <Check className="h-3 w-3" /> Tayang
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-md border border-[#E5E7EB] bg-[#FDFBF7] px-2 py-1 text-[10px] font-bold text-[#1A2E1A]/75">
-                        <Clock className="h-3 w-3" /> Menunggu
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(t)}
-                        title={t.isApproved ? "Sembunyikan" : "Setujui & Publikasikan"}
-                        className={`min-h-[44px] rounded-md border px-3 py-2 text-[11px] font-bold transition ${
-                          t.isApproved
-                            ? "border-[#E5E7EB] bg-white text-[#1A2E1A] hover:bg-[#FDFBF7]"
-                            : "border-[#14532D] bg-[#14532D] text-white hover:bg-[#0F3F22]"
-                        }`}
-                      >
-                        {t.isApproved ? "Sembunyikan" : "Setujui"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(t)}
-                        title="Hapus"
-                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[#1A2E1A]/70 hover:border-[#14532D] hover:text-[#14532D]"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ResponsiveTable
+        rows={testimoni}
+        getRowKey={(item) => item.id}
+        ariaLabel="Daftar testimoni warga"
+        emptyMessage="Belum ada ulasan yang masuk dari warga."
+        tableMinWidthClassName="min-w-[720px]"
+        tableClassName="text-xs text-[#1A2E1A]"
+        columns={[
+          { id: "number", label: "No.", cellClassName: "text-[#1A2E1A]/70", render: (_item, index) => index + 1 },
+          { id: "name", label: "Nama", cellClassName: "font-extrabold text-[#1A2E1A]", render: (item) => item.nama },
+          { id: "area", label: "RW", render: (item) => <span className="inline-flex rounded-md border border-[#E5E7EB] bg-[#FDFBF7] px-2 py-1 text-[11px] font-bold text-[#14532D]">{item.rw || "Warga Sapen"}</span> },
+          { id: "comment", label: "Cerita / Komentar", cellClassName: "max-w-sm text-[#1A2E1A]/80", render: (item) => <span title={item.komentar}>“{item.komentar}”</span> },
+          { id: "date", label: "Tanggal", cellClassName: "text-[11px] text-[#1A2E1A]/65", render: (item) => new Date(item.createdAt).toLocaleDateString("id-ID") },
+          { id: "status", label: "Status", render: (item) => item.isApproved ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-[#E5E7EB] bg-[#14532D]/10 px-2 py-1 text-[10px] font-bold text-[#14532D]"><Check className="h-3 w-3" /> Tayang</span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-md border border-[#E5E7EB] bg-[#FDFBF7] px-2 py-1 text-[10px] font-bold text-[#1A2E1A]/75"><Clock className="h-3 w-3" /> Menunggu</span>
+          ) },
+          { id: "actions", label: "Aksi", action: true, cellClassName: "text-right", headerClassName: "text-right", render: (item) => (
+            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+              <button type="button" onClick={() => handleToggleStatus(item)} title={item.isApproved ? "Sembunyikan" : "Setujui & Publikasikan"} className={`min-h-[44px] rounded-md border px-3 py-2 text-[11px] font-bold transition ${item.isApproved ? "border-[#E5E7EB] bg-white text-[#1A2E1A] hover:bg-[#FDFBF7]" : "border-[#14532D] bg-[#14532D] text-white hover:bg-[#0F3F22]"}`}>
+                {item.isApproved ? "Sembunyikan" : "Setujui"}
+              </button>
+              <button type="button" onClick={() => handleDelete(item)} title={`Hapus ulasan dari ${item.nama}`} aria-label={`Hapus ulasan dari ${item.nama}`} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-[#a23b27]/30 bg-[#fff2ec] text-[#a23b27] transition hover:bg-[#f9e1d8]">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ) },
+        ]}
+      />
     </div>
   );
 }

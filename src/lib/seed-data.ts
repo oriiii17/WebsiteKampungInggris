@@ -1020,6 +1020,7 @@ export function createInitialSeedData(): DatabaseSchema {
       },
     ],
 
+    gameScoreHistory: [],
     leaderboard: [
       {
         id: "lb-1",

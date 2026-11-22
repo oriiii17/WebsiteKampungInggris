@@ -13,7 +13,6 @@ function toRow(game: GameBlueprint) {
     level: game.level,
     topic: game.topic,
     language: game.language,
-    cover_image: game.coverImage || null,
     status: game.status,
     destination: game.destination || "public",
     play_count: game.plays || 0,
@@ -25,15 +24,10 @@ function toRow(game: GameBlueprint) {
 }
 
 function fromRow(row: any): GameBlueprint {
-  const normalizeMedia = (value?: string | null) => {
-    if (!value) return undefined;
-    const match = value.match(/(?:\/uploads\/games\/|\/storage\/v1\/object\/public\/game-media\/builder\/|\/api\/game-media\/)([^/?#]+\.(?:jpg|png|webp))/i);
-    return match ? `/api/game-media/${match[1]}` : value;
-  };
   return normalizeGameBlueprint({
     id: row.id, title: row.title, template: row.template, level: row.level, topic: row.topic,
-    language: row.language, coverImage: normalizeMedia(row.cover_image), status: row.status, destination: row.destination, plays: row.play_count || 0,
-    settings: row.settings, items: Array.isArray(row.items) ? row.items.map((item: any) => ({ ...item, mediaUrl: normalizeMedia(item.mediaUrl) })) : row.items, createdAt: row.created_at, updatedAt: row.updated_at,
+    language: row.language, status: row.status, destination: row.destination, plays: row.play_count || 0,
+    settings: row.settings, items: row.items, createdAt: row.created_at, updatedAt: row.updated_at,
   });
 }
 

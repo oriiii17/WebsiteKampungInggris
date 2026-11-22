@@ -24,12 +24,13 @@ export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
   function remove(id: string) {
     const next = ids.filter((value) => value !== id);
     localStorage.setItem(KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event("sapen:cart-updated"));
     setIds(next);
   }
 
-  return <main className="workbook-page min-h-screen py-10 sm:py-14">
+  return <main className="workbook-page min-h-dvh py-10 sm:py-14">
     <div className="workbook-wrap max-w-5xl">
-      <p className="workbook-print-note">Ruang belajarmu</p>
+      <p className="workbook-print-note">Pesanan Anda</p>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4 border-b-2 border-ink pb-6">
         <div><h1 className="text-4xl sm:text-5xl">Keranjang kelas</h1><p className="mt-2 max-w-xl text-sm leading-6 text-body">Kelas yang Anda pilih tersimpan di perangkat ini.</p></div>
         <Link href="/kelas" className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-leaf underline decoration-sunshine underline-offset-4">Jelajahi kelas <ArrowUpRight className="h-4 w-4" /></Link>
@@ -45,7 +46,7 @@ export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
             <div className="min-w-0"><p className="workbook-print-note">Kelas pilihan</p><h2 className="mt-1 break-words text-2xl">{item.title}</h2><p className="mt-2 text-sm leading-6 text-body">{item.subtitle || item.description}</p><p className="mt-3 text-sm font-bold text-ink">{formatIDR(item.priceIdr)}</p></div>
             <button type="button" onClick={() => remove(item.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-rule px-3 text-sm font-bold text-body transition hover:border-red-300 hover:text-red-700 sm:self-start" aria-label={`Hapus ${item.title} dari keranjang`}><Trash2 className="h-4 w-4" /><span className="sm:sr-only">Hapus</span></button>
           </li>)}</ul>
-          <aside className="rounded-xl border border-rule bg-white p-5 sm:p-6"><p className="workbook-print-note">Ringkasan</p><h2 className="mt-2 text-2xl">Pilihan kelas</h2><div className="mt-4 space-y-3">{items.map((item) => <div key={item.id} className="flex justify-between gap-3 text-sm"><span className="min-w-0 break-words">{item.title}</span><strong className="shrink-0">{formatIDR(item.priceIdr)}</strong></div>)}</div><div className="my-4 border-t border-rule" /><p className="flex justify-between gap-3"><strong>Total</strong><strong>{formatIDR(total)}</strong></p><p className="mt-4 rounded-lg border border-rule bg-paper px-3 py-3 text-xs leading-5 text-body">Checkout belum tersedia saat ini. Pilihan kelas Anda tetap tersimpan; belum ada transaksi yang dibuat.</p><Link href="/checkout" className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-leaf px-4 py-3 text-sm font-bold text-white transition hover:bg-leaf-dark">Lihat checkout <ArrowRight className="h-4 w-4" /></Link></aside>
+          <aside className="cart-summary rounded-xl border border-rule bg-white p-5 sm:p-6"><p className="workbook-print-note">Ringkasan</p><h2 className="mt-2 text-2xl">Pilihan kelas</h2><div className="mt-4">{items.map((item) => <div key={item.id} className="flex items-start justify-between gap-4 border-b border-rule/60 py-3 text-sm last:border-b-0"><span className="min-w-0 flex-1 break-words text-left">{item.title}</span><strong className="shrink-0 text-right tabular-nums">{formatIDR(item.priceIdr)}</strong></div>)}</div><div className="my-4 border-t border-rule" /><p className="flex justify-between gap-3"><strong>Total</strong><strong>{formatIDR(total)}</strong></p><p className="mt-4 rounded-lg border border-rule bg-paper px-3 py-3 text-xs leading-5 text-body">Checkout belum tersedia saat ini. Pilihan kelas Anda tetap tersimpan; belum ada transaksi yang dibuat.</p><Link href="/checkout" className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-leaf px-4 py-3 text-sm font-bold text-white transition hover:bg-leaf-dark">Lihat checkout <ArrowRight className="h-4 w-4" /></Link></aside>
         </div>}
     </div>
   </main>;

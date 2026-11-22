@@ -327,7 +327,6 @@ export type GameChoiceMode = "single" | "multiple";
 export interface GameQuestionBase {
   id: string;
   prompt: string;          // pertanyaan / instruksi (max 120 di UI)
-  mediaUrl?: string;       // upload gambar/media
   timeLimitSec: number;    // 5/10/20/30/60
   points: GamePoints;      // standar/2x/tanpa poin
   choiceMode: GameChoiceMode; // tunggal/ganda (relevan kuis/tebak gambar/duel)
@@ -414,6 +413,16 @@ export interface LeaderboardEntry {
   createdAt: string;
 }
 
+export interface GameScoreHistoryEntry {
+  id: string;
+  participantId: string;
+  gameId: string;
+  gameTitle: string;
+  gameType: string;
+  score: number;
+  createdAt: string;
+}
+
 export interface DatabaseSchema {
   modules: ModuleItem[];
   accessCodes: AccessCode[];
@@ -425,6 +434,7 @@ export interface DatabaseSchema {
   matchingPairs: MatchingPair[];
   wordChallenges: WordChallenge[];
   leaderboard: LeaderboardEntry[];
+  gameScoreHistory?: GameScoreHistoryEntry[];
   // â”€â”€ Baru: warga RW, log login, kode RW, testimoni â”€â”€
   warga: WargaRecord[];
   loginLog: LoginLogEntry[];

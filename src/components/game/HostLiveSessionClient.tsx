@@ -24,7 +24,6 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
   const [copied, setCopied] = useState(false);
   const [remainingTime, setRemainingTime] = useState<number>(20);
   const [actionLoading, setActionLoading] = useState(false);
-  const [mediaLoadFailed, setMediaLoadFailed] = useState(false);
   const [joinQr, setJoinQr] = useState("");
   const [hostError, setHostError] = useState("");
   const [closeFallback, setCloseFallback] = useState(false);
@@ -47,7 +46,6 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
     return () => { cancelled = true; };
   }, [initialPin]);
 
-  useEffect(() => setMediaLoadFailed(false), [state?.currentQuestionIndex, state?.status]);
 
   useEffect(() => {
     const savedHostId = localStorage.getItem(`sapen_host_${initialPin}`);
@@ -138,7 +136,7 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
           <div className="space-y-8 py-4">
             <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
               <div className="space-y-3 text-center animate-[fadeIn_.5s_ease] lg:text-left"><span className="inline-block rounded-full border border-slate-700 bg-slate-800/80 px-4 py-1 text-xs font-bold uppercase tracking-widest text-slate-300">Ruang Tunggu</span><h2 className="text-3xl font-black text-white sm:text-5xl">Pindai QR untuk bergabung</h2><p className="text-slate-300">Arahkan kamera ponsel ke QR atau masukkan PIN di halaman game.</p><p className="text-slate-300 text-lg">PIN: <span className="font-mono text-3xl font-black tracking-[0.2em] text-amber-400">{state.pin}</span></p></div>
-              {joinQr && <aside className="mx-auto w-full max-w-[280px] rounded-2xl border border-slate-700 bg-white p-4 text-center shadow-xl shadow-black/20"><Image src={joinQr} alt={`QR untuk bergabung ke game dengan PIN ${state.pin}`} width={480} height={480} unoptimized className="mx-auto aspect-square w-full max-w-[240px] rounded-lg" /><p className="mt-3 text-sm font-bold text-[#10251c]">Pindai untuk ikut bermain</p><p className="mt-1 break-all text-xs text-[#3e5047]">{window.location.origin}/game/join</p></aside>}
+              {joinQr && <aside className="mx-auto w-full max-w-[280px] rounded-2xl border border-slate-700 bg-white p-4 text-center shadow-xl shadow-black/20"><Image src={joinQr} alt={`QR untuk bergabung ke kuis dengan PIN ${state.pin}`} width={480} height={480} unoptimized className="mx-auto aspect-square w-full max-w-[240px] rounded-lg" /><p className="mt-3 text-sm font-bold text-[#10251c]">Pindai untuk ikut bermain</p><p className="mt-1 break-all text-xs text-[#3e5047]">{window.location.origin}/game/join</p></aside>}
             </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6 backdrop-blur">
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800"><div className="flex items-center gap-2 text-slate-200 font-bold"><Users className="h-5 w-5 text-emerald-400" /><span>Peserta Bergabung ({totalPlayers})</span></div>{totalPlayers === 0 && <span className="text-xs text-slate-500 animate-pulse">Menunggu peserta...</span>}</div>
@@ -155,7 +153,7 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
               <div className="flex items-center gap-3 min-w-[180px]"><div className={`relative h-12 w-12 rounded-full grid place-items-center font-black ${timerDanger ? "text-red-300" : "text-amber-300"}`}><svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90"><path d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32" fill="none" stroke="#334155" strokeWidth="4" /><path d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32" fill="none" stroke={timerDanger ? "#ef4444" : "#f59e0b"} strokeWidth="4" strokeDasharray={`${timerPct}, 100`} /></svg><span className="text-sm">{remainingTime}s</span></div><div className="rounded-xl bg-slate-800/80 px-4 py-2 text-sm font-bold text-slate-200">Jawab: <span className="text-emerald-400">{answeredCount}</span>/{totalPlayers}</div></div>
             </div>
             <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 sm:p-8 text-center shadow-2xl">
-              {q.mediaUrl && (mediaLoadFailed ? <p role="status" className="mx-auto mb-4 text-sm text-amber-300">Gambar soal tidak dapat dimuat.</p> : <img src={q.mediaUrl} alt="Gambar soal" onError={() => setMediaLoadFailed(true)} className="mx-auto mb-4 max-h-52 object-contain rounded-xl border border-slate-700"/>)}
+               
               {q.context && <div className="mb-4 rounded-xl bg-slate-800/80 p-4 text-slate-300 text-sm italic max-w-3xl mx-auto border border-slate-700">"{q.context}"</div>}
               <h2 className="text-2xl sm:text-4xl font-extrabold text-white leading-snug">{q.question || q.prompt}</h2>
               {q.sentence && <p className="mt-3 text-lg text-emerald-300 font-semibold">{q.sentence}</p>}
@@ -181,7 +179,7 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
         {state.status === "reveal" && q && (
           <div className="space-y-5 animate-[fadeIn_.3s_ease]">
             <div className="flex items-center justify-between"><span className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-slate-300">Pembahasan Soal {state.currentQuestionIndex + 1}</span><span className="text-xs font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-800 px-3 py-1 rounded-full">Jawaban Benar Ditampilkan</span></div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center">{q.mediaUrl && (mediaLoadFailed ? <p role="status" className="mx-auto mb-4 text-sm text-amber-300">Gambar soal tidak dapat dimuat.</p> : <img src={q.mediaUrl} alt="Gambar soal" onError={() => setMediaLoadFailed(true)} className="mx-auto mb-4 max-h-48 object-contain rounded-xl"/>)}<h2 className="text-xl sm:text-3xl font-extrabold text-white">{q.question || q.prompt}</h2>{q.sentence && <p className="mt-2 text-emerald-300">{q.sentence}</p>}</div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center"> <h2 className="text-xl sm:text-3xl font-extrabold text-white">{q.question || q.prompt}</h2>{q.sentence && <p className="mt-2 text-emerald-300">{q.sentence}</p>}</div>
             {isChoiceHost ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{opts.slice(0,4).map((opt:string, idx:number)=>{ const isCorrect = Array.isArray(q.correctIndexes)? q.correctIndexes.includes(idx) : idx===q.correctIndex; const shape=SHAPES[idx]; const count=distribution[idx]||0; const pct=Math.round((count/distMax)*100); return (<div key={idx} className={`relative overflow-hidden rounded-2xl p-5 border-2 transition ${isCorrect?"bg-emerald-700/90 border-emerald-300 text-white shadow-xl":"bg-slate-900/70 border-slate-700 text-slate-200"}`}><div className="absolute inset-y-0 left-0 bg-white/10" style={{width:`${pct}%`}}/><div className="relative flex items-center justify-between gap-3"><div className="flex items-center gap-3 min-w-0"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/20 text-xl font-black">{shape.symbol}</div><span className="text-base sm:text-lg font-bold truncate">{opt || `Opsi ${idx+1}`}</span></div><div className="flex items-center gap-2 shrink-0"><span className="text-xs font-bold bg-black/20 rounded-full px-2.5 py-1">{count} orang</span>{isCorrect && <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-black uppercase"><Check className="h-3.5 w-3.5"/>Benar</span>}</div></div></div>); })}</div>
             ) : (

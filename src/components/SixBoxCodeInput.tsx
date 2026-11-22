@@ -72,7 +72,7 @@ export default function SixBoxCodeInput({ value, onChange, onCompleteChange, inp
     inputRefs.current[focusIndex >= 0 ? focusIndex : 0]?.focus();
   }
 
-  const box = "h-11 w-9 sm:h-12 sm:w-11 rounded-lg border border-[#E5E7EB] bg-white text-center text-base sm:text-lg font-bold uppercase text-gray-900 focus:border-[#14532D] focus:outline-none focus:ring-1 focus:ring-[#14532D]";
+  const box = "h-11 min-w-0 w-full flex-1 rounded-lg border border-[#E5E7EB] bg-white px-0 text-center text-base font-bold uppercase text-gray-900 focus:border-[#14532D] focus:outline-none focus:ring-1 focus:ring-[#14532D] sm:h-12 sm:text-lg";
   const renderBox = (i: number) => (
     <input
       key={i}
@@ -94,10 +94,10 @@ export default function SixBoxCodeInput({ value, onChange, onCompleteChange, inp
   );
 
   return (
-    <div role="group" aria-label="Kode warga, enam karakter" className={groupClassName || "flex items-center justify-center gap-1.5 sm:gap-2"}>
-      <div className="flex items-center gap-1.5 sm:gap-2">{[0, 1, 2].map(renderBox)}</div>
-      <span className="px-0.5 text-lg font-bold text-gray-400 select-none" aria-hidden="true">-</span>
-      <div className="flex items-center gap-1.5 sm:gap-2">{[3, 4, 5].map(renderBox)}</div>
+    <div role="group" aria-label="Kode akses, enam karakter" className={groupClassName || "flex min-w-0 items-center gap-1.5 sm:gap-2"}>
+      <div className="flex min-w-0 flex-1 items-center gap-1">{[0, 1, 2].map(renderBox)}</div>
+      <span className="shrink-0 px-0.5 text-lg font-bold text-gray-400 select-none" aria-hidden="true">-</span>
+      <div className="flex min-w-0 flex-1 items-center gap-1">{[3, 4, 5].map(renderBox)}</div>
     </div>
   );
 }

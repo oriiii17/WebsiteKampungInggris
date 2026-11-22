@@ -28,6 +28,7 @@ import { useAppDialog } from "@/components/AppDialogProvider";
 import type { GameBlueprint } from "@/lib/game-blueprint";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatIDR, MAX_PRICE_IDR } from "@/lib/currency";
+import { AdminSectionHeader, AdminToolbar } from "@/components/admin/AdminSectionHeader";
 
 interface Props {
   modules?: any[]; // legacy prop (unused in new flow)
@@ -41,7 +42,7 @@ function emptyClass(): ClassItem {
   const id = `class-${Date.now()}`;
   return {
     id, slug: "", title: "", subtitle: "", description: "", coverTheme: "emerald",
-    priceIdr: 0, durationDays: 0, moduleIds: [], modules: [], gameTemplateIds: [],
+    priceIdr: 0, durationDays: 0, moduleIds: [], modules: [], gameTemplateIds: [], gameBlueprintIds: [],
     isPublished: false, createdAt: new Date().toISOString(),
     tingkat: "Pemula", jadwal: "", kodeAkses: "", status: "draft",
   };
@@ -73,7 +74,7 @@ export default function AdminClassesManager({ notify }: Props) {
       const gameResponse = await fetch("/api/admin/game-builder", { cache: "no-store" });
       if (gameResponse.ok) {
         const availableGames = (await gameResponse.json()).games || [];
-        setPublishedGames(availableGames.filter((game: GameBlueprint) => game.status === "independent" && game.destination === "independent"));
+        setPublishedGames(availableGames.filter((game: GameBlueprint) => ["published", "independent"].includes(game.status) && game.destination === "independent"));
       }
     } catch {}
     finally { setLoading(false); }
@@ -111,7 +112,9 @@ export default function AdminClassesManager({ notify }: Props) {
     const m = emptyModule(form.id, (form.modules?.length || 0) + 1);
     setForm((f) => ({ ...f, modules: [...(f.modules || []), m] }));
   }
-  function removeModule(id: string) {
+  async function removeModule(id: string) {
+    const classModule = (form.modules || []).find((item) => item.id === id);
+    if (!classModule || !(await dialog.confirm(`Hapus “${classModule.judulBebas || "materi ini"}” dari kelas? Perubahan berlaku setelah kelas disimpan.`, "Hapus materi?"))) return;
     setForm((f) => ({ ...f, modules: (f.modules || []).filter((m) => m.id !== id).map((m, i) => ({ ...m, urutan: i + 1 })) }));
   }
   function moveModule(idx: number, dir: -1 | 1) {
@@ -166,6 +169,7 @@ export default function AdminClassesManager({ notify }: Props) {
     if (!priceInputValid || !Number.isSafeInteger(form.priceIdr) || form.priceIdr < 0 || form.priceIdr > MAX_PRICE_IDR) { notify(`Harga harus berupa bilangan bulat dari Rp 0 sampai ${formatIDR(MAX_PRICE_IDR)}.`); setFormStep(0); return; }
     if (!form.title.trim()) { notify("Gagal: Nama kelas wajib diisi."); return; }
     if (publish && !(await dialog.confirm("Publikasikan kelas ini sekarang? Kelas akan tampil di katalog dan dapat diakses peserta.", "Publikasikan kelas?"))) return;
+    const isNewClass = !editingId;
     setSaving(true);
     try {
       const payload = { ...form, status: publish ? "berjalan" : "draft", isPublished: publish, durationDays: 0, jadwal: "", kodeAkses: "", modules: (form.modules || []).map((m, i) => ({ ...m, status: publish ? ("terbit" as const) : ("draft" as const), urutan: i + 1, kelasId: form.id })) };
@@ -182,8 +186,10 @@ export default function AdminClassesManager({ notify }: Props) {
         notify("Peringatan: respons server tidak mengonfirmasi verifikasi simpan. Segarkan dan cek daftar kelas.");
       }
       const saved: ClassItem = data.class || payload;
-      setEditingId(saved.id);
-      setForm({ ...saved, modules: saved.modules || payload.modules });
+      if (!isNewClass) {
+        setEditingId(saved.id);
+        setForm({ ...saved, modules: saved.modules || payload.modules });
+      }
       if (Array.isArray(data.classes)) setClasses(data.classes);
       // verifikasi ulang dari DB
       const check = await fetch("/api/admin/classes", { cache: "no-store" }).then(r => r.json()).catch(() => null);
@@ -199,6 +205,7 @@ export default function AdminClassesManager({ notify }: Props) {
       notify(publish ? `Kelas "${saved.title}" berhasil dipublikasikan.` : `Kelas "${saved.title}" tersimpan di Draft Kelas.`);
       setClassView(publish ? "active" : "drafts");
       await loadClasses();
+      if (isNewClass) resetForm();
     } catch (e: any) {
       const msg = e?.message || "Gagal menyimpan kelas.";
       notify(`Gagal menyimpan ke database: ${msg}`);
@@ -216,7 +223,7 @@ export default function AdminClassesManager({ notify }: Props) {
         await dialog.alert(`Kelas ini masih digunakan oleh ${sessions} sesi dan memiliki ${attendance} catatan presensi. Sesi dan presensi harus tetap tersimpan. Pindahkan sesi ke kelas lain sebelum menghapus kelas ini.`, "Kelas masih digunakan");
         return;
       }
-      if (!(await dialog.confirm("Kelas ini tidak memiliki sesi atau presensi. Hapus kelas beserta materi dan game yang terpasang? Tindakan ini tidak dapat dibatalkan.", "Hapus kelas?"))) return;
+      if (!(await dialog.confirm("Kelas ini tidak memiliki sesi atau presensi. Hapus kelas beserta materi dan kuis yang terpasang? Tindakan ini tidak dapat dibatalkan.", "Hapus kelas?"))) return;
       const res = await fetch(`/api/admin/classes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -250,7 +257,7 @@ export default function AdminClassesManager({ notify }: Props) {
   return (
     <div className="mt-6 space-y-6 text-[#1A2E1A]">
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
-        <form onSubmit={(event) => { event.preventDefault(); handleSave(false); }} className="space-y-5 rounded-xl border border-[#E5E7EB] bg-white p-5 sm:p-6 xl:col-span-7">
+        <form onSubmit={(event) => { event.preventDefault(); handleSave(false); }} className="space-y-5 rounded-xl border border-[#E5E7EB] bg-white p-5 pb-28 sm:p-6 sm:pb-28 md:pb-6 xl:col-span-7">
           <div className="flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 text-base font-extrabold text-[#1A2E1A]"><Plus className="h-4 w-4 text-[#14532D]" /> {editingId ? "Edit Kelas" : "Buat Kelas Baru"}</h3>
             {editingId && <button type="button" onClick={resetForm} className="text-xs font-bold text-[#14532D] hover:underline">Buat Baru</button>}
@@ -262,11 +269,12 @@ export default function AdminClassesManager({ notify }: Props) {
           <p className="text-sm text-muted">{["Lengkapi informasi utama kelas.", "Susun bab dan unggah materi; perubahan akan otomatis disimpan sebagai draft.", "Tinjau kelas, lalu simpan sebagai draft atau publikasikan." ][formStep]}</p>
 
           {formStep === 0 && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75 sm:col-span-2">Nama Kelas *<input required value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] px-3.5 py-2.5 text-sm font-normal" placeholder="Contoh: Kelas Grammar Basic" /></label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75 sm:col-span-2">Judul Kelas *<input required value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] px-3.5 py-2.5 text-sm font-normal" placeholder="Contoh: Kelas Grammar Basic" /></label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75 sm:col-span-2">Subjudul <span className="font-normal normal-case text-muted">(opsional)</span><input value={form.subtitle || ""} onChange={(e)=>setForm({...form,subtitle:e.target.value})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] px-3.5 py-2.5 text-sm font-normal normal-case tracking-normal" placeholder="Contoh: Materi praktis untuk percakapan sehari-hari" /></label>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75 sm:col-span-2">Deskripsi<textarea rows={3} value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} className="mt-1 w-full rounded-md border border-[#E5E7EB] px-3.5 py-2.5 text-sm font-normal" placeholder="Deskripsi singkat kelas..." /></label>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Tingkat<select value={form.tingkat||"Pemula"} onChange={(e)=>setForm({...form,tingkat:e.target.value as any})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm font-normal"><option>Pemula</option><option>Menengah</option><option>Lanjutan</option></select></label>
             <CurrencyInput label="Harga kelas" value={form.priceIdr} onChange={(priceIdr) => setForm((current) => ({ ...current, priceIdr }))} onValidityChange={setPriceInputValid} />
-            <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Latihan mandiri kelas</legend><p className="mt-1 text-xs font-normal normal-case text-muted">Pilih game Latihan Mandiri yang sudah diterbitkan. Game Sesi dan draft tidak tersedia di sini.</p><div className="mt-3 flex flex-wrap items-center gap-3"><button type="button" onClick={() => setGamePickerOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white transition hover:bg-[#183b2d]"><Gamepad2 className="h-4 w-4" />Pilih latihan</button><span className="text-sm font-semibold text-[#514b3e]">{(form.gameBlueprintIds || []).filter((id) => publishedGames.some((game) => game.id === id)).length} game dipilih</span></div></fieldset>
+            <fieldset className="sm:col-span-2"><legend className="text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Latihan mandiri kelas</legend><p className="mt-1 text-xs font-normal normal-case text-muted">Pilih kuis Latihan Mandiri yang sudah diterbitkan. Kuis Sesi dan draft tidak tersedia di sini.</p><div className="mt-3 flex flex-wrap items-center gap-3"><button type="button" onClick={() => setGamePickerOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white transition hover:bg-[#183b2d]"><Gamepad2 className="h-4 w-4" />Pilih latihan</button><span className="text-sm font-semibold text-[#514b3e]">{(form.gameBlueprintIds || []).filter((id) => publishedGames.some((game) => game.id === id)).length} kuis dipilih</span></div></fieldset>
           </div>}
 
           {formStep === 1 && <div className="border-t border-[#E5E7EB] pt-4">
@@ -281,9 +289,9 @@ export default function AdminClassesManager({ notify }: Props) {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-extrabold text-[#14532D]">Bab {idx + 1}</span>
                     <div className="flex items-center gap-1">
-                      <button type="button" onClick={()=>moveModule(idx,-1)} disabled={idx===0} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] bg-white disabled:opacity-40"><ArrowUp className="h-4 w-4" /></button>
-                      <button type="button" onClick={()=>moveModule(idx,1)} disabled={idx===(form.modules||[]).length-1} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] bg-white disabled:opacity-40"><ArrowDown className="h-4 w-4" /></button>
-                      <button type="button" onClick={()=>removeModule(m.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[#7A1F1F]"><Trash2 className="h-4 w-4" /></button>
+                      <button type="button" aria-label={`Pindahkan Bab ${idx + 1} ke atas`} title={`Pindahkan Bab ${idx + 1} ke atas`} onClick={()=>moveModule(idx,-1)} disabled={idx===0} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#E5E7EB] bg-white disabled:opacity-40"><ArrowUp className="h-4 w-4" /></button>
+                      <button type="button" aria-label={`Pindahkan Bab ${idx + 1} ke bawah`} title={`Pindahkan Bab ${idx + 1} ke bawah`} onClick={()=>moveModule(idx,1)} disabled={idx===(form.modules||[]).length-1} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#E5E7EB] bg-white disabled:opacity-40"><ArrowDown className="h-4 w-4" /></button>
+                      <button type="button" aria-label={`Hapus Bab ${idx + 1}`} title={`Hapus Bab ${idx + 1}`} onClick={()=>removeModule(m.id)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#a23b27]/30 bg-[#fff2ec] text-[#a23b27] hover:bg-[#f9e1d8]"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Judul bab atau materi<input value={m.judulBebas} onChange={(e)=>updateModule(m.id,{judulBebas:e.target.value})} className="mt-1 min-h-[44px] w-full rounded-md border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm font-normal" placeholder="Contoh: Bab 1 — Sapaan" /></label>
@@ -309,12 +317,13 @@ export default function AdminClassesManager({ notify }: Props) {
 
           {formStep === 2 && <div className="space-y-4 rounded-lg border border-rule bg-paper-light p-5">
             <h4 className="text-lg font-extrabold">Tinjau kelas</h4>
-            <div className="grid gap-3 text-sm sm:grid-cols-2"><p><span className="text-muted">Nama kelas</span><br/><strong>{form.title || "Belum diisi"}</strong></p><p><span className="text-muted">Tingkat</span><br/><strong>{form.tingkat}</strong></p><p><span className="text-muted">Harga</span><br/><strong>{formatIDR(form.priceIdr)}</strong></p><p><span className="text-muted">Bab/materi</span><br/><strong>{(form.modules || []).length} bab</strong></p></div>
+            <div className="grid gap-3 text-sm sm:grid-cols-2"><p><span className="text-muted">Judul kelas</span><br/><strong>{form.title || "Belum diisi"}</strong></p>{form.subtitle && <p><span className="text-muted">Subjudul</span><br/><strong>{form.subtitle}</strong></p>}<p><span className="text-muted">Tingkat</span><br/><strong>{form.tingkat}</strong></p><p><span className="text-muted">Harga</span><br/><strong>{formatIDR(form.priceIdr)}</strong></p><p><span className="text-muted">Bab/materi</span><br/><strong>{(form.modules || []).length} bab</strong></p></div>
           </div>}
 
-          {gamePickerOpen && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setGamePickerOpen(false); }} className="fixed inset-0 z-[120] grid place-items-center bg-[#13271f]/60 p-3 sm:p-6"><section role="dialog" aria-modal="true" aria-labelledby="class-independent-games-title" className="flex max-h-[min(88dvh,680px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#c9bda7] bg-[#fdf9f0] shadow-2xl"><header className="flex items-start justify-between gap-4 border-b border-[#e2d8c7] p-5 sm:p-6"><div><h3 id="class-independent-games-title" className="text-xl font-bold text-[#183b2d]">Pilih latihan mandiri</h3><p className="mt-1 text-sm leading-6 text-[#514b3e]">Hanya game terbit dengan kategori Latihan Mandiri yang bisa dipasang ke kelas.</p></div><button type="button" aria-label="Tutup pemilih latihan" onClick={() => setGamePickerOpen(false)} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg border border-[#b8aa8e] bg-white text-[#244b3a] hover:bg-[#e8eee5]"><X className="h-4 w-4" /></button></header><div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">{publishedGames.length ? <ul className="space-y-2">{publishedGames.map((game) => <li key={game.id}><label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-[#c9bda7] bg-white px-4 py-3 text-sm font-semibold text-[#183b2d] transition hover:border-[#244b3a] hover:bg-[#f5f5ed]"><input type="checkbox" checked={(form.gameBlueprintIds || []).includes(game.id)} onChange={(event) => setForm((current) => ({ ...current, gameBlueprintIds: event.target.checked ? [...new Set([...(current.gameBlueprintIds || []), game.id])] : (current.gameBlueprintIds || []).filter((id) => id !== game.id) }))} className="h-4 w-4 accent-[#244b3a]" /><span className="min-w-0 flex-1">{game.title}<span className="mt-1 block text-xs font-normal text-[#514b3e]">{game.topic} · {game.level} · {game.items.length} soal</span></span><span className="rounded-full bg-[#e6eadf] px-2.5 py-1 text-xs font-bold text-[#183b2d]">Terbit</span></label></li>)}</ul> : <div className="rounded-xl border border-dashed border-[#b8aa8e] bg-white px-5 py-8 text-center"><Gamepad2 className="mx-auto h-8 w-8 text-[#244b3a]" /><p className="mt-3 font-bold text-[#183b2d]">Belum ada latihan mandiri terbit</p><p className="mt-1 text-sm leading-6 text-[#514b3e]">Terbitkan game dengan tujuan Latihan Mandiri di Kelola Game, lalu pilih di sini.</p></div>}</div><footer className="flex items-center justify-between gap-3 border-t border-[#e2d8c7] bg-white/60 p-4"><span className="text-sm font-semibold text-[#514b3e]">{(form.gameBlueprintIds || []).filter((id) => publishedGames.some((game) => game.id === id)).length} dipilih</span><button type="button" onClick={() => setGamePickerOpen(false)} className="min-h-11 rounded-lg bg-[#244b3a] px-5 text-sm font-bold text-white transition hover:bg-[#183b2d]">Selesai</button></footer></section></div>}
+          {gamePickerOpen && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setGamePickerOpen(false); }} className="fixed inset-0 z-[120] grid place-items-center bg-[#13271f]/60 p-3 sm:p-6"><section role="dialog" aria-modal="true" aria-labelledby="class-independent-games-title" className="flex max-h-[min(88dvh,680px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#c9bda7] bg-[#fdf9f0] shadow-2xl"><header className="flex items-start justify-between gap-4 border-b border-[#e2d8c7] p-5 sm:p-6"><div><h3 id="class-independent-games-title" className="text-xl font-bold text-[#183b2d]">Pilih latihan mandiri</h3><p className="mt-1 text-sm leading-6 text-[#514b3e]">Hanya kuis terbit dengan kategori Latihan Mandiri yang bisa dipasang ke kelas.</p></div><button type="button" aria-label="Tutup pemilih latihan" onClick={() => setGamePickerOpen(false)} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg border border-[#b8aa8e] bg-white text-[#244b3a] hover:bg-[#e8eee5]"><X className="h-4 w-4" /></button></header><div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">{publishedGames.length ? <ul className="space-y-2">{publishedGames.map((game) => <li key={game.id}><label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-[#c9bda7] bg-white px-4 py-3 text-sm font-semibold text-[#183b2d] transition hover:border-[#244b3a] hover:bg-[#f5f5ed]"><input type="checkbox" checked={(form.gameBlueprintIds || []).includes(game.id)} onChange={(event) => setForm((current) => ({ ...current, gameBlueprintIds: event.target.checked ? [...new Set([...(current.gameBlueprintIds || []), game.id])] : (current.gameBlueprintIds || []).filter((id) => id !== game.id) }))} className="h-4 w-4 accent-[#244b3a]" /><span className="min-w-0 flex-1">{game.title}<span className="mt-1 block text-xs font-normal text-[#514b3e]">{game.topic} · {game.level} · {game.items.length} soal</span></span><span className="rounded-full bg-[#e6eadf] px-2.5 py-1 text-xs font-bold text-[#183b2d]">Terbit</span></label></li>)}</ul> : <div className="rounded-xl border border-dashed border-[#b8aa8e] bg-white px-5 py-8 text-center"><Gamepad2 className="mx-auto h-8 w-8 text-[#244b3a]" /><p className="mt-3 font-bold text-[#183b2d]">Belum ada latihan mandiri terbit</p><p className="mt-1 text-sm leading-6 text-[#514b3e]">Terbitkan kuis dengan tujuan Latihan Mandiri di Kelola Kuis, lalu pilih di sini.</p></div>}</div><footer className="flex items-center justify-between gap-3 border-t border-[#e2d8c7] bg-white/60 p-4"><span className="text-sm font-semibold text-[#514b3e]">{(form.gameBlueprintIds || []).filter((id) => publishedGames.some((game) => game.id === id)).length} dipilih</span><button type="button" onClick={() => setGamePickerOpen(false)} className="min-h-11 rounded-lg bg-[#244b3a] px-5 text-sm font-bold text-white transition hover:bg-[#183b2d]">Selesai</button></footer></section></div>}
 
-          <div className="flex flex-wrap justify-between gap-2 border-t border-[#E5E7EB] pt-4">
+          <div className="fixed inset-x-0 bottom-0 z-30 flex flex-wrap justify-between gap-2 border-t border-[#d8d0c2] bg-[#fffdf8] px-4 pt-3 pb-[calc(.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(26,46,26,.12)] md:static md:z-auto md:border-t md:bg-transparent md:px-0 md:py-0 md:pt-4 md:shadow-none">
+            <p className="w-full text-center text-xs font-bold text-[#514b3e] md:hidden" aria-live="polite">Langkah {formStep + 1} dari 3</p>
             <button type="button" onClick={() => setFormStep((s) => Math.max(0,s-1))} disabled={formStep===0} className="min-h-11 rounded-md border border-rule px-4 text-sm font-bold disabled:opacity-40">Sebelumnya</button>
             {formStep < 2 ? <button type="button" onClick={() => { if(formStep===0 && !form.title.trim()){notify("Isi nama kelas sebelum lanjut.");return;} setFormStep((s)=>Math.min(2,s+1)); }} className="min-h-11 rounded-md bg-leaf px-5 text-sm font-extrabold text-white">Lanjut</button> : <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => handleSave(false)} disabled={saving} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border border-rule-strong bg-paper-light px-4 py-2.5 text-sm font-extrabold text-leaf disabled:opacity-60">
@@ -329,10 +338,11 @@ export default function AdminClassesManager({ notify }: Props) {
         </form>
 
         <div className="space-y-4 xl:col-span-5">
-          <div className="flex items-center justify-between">
-            <div><h3 className="flex items-center gap-2 text-base font-extrabold text-[#1A2E1A]"><BookOpen className="h-4 w-4 text-[#14532D]" /> {classView === "active" ? "Kelas Aktif" : "Draft Kelas"} ({visibleClasses.length})</h3><div className="mt-2 inline-flex rounded-lg border border-rule bg-paper-light p-1"><button type="button" onClick={() => setClassView("active")} className={`min-h-9 rounded-md px-3 text-xs font-bold ${classView === "active" ? "bg-leaf text-white" : "text-muted"}`}>Aktif</button><button type="button" onClick={() => setClassView("drafts")} className={`min-h-9 rounded-md px-3 text-xs font-bold ${classView === "drafts" ? "bg-leaf text-white" : "text-muted"}`}>Draft</button></div></div>
-            <div className="flex items-center gap-2"><select aria-label="Format ekspor kelas" value={exportFormat} onChange={(event) => setExportFormat(event.target.value as "excel" | "csv")} className="min-h-9 rounded-md border border-rule bg-white px-2 text-xs"><option value="excel">Excel (.xlsx)</option><option value="csv">CSV (.csv)</option></select><button type="button" onClick={exportClasses} className="inline-flex min-h-9 items-center gap-1 rounded-md border border-rule px-2.5 text-xs font-bold text-[#14532D] hover:bg-paper-light"><FileDown className="h-3.5 w-3.5"/>Ekspor</button><button type="button" onClick={loadClasses} className="inline-flex min-h-9 items-center gap-1 text-xs font-bold text-[#14532D] hover:underline"><RefreshCw className="h-3.5 w-3.5" /> Segarkan</button></div>
-          </div>
+          <AdminSectionHeader
+            title={<><h3 className="flex items-center gap-2 text-base font-extrabold text-[#1A2E1A]"><BookOpen className="h-4 w-4 text-[#14532D]" /> {classView === "active" ? "Kelas Aktif" : "Draft Kelas"} ({visibleClasses.length})</h3><div role="group" aria-label="Filter status kelas" className="mt-2 grid w-full grid-cols-2 rounded-lg border border-rule bg-paper-light p-1 sm:inline-grid sm:w-auto"><button type="button" aria-pressed={classView === "active"} onClick={() => setClassView("active")} className={`min-h-11 rounded-md px-3 text-xs font-bold ${classView === "active" ? "bg-leaf text-white" : "text-muted"}`}>Aktif</button><button type="button" aria-pressed={classView === "drafts"} onClick={() => setClassView("drafts")} className={`min-h-11 rounded-md px-3 text-xs font-bold ${classView === "drafts" ? "bg-leaf text-white" : "text-muted"}`}>Draft</button></div></>}
+            actions={<AdminToolbar className="w-full sm:w-auto"><select aria-label="Format ekspor kelas" value={exportFormat} onChange={(event) => setExportFormat(event.target.value as "excel" | "csv")} className="min-h-11 min-w-0 rounded-md border border-rule bg-white px-2 text-xs"><option value="excel">Excel (.xlsx)</option><option value="csv">CSV (.csv)</option></select><button type="button" onClick={exportClasses} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md border border-rule px-2.5 text-xs font-bold text-[#14532D] hover:bg-paper-light"><FileDown className="h-3.5 w-3.5"/>Ekspor</button><button type="button" onClick={loadClasses} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md px-2 text-xs font-bold text-[#14532D] hover:underline"><RefreshCw className="h-3.5 w-3.5" /> Segarkan</button></AdminToolbar>}
+            className="items-stretch"
+          />
           {loading ? (
             <div className="rounded-xl border border-[#E5E7EB] bg-white p-8 text-center text-sm text-[#1A2E1A]/60">Memuat data kelas...</div>
           ) : visibleClasses.length === 0 ? (

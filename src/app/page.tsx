@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowDownRight, ArrowRight, BookOpen, MapPin, MessageCircle, MoveUpRight, Sparkles } from "lucide-react";
-import FaqAccordion from "@/components/FaqAccordion";
+import FaqAccordion, { HOME_FAQ_LIST } from "@/components/FaqAccordion";
 import TestimoniSection from "@/components/TestimoniSection";
 import { getApprovedTestimoni, getClasses } from "@/lib/db";
 import { getServerSession } from "@/lib/auth";
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 const assets = {
   hero: "/images/community/kelas-interior.webp",
   conversation: "/images/community/diskusi-warga-card.webp",
-  grammar: "/images/community/belajar-taman-card.webp",
+  grammar: "/images/baru/TataBahasa.jpg",
   camp: "/images/community/english-camp.webp",
   galleryOne: "/images/community/belajar-kawasan-card.webp",
   galleryTwo: "/images/community/belajar-pantai-card.webp",
@@ -61,7 +61,7 @@ async function HomeTestimonials() {
   return <TestimoniSection initialTestimoni={testimonials} isLoggedIn={Boolean(session)} currentUserName={session?.name} />;
 }
 
-const featuredClassIds = ["class-1794595557465", "class-conversation-starter", "class-grammar-mastery"];
+const featuredClassIds = ["class-1794595557465", "class-conversation-starter"];
 
 function formatPrice(price: number) {
   return formatIDR(price);
@@ -98,10 +98,10 @@ export default async function HomePage() {
       <section className="home-opening workbook-wrap" aria-labelledby="home-title">
         <div className="home-opening-copy">
           <h1 id="home-title" className="home-title font-display">
-            Bahasa Inggris tumbuh dari percakapan sehari-hari.
+            Bahasa Inggris tumbuh dari percakapan sehari-hari
           </h1>
           <p className="home-intro">
-            Belajar bersama warga Sapen lewat kelas, materi praktis, dan permainan interaktif—terbuka untuk warga RW 06, 07, 08 serta peserta umum.
+            Belajar bersama lewat kelas, materi praktis, dan permainan interaktif
           </p>
           <div className="home-actions">
             <Link href="/kelas" className="home-primary-action">
@@ -111,7 +111,7 @@ export default async function HomePage() {
               Masuk sebagai warga <ArrowDownRight aria-hidden="true" className="h-4 w-4" />
             </Link>
           </div>
-          <p className="home-location"><MapPin aria-hidden="true" className="h-4 w-4" /> Demangan, Yogyakarta</p>
+          <a className="home-location" href="https://www.google.com/maps/place/Demangan,+Gondokusuman,+Yogyakarta+City,+Special+Region+of+Yogyakarta/@-7.784864,110.3878895,16z/data=!3m1!4b1!4m6!3m5!1s0x2e7a59d0296528d3:0x1e731654b09a0834!8m2!3d-7.7865734!4d110.3882256!16s%2Fg%2F12hhj3fw0?entry=ttu&g_ep=EgoyMDI2MTExOC4xIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer"><MapPin aria-hidden="true" className="h-4 w-4" /> Demangan, Yogyakarta</a>
         </div>
 
         <figure className="home-opening-art">
@@ -122,8 +122,7 @@ export default async function HomePage() {
             className="home-opening-photo"
           />
           <figcaption className="home-photo-note">
-            <span>Ruang belajar warga</span>
-            <span>RW 06 · RW 07 · RW 08</span>
+            <span>Ayo Belajar Bersama!</span>
           </figcaption>
           <span className="home-photo-mark" aria-hidden="true"><Sparkles className="h-5 w-5" /></span>
         </figure>
@@ -226,12 +225,12 @@ export default async function HomePage() {
         </div>
         <div className="home-faq">
           <h2 className="font-display">Ada yang ingin ditanyakan?</h2>
-          <FaqAccordion limit={3} />
+          <FaqAccordion items={HOME_FAQ_LIST} />
           <Link href="/faq" className="home-text-link">Baca semua pertanyaan <ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
         </div>
       </section>
 
-      <section className="home-closeout" aria-labelledby="home-closeout-title">
+      <section className="home-closeout site-surface" aria-labelledby="home-closeout-title">
         <div className="workbook-wrap home-closeout-inner">
           <div>
             <h2 id="home-closeout-title" className="font-display">Siap mulai belajar bersama?</h2>

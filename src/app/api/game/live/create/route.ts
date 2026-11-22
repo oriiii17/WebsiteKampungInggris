@@ -16,7 +16,7 @@ function blueprintToLiveGame(game: GameBlueprint): GameRecord {
     const base = { id: item.id || `q-${index + 1}`, prompt: item.prompt || game.topic, timeLimitSec: game.settings.timeLimitSec || 20, points: "standard" as const, choiceMode: "single" as const, explanation: item.explanation };
     if (game.template === "multiple-choice-quiz" || game.template === "listen-and-choose") {
       const options = (item.options || []).map((option) => option.text).filter(Boolean);
-      return { ...base, type: "kuis_live", prompt: game.template === "listen-and-choose" && item.audioText ? (item.prompt || "Dengarkan audio, lalu pilih jawabannya.") : base.prompt, audioText: game.template === "listen-and-choose" ? item.audioText : undefined, mediaUrl: item.mediaUrl, options, correctIndexes: [Math.max(0, item.correctIndex || 0)] } as GameQuestion;
+      return { ...base, type: "kuis_live", prompt: game.template === "listen-and-choose" && item.audioText ? (item.prompt || "Dengarkan audio, lalu pilih jawabannya.") : base.prompt, audioText: game.template === "listen-and-choose" ? item.audioText : undefined, options, correctIndexes: [Math.max(0, item.correctIndex || 0)] } as GameQuestion;
     }
     if (game.template === "sentence-builder") {
       const words = item.words || [];
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
           console.error("[game/live/create] Blueprint lookup failed", { code: error.code, message: error.message });
           return NextResponse.json({ ok: false, error: "Game belum dapat diverifikasi. Pastikan game sudah tersimpan dan migrasi game_blueprints sudah diterapkan." }, { status: 503 });
         }
-        if (data) blueprint = { id: data.id, title: data.title, template: data.template, level: data.level, topic: data.topic, language: data.language, coverImage: data.cover_image || undefined, status: data.status, plays: data.play_count || 0, settings: data.settings, items: data.items, createdAt: data.created_at, updatedAt: data.updated_at };
+        if (data) blueprint = { id: data.id, title: data.title, template: data.template, level: data.level, topic: data.topic, language: data.language, status: data.status, plays: data.play_count || 0, settings: data.settings, items: data.items, createdAt: data.created_at, updatedAt: data.updated_at };
       } else {
         blueprint = (await readLocalDb()).gameBlueprints?.find((entry) => entry.id === gameId && (entry.status === "published" || entry.status === "session")) || null;
       }

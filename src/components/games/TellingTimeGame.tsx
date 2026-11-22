@@ -171,7 +171,7 @@ export default function TellingTimeGame({ session }: Props) {
       <div className="mx-auto max-w-md px-4 py-10">
         <div className="rounded-xl border border-[#E5E7EB] bg-white p-7 text-center">
           <Trophy className="mx-auto mb-3 h-12 w-12 text-[#F59E0B]" />
-          <h2 className="text-xl font-bold text-[#111827] mb-1">Permainan Selesai!</h2>
+          <h2 className="text-xl font-bold text-[#111827] mb-1">Kuis Selesai!</h2>
           <p className="text-sm text-[#6B7280] mb-4">
             {pct >= 80 ? "Luar biasa! Kamu sangat menguasai waktu." : pct >= 50 ? "Bagus! Terus berlatih ya." : "Jangan menyerah, coba lagi!"}
           </p>

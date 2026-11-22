@@ -648,6 +648,7 @@ async function readNormalizedLocalDb(): Promise<DatabaseSchema | null> {
     if (!parsed.rwCodes || parsed.rwCodes.length === 0) parsed.rwCodes = initial.rwCodes;
     parsed.rwCodes = parsed.rwCodes.map((code: any) => ({ ...code, id: code.id || `rw-${String(code.rw).replace("RW ", "")}-1` }));
     if (!parsed.testimoni) parsed.testimoni = [];
+    if (!parsed.gameScoreHistory) parsed.gameScoreHistory = [];
     if (!parsed.classes) parsed.classes = [];
     if (!parsed.enrollments) parsed.enrollments = [];
     if (!parsed.gameBlueprints) parsed.gameBlueprints = [];
@@ -673,6 +674,7 @@ export async function readLocalDb(): Promise<DatabaseSchema> {
       // Gabungkan remote + lokal, tapi data lokal (baru dibuat di server ini) DIPRIORITASKAN
       const merged: DatabaseSchema = {
         ...remote,
+        gameScoreHistory: local?.gameScoreHistory || [],
         games: mergeByIdPreferLocal(local?.games || [], remote.games || []),
         gameBlueprints: local?.gameBlueprints || [],
         classSessions: local?.classSessions || [],

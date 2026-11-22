@@ -19,7 +19,7 @@ const SHAPES = [
 
 function shuffle<T>(arr: T[]): T[] { const a = [...arr]; for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
-export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode = false, guestParticipantId }: { pin: string; guestMode?: boolean; guestParticipantId?: string }) {
+export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode = false, sessionMode = false, guestParticipantId, saveHistory = false }: { pin: string; guestMode?: boolean; sessionMode?: boolean; guestParticipantId?: string; saveHistory?: boolean }) {
   const router = useRouter();
   const [playerId, setPlayerId] = useState("");
   const [playerName, setPlayerName] = useState("");
@@ -28,12 +28,13 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
   const [guestMode, setGuestMode] = useState(initialGuestMode);
   const [scanEntry, setScanEntry] = useState(false);
   const [closeFallback, setCloseFallback] = useState(false);
+  const [scoreHistoryStatus, setScoreHistoryStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [scoreHistoryAttempt, setScoreHistoryAttempt] = useState(0);
   const [state, setState] = useState<SessionState | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [lastPoints, setLastPoints] = useState<number | null>(null);
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
   const [flash, setFlash] = useState<"correct" | "wrong" | null>(null);
-  const [mediaLoadFailed, setMediaLoadFailed] = useState(false);
   // answer states
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([]);
@@ -47,7 +48,6 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const savedLiveScoreRef = useRef<string | null>(null);
 
-  useEffect(() => setMediaLoadFailed(false), [state?.currentQuestionIndex, state?.status]);
 
   function playTone(ok: boolean) {
     try {
@@ -107,19 +107,24 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
     if (state?.status === "podium") {
       if (guestMode && guestParticipantId && state.gameId) markGuestGameCompleted(guestParticipantId, state.gameId);
       const ownScore = state.playersList.find((player) => player.id === playerId);
-      const scoreKey = `${pin}:${playerId}:${state.gameId || ""}`;
-      if (ownScore && state.gameId && savedLiveScoreRef.current !== scoreKey) {
+      const scoreKey = `${pin}:${playerId}:${state.gameId || ""}:${scoreHistoryAttempt}`;
+      if (saveHistory && ownScore && state.gameId && savedLiveScoreRef.current !== scoreKey) {
         savedLiveScoreRef.current = scoreKey;
+        setScoreHistoryStatus("saving");
         void fetch("/api/game/score", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ gameId: state.gameId, gameTitle: state.templateTitle || "Kuis sesi", score: ownScore.score }),
-        }).catch(() => undefined);
+        }).then(async (response) => {
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || "Skor belum tersimpan.");
+          setScoreHistoryStatus("saved");
+        }).catch(() => setScoreHistoryStatus("error"));
       }
       confetti({ particleCount: 140, spread: 100, origin: { y: 0.6 }, colors: ["#F59E0B", "#14532D", "#ffffff"] });
       setTimeout(() => confetti({ particleCount: 80, spread: 120, origin: { y: 0.5 } }), 400);
     }
-  }, [guestMode, guestParticipantId, playerId, pin, state?.gameId, state?.playersList, state?.status, state?.templateTitle]);
+  }, [guestMode, guestParticipantId, playerId, pin, saveHistory, scoreHistoryAttempt, state?.gameId, state?.playersList, state?.status, state?.templateTitle]);
 
   async function submit(payload: any) {
     if (hasSubmitted || !state || state.status !== "question") return;
@@ -140,7 +145,7 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
   const myRank = rankedPlayers.findIndex((p) => p.id === playerId) + 1;
 
   const returnFromGame = () => {
-    if (!scanEntry) { router.push(guestMode ? "/games" : "/game"); return; }
+    if (!scanEntry) { router.push(sessionMode ? "/games" : "/game"); return; }
     window.close();
     window.setTimeout(() => { if (!window.closed) setCloseFallback(true); }, 250);
   };
@@ -181,14 +186,13 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-5 animate-[fadeIn_.4s_ease] min-h-[60vh]">
             <div className="h-24 w-24 rounded-3xl bg-emerald-600/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-300 animate-pulse shadow-[0_0_40px_rgba(16,185,129,.25)]"><Gamepad2 className="h-12 w-12" /></div>
             <div><h1 className="text-3xl font-black text-white">Kamu Sudah Masuk!</h1><p className="text-sm text-slate-300 mt-2 leading-relaxed">Tunggu sebentar ya, <strong className="text-white">{playerName}</strong>. Host akan segera memulai.</p></div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 w-full max-w-xl text-xs text-slate-300">Game: <span className="font-bold text-emerald-400">{state.templateTitle}</span><br/>Peserta: <span className="font-bold text-white">{state.playersList.length} orang</span><br/>Tim kamu: <span className="font-bold text-white">{playerTeam === "forest" ? "Daun" : "Mentari"}</span></div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 w-full max-w-xl text-xs text-slate-300">Kuis: <span className="font-bold text-emerald-400">{state.templateTitle}</span><br/>Peserta: <span className="font-bold text-white">{state.playersList.length} orang</span><br/>Tim kamu: <span className="font-bold text-white">{playerTeam === "forest" ? "Daun" : "Mentari"}</span></div>
           </div>
         )}
 
         {state.status === "question" && q && (
           <div className="flex-1 flex flex-col py-2 space-y-3">
             <div className="flex items-center justify-between text-xs text-slate-300 px-1"><span>Soal {state.currentQuestionIndex + 1} / {state.totalQuestions}</span><span className="font-semibold text-emerald-400">{Math.max(1, state.timeLimitSec || 20)}s</span></div>
-            {q.mediaUrl && (mediaLoadFailed ? <p role="status" className="text-sm text-amber-300">Gambar soal tidak dapat dimuat.</p> : <img src={q.mediaUrl} alt="Gambar soal" onError={() => setMediaLoadFailed(true)} className="w-full max-h-40 object-contain rounded-xl border border-slate-700 bg-slate-900"/>)}
             <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-3 text-sm text-white font-semibold leading-relaxed"><div className="flex items-start justify-between gap-3"><span>{q.question || q.prompt}</span>{q.audioText && <button type="button" aria-label="Putar audio soal" onClick={() => { if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(String(q.audioText)); utterance.lang = "en-US"; window.speechSynthesis.speak(utterance); } }} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-emerald-400/40 px-3 text-xs font-bold text-emerald-300 hover:bg-emerald-400/10"><Volume2 className="h-4 w-4" />Dengarkan</button>}</div>{q.sentence ? <div className="mt-2 text-emerald-300">{q.sentence}</div> : null}{q.hint ? <div className="mt-1 text-xs text-slate-400">Petunjuk: {q.hint}</div> : null}</div>
 
             {!hasSubmitted ? (
@@ -273,19 +277,20 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
             <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full border border-amber-200/10" />
             <div className="relative mx-auto max-w-3xl space-y-6">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-amber-200/30 bg-amber-300/15 text-amber-200 shadow-lg sm:h-20 sm:w-20"><Trophy className="h-9 w-9 sm:h-11 sm:w-11" /></div>
-              <div><p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">Permainan selesai</p><h2 className="mt-2 font-display text-3xl font-bold sm:text-4xl">Kerja bagus, {playerName}!</h2><p className="mt-2 text-sm text-white/75">Inilah peringkat akhir untuk {state.templateTitle}.</p></div>
+              <div><p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">Kuis selesai</p><h2 className="mt-2 font-display text-3xl font-bold sm:text-4xl">Kerja bagus, {playerName}!</h2><p className="mt-2 text-sm text-white/75">Inilah peringkat akhir untuk {state.templateTitle}.</p></div>
               <div className="grid gap-3 text-left sm:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]">
                 <section className="rounded-2xl border border-white/10 bg-white/[.07] p-5 sm:p-6"><div className="flex items-center gap-2 text-sm font-bold text-amber-100"><Crown className="h-4 w-4" />Pencapaianmu</div><p className="mt-4 font-display text-4xl font-bold text-amber-200">#{myRank || "—"}</p><p className="mt-1 text-sm text-white/75">{myPlayerInfo?.score || 0} poin · Tim {playerTeam === "forest" ? "Daun" : "Mentari"}</p><div className="mt-4 h-px bg-white/10" /><p className="mt-3 text-xs leading-5 text-white/70">Skor dihitung dari ketepatan dan kecepatan jawaban.</p></section>
                 <section aria-label="Leaderboard akhir" className="rounded-2xl border border-white/10 bg-[#0d1d17]/55 p-4 sm:p-5"><h3 className="flex items-center gap-2 text-sm font-bold text-white"><Medal className="h-4 w-4 text-amber-200" />Peringkat peserta</h3>{rankedPlayers.length ? <ol className="mt-3 space-y-2">{rankedPlayers.slice(0, 5).map((player, index) => <li key={player.id} className={`flex min-h-12 items-center gap-3 rounded-xl px-3 py-2 ${player.id === playerId ? "bg-amber-200/15 ring-1 ring-amber-200/35" : "bg-white/[.05]"}`}><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-black ${index === 0 ? "bg-amber-300 text-[#38260a]" : index === 1 ? "bg-slate-200 text-slate-800" : index === 2 ? "bg-orange-300 text-orange-950" : "bg-white/10 text-white/75"}`}>{index + 1}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold">{player.name}{player.id === playerId && <span className="ml-1 text-xs text-amber-200">(kamu)</span>}</span><span className="shrink-0 text-sm font-bold tabular-nums text-amber-100">{player.score} pt</span></li>)}</ol> : <p className="mt-3 text-sm text-white/70">Belum ada skor peserta.</p>}</section>
               </div>
+              {saveHistory && scoreHistoryStatus !== "idle" && <div><p role="status" className={`text-sm font-semibold ${scoreHistoryStatus === "error" ? "text-amber-100" : "text-emerald-100"}`}>{scoreHistoryStatus === "saving" ? "Menyimpan skor ke Riwayat Kuis…" : scoreHistoryStatus === "saved" ? "Skor tersimpan di Riwayat Kuis akun Anda." : "Skor belum tersimpan. Periksa koneksi lalu coba lagi."}</p>{scoreHistoryStatus === "error" && <button type="button" onClick={() => { savedLiveScoreRef.current = null; setScoreHistoryAttempt((attempt) => attempt + 1); }} className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-white/40 px-4 text-sm font-bold text-white hover:bg-white/10">Coba simpan lagi</button>}</div>}
               {closeFallback && <p role="status" className="rounded-xl border border-amber-200/25 bg-amber-100/10 px-4 py-3 text-sm text-amber-50">Browser tidak mengizinkan halaman ini menutup tab. Silakan tutup tab secara manual.</p>}
-              <button type="button" onClick={returnFromGame} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#c24a31] px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#a83d2a] active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100">{scanEntry ? "Selesai · tutup halaman" : guestMode ? "Kembali ke Games" : "Kembali ke menu game"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button>
+              <button type="button" onClick={returnFromGame} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#c24a31] px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#a83d2a] active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100">{scanEntry ? "Selesai · tutup halaman" : sessionMode ? "Kembali ke Kuis" : "Kembali ke menu kuis"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button>
             </div>
           </div>
         )}
 
         {state.status === "closed" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4"><h2 className="text-xl font-bold text-white">Sesi Kuis Ditutup</h2><p className="text-sm text-slate-300">Pengajar telah menutup sesi ini.</p>{closeFallback && <p role="status" className="text-sm text-amber-100">Browser tidak mengizinkan halaman ini menutup tab. Silakan tutup tab secara manual.</p>}<button type="button" onClick={returnFromGame} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-500">{scanEntry ? "Tutup halaman" : guestMode ? "Kembali ke Games" : "Kembali ke menu game"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button></div>
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4"><h2 className="text-xl font-bold text-white">Sesi Kuis Ditutup</h2><p className="text-sm text-slate-300">Pengajar telah menutup sesi ini.</p>{closeFallback && <p role="status" className="text-sm text-amber-100">Browser tidak mengizinkan halaman ini menutup tab. Silakan tutup tab secara manual.</p>}<button type="button" onClick={returnFromGame} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-500">{scanEntry ? "Tutup halaman" : guestMode ? "Kembali ke Kuis" : "Kembali ke menu game"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button></div>
         )}
       </main>
 

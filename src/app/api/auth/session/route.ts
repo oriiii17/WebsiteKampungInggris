@@ -52,6 +52,16 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const action = body.action as string;
 
+    if (action === "clear_class_session") {
+      const updated: SessionPayload = { ...session };
+      delete updated.guestSessionId;
+      delete updated.guestRegistrationId;
+      delete updated.guestClassHref;
+      const res = NextResponse.json({ ok: true, session: updated });
+      res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 60 * 60 * 24 * 30 });
+      return res;
+    }
+
     if (action === "update_profile") {
       const name = String(body.name || "").trim();
       if (name.length < 2) return NextResponse.json({ ok: false, error: "Nama minimal 2 karakter." }, { status: 400 });

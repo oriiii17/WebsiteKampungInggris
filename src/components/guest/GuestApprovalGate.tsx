@@ -49,7 +49,7 @@ export default function GuestApprovalGate({ initialStatus, scope = "guest" }: { 
         <p className="mx-auto mt-3 max-w-md text-base leading-7 text-[#3d4038]">
           {rejected
             ? "Akses kelas belum dibuka untuk pendaftaran ini. Hubungi pengurus sesi jika kamu perlu bantuan."
-            : "Permintaanmu sudah diterima. Menu Kelas, Games, dan materi akan terbuka setelah pengurus menyetujui aksesmu."}
+            : "Permintaanmu sudah diterima. Menu Kelas, Kuis, dan materi akan terbuka setelah pengurus menyetujui aksesmu."}
         </p>
         {!rejected && <p role="status" aria-live="polite" className="mt-4 text-sm font-semibold text-[#514b3e]">Halaman ini memeriksa status secara otomatis.</p>}
         {checkError && <p role="alert" className="mt-4 rounded-lg border border-[#ba472f]/30 bg-[#f2dfd6] p-3 text-sm font-semibold text-[#7b2c1d]">{checkError}</p>}

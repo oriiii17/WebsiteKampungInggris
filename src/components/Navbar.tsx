@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, ShoppingCart, ChevronDown, Gamepad2, GraduationCap, KeyRound, LogOut, Settings, User, CalendarDays } from "lucide-react";
+import { BookOpen, ShoppingCart, ChevronDown, Gamepad2, GraduationCap, KeyRound, LogOut, Settings, User, CalendarDays, Menu, X } from "lucide-react";
 import { SessionPayload } from "@/lib/types";
 import { SITE_CONFIG } from "@/config/site";
 import styles from "./Navbar.module.css";
@@ -21,6 +21,8 @@ export default function Navbar({ session }: NavbarProps) {
   const showCart = !isAdmin && !isWarga;
   const isAdminRoute = pathname.startsWith("/admin");
   const [open, setOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -39,7 +41,29 @@ export default function Navbar({ session }: NavbarProps) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => { setOpen(false); }, [pathname, session?.id, session?.role]);
+  useEffect(() => { setOpen(false); setDrawerOpen(false); }, [pathname, session?.id, session?.role]);
+
+  useEffect(() => {
+    const updateCart = () => {
+      try {
+        const parsed: unknown = JSON.parse(localStorage.getItem("sapen_class_cart") || "[]");
+        setCartCount(Array.isArray(parsed) ? parsed.length : 0);
+      } catch { setCartCount(0); }
+    };
+    updateCart();
+    window.addEventListener("storage", updateCart);
+    window.addEventListener("sapen:cart-updated", updateCart);
+    return () => { window.removeEventListener("storage", updateCart); window.removeEventListener("sapen:cart-updated", updateCart); };
+  }, []);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setDrawerOpen(false); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => { document.body.style.overflow = oldOverflow; window.removeEventListener("keydown", onKeyDown); };
+  }, [drawerOpen]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -59,7 +83,7 @@ export default function Navbar({ session }: NavbarProps) {
   const publicNavLinks = [
     { href: "/", label: "Beranda" },
     { href: "/kelas", label: "Kelas" },
-    { href: "/games", label: "Games" },
+    { href: "/games", label: "Kuis" },
     { href: "/sesi", label: "Sesi Kelas" },
     { href: "/tentang", label: "Tentang" },
     { href: "/faq", label: "FAQ" },
@@ -131,9 +155,25 @@ export default function Navbar({ session }: NavbarProps) {
         </div>
 
         <div className={styles.mobileActions}>
-          {session && <button type="button" onClick={() => setOpen((v) => !v)} className={styles.mobileAccountButton} aria-label="Menu akun" aria-expanded={open}>{initial}</button>}
+          {showCart && <Link href="/keranjang" className={styles.mobileCartAction} aria-label={`Keranjang, ${cartCount} item`} title="Keranjang"><ShoppingCart aria-hidden="true" />{cartCount > 0 && <span className={styles.cartBadge}>{cartCount > 99 ? "99+" : cartCount}</span>}</Link>}
+          <button type="button" onClick={() => setDrawerOpen(true)} className={styles.mobileMenuButton} aria-label="Buka menu" aria-controls="public-mobile-drawer" aria-expanded={drawerOpen}><Menu aria-hidden="true" /></button>
         </div>
       </div>
+
+      {drawerOpen && <div className={styles.drawerRoot}>
+        <button type="button" className={styles.drawerScrim} aria-label="Tutup menu" onClick={() => setDrawerOpen(false)} />
+        <aside id="public-mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu navigasi" className={styles.drawerPanel}>
+          <div className={styles.drawerHeader}><strong>Jelajahi Sapen</strong><button type="button" aria-label="Tutup menu" title="Tutup menu" onClick={() => setDrawerOpen(false)} className={styles.drawerClose}><X aria-hidden="true" /></button></div>
+          <nav className={styles.drawerLinks} aria-label="Navigasi lainnya">
+            <Link href="/tentang" onClick={() => setDrawerOpen(false)}>Tentang</Link>
+            <Link href="/faq" onClick={() => setDrawerOpen(false)}>FAQ</Link>
+            {!session && <Link href="/daftar" onClick={() => setDrawerOpen(false)}>Daftar</Link>}
+            {!session && <Link href="/masuk" onClick={() => setDrawerOpen(false)}>Masuk</Link>}
+            {!session && <Link href="/masuk?mode=warga" onClick={() => setDrawerOpen(false)}>Masuk dengan Kode Akses</Link>}
+            {session && <><Link href="/akun" onClick={() => setDrawerOpen(false)}>Akun Saya</Link>{isAdmin && <Link href="/admin" onClick={() => setDrawerOpen(false)}>Panel Pengurus</Link>}<button type="button" onClick={() => { setDrawerOpen(false); void handleLogout(); }}><LogOut aria-hidden="true" />Logout</button></>}
+          </nav>
+        </aside>
+      </div>}
 
       {open && session && (
         <div className={styles.mobileAccountPanel}>
@@ -150,8 +190,8 @@ export default function Navbar({ session }: NavbarProps) {
         <Link href="/" aria-current={pathname === "/" ? "page" : undefined} className={`${styles.bottomLink} ${pathname === "/" ? styles.bottomLinkActive : ""}`}><GraduationCap aria-hidden="true" />Beranda</Link>
         <Link href="/kelas" aria-current={pathname.startsWith("/kelas") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen aria-hidden="true" />Kelas</Link>
         <Link href="/sesi" aria-current={pathname === "/sesi" ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname === "/sesi" || pathname.startsWith("/sesi/") ? styles.bottomLinkActive : ""}`}><CalendarDays aria-hidden="true" />Sesi Kelas</Link>
-        <Link href="/games" aria-current={pathname.startsWith("/games") || pathname.startsWith("/game") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 aria-hidden="true" />Games</Link>
-        <Link href={session ? "/akun" : "/masuk"} aria-current={session ? (pathname.startsWith("/akun") ? "page" : undefined) : (pathname.startsWith("/masuk") ? "page" : undefined)} className={`${styles.bottomLink} ${(session ? pathname.startsWith("/akun") : pathname.startsWith("/masuk")) ? styles.bottomLinkActive : ""}`}>{session ? <User aria-hidden="true" /> : <KeyRound aria-hidden="true" />}{session ? "Akun" : "Masuk"}</Link>
+        <Link href="/games" aria-current={pathname.startsWith("/games") || pathname.startsWith("/game") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 aria-hidden="true" />Kuis</Link>
+        <Link href="/masuk" aria-current={pathname.startsWith("/masuk") ? "page" : undefined} className={`${styles.bottomLink} ${pathname.startsWith("/masuk") ? styles.bottomLinkActive : ""}`}><KeyRound aria-hidden="true" />Masuk</Link>
       </nav>
     </header>
   );

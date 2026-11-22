@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import {
   BookOpen,
@@ -17,6 +17,7 @@ import {
   KeyRound,
   LogOut,
   Menu,
+  X,
   RefreshCw,
   Users,
   Radio,
@@ -42,6 +43,8 @@ import AdminHostGameTab from "@/components/admin/AdminHostGameTab";
 import GameBuilderClient from "@/components/admin/GameBuilderClient";
 import ClassSessionManager from "@/components/admin/ClassSessionManager";
 import AdminCodesManager from "@/components/admin/AdminCodesManager";
+import ResponsiveTable from "@/components/admin/ResponsiveTable";
+import { AdminSectionHeader } from "@/components/admin/AdminSectionHeader";
 import "@/components/admin/AdminTheme.css";
 import { useAppDialog } from "@/components/AppDialogProvider";
 
@@ -98,6 +101,7 @@ type TabType = (typeof ADMIN_TABS)[number];
 export default function AdminDashboardClient() {
   const dialog = useAppDialog();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const paramTab = searchParams.get("tab") as TabType | null;
@@ -108,8 +112,8 @@ export default function AdminDashboardClient() {
     warga: "Akses RW & Peserta",
     testimoni: "Testimoni",
     codes: "Peserta & Akses Kelas",
-    games: "Host Kuis / Game",
-    "game-builder": "Kelola Game",
+    games: "Host Kuis",
+    "game-builder": "Kelola Kuis",
     sessions: "Sesi Tatap Muka",
     public: "Situs Publik",
     payments: "Pembayaran",
@@ -139,6 +143,24 @@ export default function AdminDashboardClient() {
       setTab(qTab);
     }
   }, [searchParams, tab]);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname, paramTab]);
 
   function handleSelectTab(nextTab: TabType) {
     setTab(nextTab);
@@ -270,8 +292,8 @@ export default function AdminDashboardClient() {
         { id: "sessions" as const, label: "Sesi Tatap Muka", icon: CalendarClock },
         { id: "warga" as const, label: "Akses RW & Peserta", icon: KeyRound },
         { id: "codes" as const, label: "Peserta & Akses Kelas", icon: Users },
-        { id: "game-builder" as const, label: "Kelola Game", icon: Gamepad2 },
-        { id: "games" as const, label: "Host Kuis / Game", icon: Radio },
+        { id: "game-builder" as const, label: "Kelola Kuis", icon: Gamepad2 },
+        { id: "games" as const, label: "Host Kuis", icon: Radio },
         { id: "public" as const, label: "Situs Publik", icon: ExternalLink, href: "/" },
         { id: "payments" as const, label: "Pembayaran", icon: CreditCard },
       ],
@@ -279,14 +301,15 @@ export default function AdminDashboardClient() {
   ];
 
   const sidebar = (
-    <aside className="flex h-full w-[210px] flex-col border-r border-[#E5E7EB] bg-white lg:w-[250px]">
-      <div className="border-b border-[#E5E7EB] px-4 py-4">
+    <aside className="flex h-full w-[210px] flex-col border-r border-[#E5E7EB] bg-white shadow-xl md:shadow-none lg:w-[250px]">
+      <div className="flex items-center justify-between gap-2 border-b border-[#E5E7EB] px-4 py-4">
         <Link href="/admin" className="flex items-center gap-2.5">
           <Image src="/sapen-english-village-logo.jpg" alt="Sapen English Village" width={651} height={453} priority className="h-auto w-[104px] shrink-0" />
           <div className="min-w-0">
             <p className="text-[11px] font-semibold text-[#1A2E1A]/60">Panel Pengurus</p>
           </div>
         </Link>
+        <button type="button" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu" title="Tutup menu" className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg border border-[#E5E7EB] text-[#1A2E1A] transition hover:bg-[#FDFBF7] md:hidden"><X className="h-5 w-5" /></button>
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
@@ -335,8 +358,8 @@ export default function AdminDashboardClient() {
 
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <button type="button" aria-label="Tutup menu" className="absolute inset-0 bg-[#1A2E1A]/20" onClick={() => setSidebarOpen(false)} />
-          <div className="relative h-full w-[210px] lg:w-[250px]">{sidebar}</div>
+          <button type="button" aria-label="Tutup menu" title="Tutup menu" className="absolute inset-0 bg-[#102418]/55 backdrop-blur-[2px]" onClick={() => setSidebarOpen(false)} />
+          <div className="relative h-full w-[min(86vw,280px)]">{sidebar}</div>
         </div>
       )}
 
@@ -344,7 +367,7 @@ export default function AdminDashboardClient() {
         <header className="sticky top-0 z-20 border-b border-[#E5E7EB] bg-white">
           <div className="flex min-h-[64px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
-              <button type="button" onClick={() => setSidebarOpen(true)} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-[#E5E7EB] text-[#1A2E1A] md:hidden" aria-label="Buka menu">
+              <button type="button" onClick={() => setSidebarOpen(true)} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-[#E5E7EB] text-[#1A2E1A] md:hidden" aria-label="Buka menu" title="Buka menu">
                 <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0 md:hidden">
@@ -355,11 +378,11 @@ export default function AdminDashboardClient() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" disabled={refreshingOverview} onClick={() => void refreshOverview()} className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7] disabled:cursor-wait disabled:opacity-60">
+              <button type="button" disabled={refreshingOverview} onClick={() => void refreshOverview()} aria-label={refreshingOverview ? "Memuat ulang panel" : "Muat ulang panel"} title={refreshingOverview ? "Memuat ulang panel" : "Muat ulang panel"} className="inline-flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7] disabled:cursor-wait disabled:opacity-60">
                 <RefreshCw className={`h-4 w-4 ${refreshingOverview ? "animate-spin" : ""}`} />
                 <span className="hidden sm:inline">{refreshingOverview ? "Memuat…" : "Muat ulang"}</span>
               </button>
-              <button type="button" onClick={handleLogout} disabled={loggingOut} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7] disabled:cursor-wait disabled:opacity-60">
+              <button type="button" onClick={handleLogout} disabled={loggingOut} aria-label={loggingOut ? "Sedang keluar" : "Keluar dari panel admin"} title={loggingOut ? "Sedang keluar" : "Keluar dari panel admin"} className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold text-[#1A2E1A] hover:bg-[#FDFBF7] disabled:cursor-wait disabled:opacity-60">
                 <LogOut className="h-4 w-4 text-[#14532D]" />
                 <span className="hidden sm:inline">Keluar</span>
               </button>
@@ -369,14 +392,11 @@ export default function AdminDashboardClient() {
 
         <main className="px-3 py-4 sm:px-4 lg:px-6 lg:py-6">
           <div className="mx-auto max-w-[1680px] space-y-5">
-            <div className="max-w-3xl">
-              <h1 className="text-2xl font-extrabold tracking-tight text-[#1A2E1A] sm:text-[30px]">
-                {tab === "dashboard" ? "Dashboard Pengurus" : tabLabels[tab]}
-              </h1>
-              <p className="mt-1 text-sm leading-relaxed text-[#1A2E1A]/75">
-                {tab === "dashboard" ? `Selamat datang, ${data.session.name}. Berikut ringkasan pengelolaan Sapen English.` : "Kelola data dan aktivitas Kampung Inggris Sapen."}
-              </p>
-            </div>
+            <AdminSectionHeader
+              title={<h1 className="text-2xl font-extrabold tracking-tight text-[#1A2E1A] sm:text-[30px]">{tab === "dashboard" ? "Dashboard Pengurus" : tabLabels[tab]}</h1>}
+              description={tab === "dashboard" ? `Selamat datang, ${data.session.name}. Berikut ringkasan pengelolaan Sapen English.` : "Kelola data dan aktivitas Kampung Inggris Sapen."}
+              className="max-w-3xl"
+            />
 
             {tab === "dashboard" && (
               <section aria-label="Ringkasan pengelolaan" className="space-y-6">
@@ -393,7 +413,7 @@ export default function AdminDashboardClient() {
                     <p className="mt-1 text-sm text-muted">Status utama yang membantu Anda menentukan pekerjaan berikutnya.</p>
                     <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
                       <div><dt className="text-xs text-muted">Kelas</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.classes?.length ?? 0}</dd></div>
-                      <div><dt className="text-xs text-muted">Login kode RW</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.totalWarga ?? 0}</dd></div>
+                      <div><dt className="text-xs text-muted">Login kode akses</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.totalWarga ?? 0}</dd></div>
                       <div><dt className="text-xs text-muted">Menunggu moderasi</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.pendingTestimoni ?? 0}</dd></div>
                     </dl>
                   </section>
@@ -404,7 +424,7 @@ export default function AdminDashboardClient() {
                       {[
                         ["classes", "Kelola kelas"],
                         ["sessions", "Buat sesi tatap muka"],
-                        ["game-builder", "Buat game"],
+                        ["game-builder", "Buat kuis"],
                         ["games", "Host kuis live"],
                       ].map(([id, label]) => <button key={id} type="button" onClick={() => handleSelectTab(id as TabType)} className="inline-flex min-h-11 items-center rounded-lg border border-rule bg-white px-3 py-2 text-sm font-bold text-leaf transition-colors hover:border-forest hover:bg-forest-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tomato">{label}</button>)}
                     </div>
@@ -455,6 +475,21 @@ export default function AdminDashboardClient() {
         <AdminHostGameTab notify={notify} />
       )}
 
+      {tab === "public" && (
+        <section aria-labelledby="public-site-empty-title" className="rounded-2xl border border-rule bg-paper-light px-5 py-8 text-center sm:px-8 sm:py-10">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-forest-soft text-leaf">
+            <ExternalLink aria-hidden="true" className="h-5 w-5" />
+          </div>
+          <h2 id="public-site-empty-title" className="mt-4 text-xl font-bold text-leaf">Situs publik siap dikunjungi</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted">
+            Tab ini tidak memiliki pengaturan tersendiri. Buka halaman utama untuk melihat situs seperti yang dilihat pengunjung.
+          </p>
+          <Link href="/" className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-earth px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-tomato-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tomato">
+            Kunjungi situs publik
+            <ExternalLink aria-hidden="true" className="h-4 w-4" />
+          </Link>
+        </section>
+      )}
 
         {tab === "payments" && (
           <PaymentsTab
@@ -525,16 +560,25 @@ function PaymentsTab(props: any) {
 
       <div className="rounded-xl border border-[#E5E7EB] bg-white p-6">
         <h2 className="text-lg font-extrabold text-slate-900">Riwayat Pembayaran & Langganan Peserta Umum ({data.subscriptions.length})</h2>
-        {data.subscriptions.length === 0 ? (
-          <p className="mt-4 text-sm text-slate-500">Belum ada transaksi dari pengunjung luar kampung. Anda dapat menambahkan akses manual di atas.</p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="border-b border-slate-200 text-slate-500"><tr><th className="py-2.5 pr-4">Order ID</th><th className="py-2.5 pr-4">Peserta</th><th className="py-2.5 pr-4">Paket</th><th className="py-2.5 pr-4">Metode</th><th className="py-2.5 pr-4">Berlaku S/d</th><th className="py-2.5 pr-4">Status</th><th className="py-2.5 text-right">Aksi</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">{data.subscriptions.map((s: any) => <tr key={s.id}><td className="py-3 pr-4 font-mono text-xs text-slate-500">{s.orderId}</td><td className="py-3 pr-4"><p className="font-bold text-slate-900">{s.userName}</p><p className="text-xs text-slate-500">{s.userEmail}</p></td><td className="py-3 pr-4 font-semibold text-slate-800">{s.planName}</td><td className="py-3 pr-4 text-xs text-slate-600">{s.paymentMethod}</td><td className="py-3 pr-4 text-xs text-slate-600">{s.expiresAt ? new Date(s.expiresAt).toLocaleDateString("id-ID") : "â€”"}</td><td className="py-3 pr-4"><span className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold ${s.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{s.status === "active" ? "Aktif" : s.status}</span></td><td className="py-3 text-right space-x-1.5 whitespace-nowrap"><button type="button" onClick={() => handleSubAction(s.id, "extend30")} className="rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100" title="Perpanjang 30 hari">+30 Hari</button><button type="button" onClick={() => handleSubAction(s.id, "toggle")} className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-200">{s.status === "active" ? "Nonaktifkan" : "Aktifkan"}</button><button type="button" onClick={() => handleDeleteSub(s.id)} className="rounded-lg bg-red-50 px-2 py-1 text-[11px] font-bold text-red-600 hover:bg-red-100">Hapus</button></td></tr>)}</tbody>
-            </table>
-          </div>
-        )}
+        <div className="mt-4">
+          <ResponsiveTable
+            rows={data.subscriptions}
+            getRowKey={(subscription: SubscriptionRecord) => subscription.id}
+            ariaLabel="Riwayat pembayaran dan langganan"
+            emptyMessage="Belum ada transaksi dari pengunjung luar kampung. Anda dapat menambahkan akses manual di atas."
+            tableMinWidthClassName="min-w-[920px]"
+            tableClassName="text-xs sm:text-sm text-slate-700"
+            columns={[
+              { id: "order", label: "Order ID", cellClassName: "font-mono text-xs text-slate-500", render: (subscription: SubscriptionRecord) => subscription.orderId },
+              { id: "participant", label: "Peserta", render: (subscription: SubscriptionRecord) => <><p className="font-bold text-slate-900">{subscription.userName}</p><p className="break-words text-xs text-slate-500">{subscription.userEmail}</p></> },
+              { id: "plan", label: "Paket", cellClassName: "font-semibold text-slate-800", render: (subscription: SubscriptionRecord) => subscription.planName },
+              { id: "method", label: "Metode", render: (subscription: SubscriptionRecord) => subscription.paymentMethod },
+              { id: "expires", label: "Berlaku S/d", render: (subscription: SubscriptionRecord) => subscription.expiresAt ? new Date(subscription.expiresAt).toLocaleDateString("id-ID") : "—" },
+              { id: "status", label: "Status", render: (subscription: SubscriptionRecord) => <span className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold ${subscription.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{subscription.status === "active" ? "Aktif" : subscription.status}</span> },
+              { id: "actions", label: "Aksi", action: true, render: (subscription: SubscriptionRecord) => <div className="flex flex-wrap gap-2 md:justify-end"><button type="button" onClick={() => handleSubAction(subscription.id, "extend30")} className="min-h-11 rounded-lg bg-emerald-50 px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-100" title="Perpanjang 30 hari">+30 Hari</button><button type="button" onClick={() => handleSubAction(subscription.id, "toggle")} className="min-h-11 rounded-lg bg-slate-100 px-3 text-xs font-bold text-slate-700 hover:bg-slate-200">{subscription.status === "active" ? "Nonaktifkan" : "Aktifkan"}</button><button type="button" onClick={() => handleDeleteSub(subscription.id)} className="min-h-11 rounded-lg bg-red-50 px-3 text-xs font-bold text-red-600 hover:bg-red-100">Hapus</button></div> },
+            ]}
+          />
+        </div>
       </div>
 
       {isDev && (

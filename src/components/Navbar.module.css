@@ -73,6 +73,19 @@
 .cartAction { padding: .4rem .62rem; border: 1px solid var(--nav-rule); border-radius: .55rem; }
 .cartAction:hover, .mobileCartAction:hover { background: var(--nav-paper); }
 .mobileCartAction { width: 40px; }
+.mobileCartAction { position: relative; min-height: 44px; min-width: 44px; }
+.cartBadge { position: absolute; top: 2px; right: 0; display: grid; min-width: 18px; height: 18px; place-items: center; border: 2px solid var(--nav-page); border-radius: 999px; padding-inline: 3px; color: #fff; background: var(--nav-tomato); font-size: .62rem; line-height: 1; font-weight: 900; }
+.mobileMenuButton, .drawerClose { display: inline-grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--nav-rule); border-radius: .6rem; color: var(--nav-forest-deep); background: var(--nav-page); cursor: pointer; }
+.mobileMenuButton svg, .drawerClose svg { width: 20px; height: 20px; }
+.drawerRoot { position: fixed; z-index: 120; inset: 0; }
+.drawerScrim { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: rgba(16, 36, 24, .58); }
+.drawerPanel { position: absolute; top: 0; right: 0; display: flex; width: min(86vw, 22rem); height: 100dvh; flex-direction: column; padding: 1rem; color: var(--nav-ink); background: var(--nav-page); box-shadow: -16px 0 40px rgba(16, 36, 24, .2); animation: nav-drawer-in 180ms cubic-bezier(.16, 1, .3, 1) both; }
+.drawerHeader { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--nav-rule); padding-bottom: .75rem; font-family: "Fraunces", Georgia, serif; font-size: 1.2rem; }
+.drawerLinks { display: grid; align-content: start; gap: .4rem; padding-top: 1rem; }
+.drawerLinks a, .drawerLinks button { display: flex; min-height: 48px; align-items: center; gap: .65rem; border: 1px solid transparent; border-radius: .65rem; padding: .65rem .75rem; color: var(--nav-forest-deep); background: transparent; font: inherit; font-size: .95rem; font-weight: 750; text-align: left; text-decoration: none; cursor: pointer; }
+.drawerLinks a:hover, .drawerLinks button:hover { border-color: var(--nav-rule); background: #f3e9d5; }
+.drawerLinks button svg { width: 18px; height: 18px; }
+@keyframes nav-drawer-in { from { opacity: .75; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
 .signIn, .signUp, .accountButton, .mobileSignIn, .mobileSignUp, .mobileAccountButton {
   display: inline-flex;
   min-height: 44px;
@@ -114,6 +127,7 @@
 .mobileLogout { color: var(--nav-muted); }
 .mobileAccountLink svg, .mobileLogout svg { width: 15px; height: 15px; }
 .bottomNav { position: fixed; z-index: 30; right: 0; bottom: 0; left: 0; display: flex; align-items: stretch; justify-content: space-around; padding: .25rem .2rem max(.3rem, env(safe-area-inset-bottom)); border-top: 1px solid var(--nav-rule); background: var(--nav-page); }
+.bottomNav { min-height: var(--bottom-nav-h, 64px); }
 .bottomLink { position: relative; display: flex; min-width: 54px; min-height: 52px; flex-direction: column; align-items: center; justify-content: center; gap: .15rem; padding: .2rem .4rem; color: var(--nav-muted); font-size: .66rem; font-weight: 800; text-decoration: none; transition: color 150ms ease, transform 150ms ease; }
 .bottomLink { min-width: 0; flex: 1 1 0; white-space: nowrap; }
 .bottomLink svg { width: 18px; height: 18px; stroke-width: 1.9; }
@@ -121,6 +135,14 @@
 .bottomLinkActive::before { position: absolute; top: -1px; width: 24px; height: 2px; content: ""; background: var(--nav-tomato); transform: scaleX(1); transform-origin: center; transition: transform 160ms cubic-bezier(.16, 1, .3, 1); }
 .bottomLink:not(.bottomLinkActive)::before { transform: scaleX(0); }
 .navbar a:focus-visible, .navbar button:focus-visible { outline: 3px solid var(--nav-tomato); outline-offset: 2px; }
+.mobileMenuButton:active, .drawerLinks a:active, .drawerLinks button:active { transform: scale(.97); }
+
+@media (max-width: 767px) {
+  .inner { width: calc(100% - 2rem); min-height: 56px; gap: .5rem; }
+  .brandLogo { width: 51px; height: 36px; padding: 0; border-radius: 0; background: transparent; object-fit: contain; }
+  .mobileActions { gap: .25rem; }
+  .mobileCartAction { width: 44px; color: var(--nav-forest-deep); }
+}
 
 @media (min-width: 768px) {
   .inner { width: min(100% - 3rem, 1280px); }
@@ -143,12 +165,13 @@
   .signIn, .signUp { padding-inline: .62rem; font-size: .77rem; }
 }
 @media (max-width: 380px) {
-  .inner { width: calc(100% - 1rem); min-height: 66px; gap: .25rem; }
-  .brandLogo { width: 84px; height: 56px; }
+  .inner { width: calc(100% - 2rem); min-height: 56px; gap: .25rem; }
+  .brandLogo { width: 51px; height: 36px; }
   .mobileActions { gap: 0; }
   .bottomLink { gap: .1rem; padding-inline: .1rem; font-size: .57rem; }
 }
 @media (max-width: 359px) { .mobileCartAction { width: 34px; } }
 @media (prefers-reduced-motion: reduce) {
   .navbar, .navLink, .signIn, .signUp, .mobileSignIn, .mobileSignUp, .accountButton, .bottomLink, .bottomLinkActive::before { transition: none; }
+  .drawerPanel { animation: none; }
 }

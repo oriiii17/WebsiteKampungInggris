@@ -15,6 +15,7 @@ export default function AddToCartButton({ classId, compact = false }: { classId:
     try { ids = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch {}
     ids = added ? ids.filter((id) => id !== classId) : [...new Set([...ids, classId])];
     localStorage.setItem(KEY, JSON.stringify(ids));
+    window.dispatchEvent(new Event("sapen:cart-updated"));
     setAdded(true);
     setFading(true);
   }

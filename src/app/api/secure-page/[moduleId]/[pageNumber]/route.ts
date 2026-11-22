@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getServerSession,
+  getSessionWithGuestContext,
   hasActiveMaterialAccess,
   verifySignedPageRequest,
 } from "@/lib/auth";
 import { getModuleBySlugOrId, hasUserActiveEnrollmentForModule, readPrivatePageImage } from "@/lib/db";
 import { renderSeedBookPageSvg } from "@/lib/page-svg";
+import { getApprovedActiveClassSession } from "@/lib/active-class-session";
+import { getClasses } from "@/lib/db";
 
 export async function GET(
   req: NextRequest,
@@ -32,7 +34,7 @@ export async function GET(
     return new NextResponse("Halaman tidak ditemukan.", { status: 404 });
   }
 
-  const session = await getServerSession();
+  const session = await getSessionWithGuestContext();
   let hasClassAccess = false;
   if (session?.email) {
     hasClassAccess = await hasUserActiveEnrollmentForModule(session.email, mod.id);
@@ -41,7 +43,10 @@ export async function GET(
   const isWarga = session?.origin === "warga_kode";
   const isAdmin = session?.role === "pengurus" || session?.role === "developer";
   const hasSub = hasActiveMaterialAccess(session);
-  const hasAccess = !mod.isPaidOnly || isWarga || isAdmin || hasSub || hasClassAccess;
+  const activeSession = await getApprovedActiveClassSession(session);
+  const classes = activeSession ? await getClasses(true) : [];
+  const sessionClassAccess = Boolean(activeSession && classes.some((item) => item.id === activeSession.classId && (item.moduleIds.includes(mod.id) || item.modules?.some((entry) => entry.id === mod.id))));
+  const hasAccess = !mod.isPaidOnly || isWarga || isAdmin || hasSub || hasClassAccess || sessionClassAccess;
 
   if (!hasAccess) {
     return new NextResponse("Sesi tidak aktif atau masa akses habis.", { status: 401 });

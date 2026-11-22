@@ -85,6 +85,7 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
   }, [activeSessionId, pathname, participantPending, router]);
 
   const isAdminRoute = pathname.startsWith("/admin");
+  const isAdminLogin = pathname === "/admin/masuk";
   const visibleSession = isAdminRoute || pathname.startsWith("/game/host") ? activeAccountSession : activeSession;
   const isGuest = visibleSession?.role === "guest" || visibleSession?.origin === "guest";
   const isAdminHostRoute = (visibleSession?.role === "admin" || visibleSession?.role === "pengurus" || visibleSession?.role === "developer") && pathname.startsWith("/game/host");
@@ -98,7 +99,13 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
       if (activeGuest) {
         const response = await fetch("/api/auth/session?scope=guest", { method: "DELETE", cache: "no-store" });
         if (!response.ok) throw new Error("Sesi Guest belum berhasil dibersihkan. Tekan OK untuk mencoba lagi.");
+      } else if (activeSession?.guestSessionId) {
+        const response = await fetch("/api/auth/session", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear_class_session" }), cache: "no-store" });
+        if (!response.ok) throw new Error("Konteks sesi belum berhasil dibersihkan. Tekan OK untuk mencoba lagi.");
       }
+      window.dispatchEvent(new Event("sapen:guest-session-updated"));
+      setActiveAccountSession((current) => current ? { ...current, guestSessionId: undefined, guestRegistrationId: undefined, guestClassHref: undefined } : null);
+      setActiveGuestSession(null);
       setSessionEnded(false);
       router.replace("/");
     } catch (error) {
@@ -113,5 +120,5 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
       : isGuest && !pathname.startsWith("/game/play/") ? <GuestNavbar guestClassHref={activeGuestSession?.guestClassHref || guestClassHref || "/kelas"} displayName="Guest" isGuest />
       : isStandaloneRoute ? null
         : <Navbar session={visibleSession} />;
-  return <>{navbar}{sessionEnded && <div className="session-ended-backdrop" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="guest-session-ended-title" aria-describedby="guest-session-ended-description" className="session-ended-panel"><h2 id="guest-session-ended-title" className="session-ended-title">Sesi sudah ditutup</h2><p id="guest-session-ended-description" className="session-ended-message">Sesi sudah ditutup. Silakan kembali ke beranda.</p>{endError && <p role="alert" className="session-ended-error">{endError}</p>}<div className="session-ended-actions"><button type="button" autoFocus disabled={acknowledgingEnd} onClick={() => void acknowledgeSessionEnd()}>{acknowledgingEnd ? "Menyiapkan…" : "OK"}</button></div></section></div>}</>;
+  return <>{(!isAdminRoute || isAdminLogin) && <div className="site-background" aria-hidden="true" />}{navbar}{sessionEnded && <div className="session-ended-backdrop" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="guest-session-ended-title" aria-describedby="guest-session-ended-description" className="session-ended-panel"><h2 id="guest-session-ended-title" className="session-ended-title">Sesi sudah ditutup</h2><p id="guest-session-ended-description" className="session-ended-message">Sesi sudah ditutup. Silakan kembali ke beranda.</p>{endError && <p role="alert" className="session-ended-error">{endError}</p>}<div className="session-ended-actions"><button type="button" autoFocus disabled={acknowledgingEnd} onClick={() => void acknowledgeSessionEnd()}>{acknowledgingEnd ? "Menyiapkan…" : "OK"}</button></div></section></div>}</>;
 }

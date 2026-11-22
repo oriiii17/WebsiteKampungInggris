@@ -6,5 +6,5 @@ export default async function ManageClassSessionsPage({ searchParams }: { search
   const session = await getServerSession();
   if (!isTutorSession(session)) redirect("/masuk?next=/sesi/kelola");
   const { classId } = await searchParams;
-  return <main className="min-h-screen bg-paper px-4 py-8 sm:px-8 sm:py-12"><div className="mx-auto max-w-6xl"><ClassSessionManager initialClassId={classId} /></div></main>;
+  return <main className="min-h-screen px-4 py-8 sm:px-8 sm:py-12"><div className="mx-auto max-w-6xl"><ClassSessionManager initialClassId={classId} /></div></main>;
 }
