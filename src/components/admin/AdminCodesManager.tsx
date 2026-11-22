@@ -6,6 +6,7 @@ import { Download, RefreshCw, Search, Trash2, UserCheck, Users } from "lucide-re
 import ReportDownloadDialog from "@/components/admin/ReportDownloadDialog";
 import ResponsiveTable from "@/components/admin/ResponsiveTable";
 import { AdminSectionHeader, AdminToolbar } from "@/components/admin/AdminSectionHeader";
+import AdminClassAccessActions from "@/components/admin/AdminClassAccessActions";
 
 type Participant = {
   key: string;
@@ -102,6 +103,18 @@ export default function AdminCodesManager(props: Props) {
       if (!u?.email) continue;
       list.push({ key: `u:${u.id}`, type: "umum", name: u.name || u.email, email: (u.email || "").toLowerCase() });
     }
+    for (const warga of (data.warga || [])) {
+      const email = String(warga?.email || "").trim().toLowerCase();
+      if (!email) continue;
+      const existing = list.find((participant) => participant.email === email);
+      if (existing) {
+        existing.type = "warga";
+        existing.rw = warga.rw;
+        existing.name = warga.nama || existing.name;
+      } else {
+        list.push({ key: `w:${warga.id || email}`, type: "warga", name: warga.nama || email, email, rw: warga.rw });
+      }
+    }
     // include any subscriber emails not yet in externalUsers
     for (const s of subscriptions) {
       const email = (s.userEmail || "").toLowerCase();
@@ -115,7 +128,7 @@ export default function AdminCodesManager(props: Props) {
       if (!list.some(p => p.email === email)) list.push({ key: `e:${email}`, type: "umum", name: e.userName || email, email });
     }
     return list.sort((a,b)=>a.name.localeCompare(b.name));
-  }, [data.externalUsers, subscriptions, enrollments]);
+  }, [data.externalUsers, data.warga, subscriptions, enrollments]);
 
   const filtered = participants.filter(p => {
     const q = query.trim().toLowerCase();
@@ -170,7 +183,7 @@ export default function AdminCodesManager(props: Props) {
       <section className="rounded-xl border border-[#d8d0c2] bg-white p-5 shadow-sm sm:p-6">
         <AdminSectionHeader
           title={<h2 className="flex items-center gap-2"><UserCheck className="h-5 w-5 text-[#244b3a]" /> Peserta &amp; Akses Kelas</h2>}
-          description="Kelola user reguler dan lihat peserta yang bergabung lewat sesi tatap muka secara terpisah."
+          description="Atur akses kelas akun warga dan peserta umum; peserta sesi tetap ada di tab terpisah."
           actions={<AdminToolbar className="w-full sm:w-auto"><button type="button" onClick={() => setShowReport(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#c9bda7] px-3 py-2 text-sm font-bold text-[#244b3a] transition hover:bg-[#f8f3e9]"><Download className="h-4 w-4" />Download</button><button type="button" onClick={() => { onRefresh(); if (activeList === "guests") void loadGuestParticipants(); }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[#c9bda7] px-3 py-2 text-sm font-bold text-[#244b3a] transition hover:bg-[#f8f3e9]"><RefreshCw className="h-4 w-4" />Segarkan</button></AdminToolbar>}
         />
 
@@ -195,15 +208,10 @@ export default function AdminCodesManager(props: Props) {
             columns={[
               { id: "name", label: "Nama lengkap", render: (participant) => <><p className="font-bold text-[#20251f]">{participant.name || "(tanpa nama)"}</p><p className="mt-1 text-xs text-[#625f54]">{participant.type === "warga" ? `Warga ${participant.rw || ""}` : "User reguler"}</p></> },
               { id: "email", label: "Username / Email", cellClassName: "break-words", render: (participant) => participant.email || <span className="text-[#625f54]">—</span> },
-              { id: "classes", label: "Kelas yang diakses", render: (participant) => {
+              { id: "classes", label: "Akses kelas", render: (participant) => {
                 const myEnr = participant.email ? enrollments.filter((enrollment: any) => (enrollment.userEmail || "").toLowerCase() === participant.email) : [];
-                if (participant.type !== "umum") return <span className="text-sm text-[#625f54]">Akses program melalui kode akses</span>;
-                return myEnr.length === 0 ? <span className="text-sm text-[#625f54]">Belum ada kelas</span> : <div className="flex flex-wrap gap-1.5">{myEnr.map((enrollment: any) => {
-                  const classItem = classes.find((item: any) => item.id === enrollment.classId);
-                  const active = enrollment.status === "active" && (!enrollment.expiresAt || new Date(enrollment.expiresAt).getTime() > Date.now());
-                  const free = Number(enrollment.paidAmountIdr || 0) === 0;
-                  return <span key={enrollment.id} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${active ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-[#e5dfd3] bg-[#f5f1e8] text-[#514b3e]"}`}>{classItem?.title || enrollment.classId} · {free ? "Gratis" : "Berbayar"}</span>;
-                })}</div>;
+                if (!participant.email) return <span className="text-sm text-[#625f54]">Akses program melalui Kode Akses</span>;
+                return <AdminClassAccessActions email={participant.email} name={participant.name} classes={classes} enrollments={myEnr} notify={notify} onRefresh={onRefresh} />;
               } },
             ]}
           />

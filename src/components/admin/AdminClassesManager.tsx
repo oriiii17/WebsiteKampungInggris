@@ -370,7 +370,8 @@ export default function AdminClassesManager({ notify }: Props) {
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-[#E5E7EB] pt-3 text-xs text-[#1A2E1A]/70">
-                    <span>{(cls.modules?.length || cls.moduleIds?.length || 0)} Modul</span>
+                    <span>{(cls.modules?.length ? cls.modules.filter((module) => module.status === "terbit").length : cls.moduleIds?.length || 0)} Bab</span>
+                    <span>{(cls.gameBlueprintIds || []).length} Latihan Mandiri</span>
                   </div>
                 </div>
               ))}

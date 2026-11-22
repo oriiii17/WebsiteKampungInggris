@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
-import { enrollUserInClass, getClassByIdOrSlug, getEnrollments, readLocalDb, writeLocalDb } from "@/lib/db";
+import { activateClassesForUser, getClassByIdOrSlug, getEnrollments, revokeClassAccessForUser } from "@/lib/db";
 
 export async function GET() {
   const session = await getServerSession();
@@ -25,24 +25,8 @@ export async function POST(req: NextRequest) {
     const cls = await getClassByIdOrSlug(classId);
     if (!cls) return NextResponse.json({ ok: false, error: "Kelas tidak ditemukan." }, { status: 404 });
 
-    const db = await readLocalDb();
-    if (!db.enrollments) db.enrollments = [];
-    const now = new Date();
-    const idx = db.enrollments.findIndex((e) => e.classId === classId && e.userEmail.toLowerCase() === email);
-    if (idx >= 0) {
-      db.enrollments[idx] = {
-        ...db.enrollments[idx],
-        userName: name || db.enrollments[idx].userName,
-        startsAt: now.toISOString(),
-        expiresAt: undefined,
-        status: "active",
-        paymentMethod: "Manual (Pengurus)",
-      };
-      await writeLocalDb(db);
-      return NextResponse.json({ ok: true, enrollment: db.enrollments[idx], verified: true });
-    }
-    const enrollment = await enrollUserInClass({ classId, userEmail: email, userName: name, paidAmountIdr: 0, paymentMethod: "Manual (Pengurus)" });
-    return NextResponse.json({ ok: true, enrollment, verified: true });
+    const result = await activateClassesForUser({ classIds: [classId], userEmail: email, userName: name, source: "admin" });
+    return NextResponse.json({ ok: true, enrollment: result.activated[0] || null, alreadyOwned: result.alreadyOwned.length > 0, verified: true });
   } catch (e: any) {
     console.error("[admin/enrollments POST]", e);
     return NextResponse.json({ ok: false, error: e?.message || "Gagal menyimpan akses kelas." }, { status: 500 });
@@ -56,11 +40,8 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ ok: false, error: "ID diperlukan." }, { status: 400 });
-    const db = await readLocalDb();
-    const before = (db.enrollments || []).length;
-    db.enrollments = (db.enrollments || []).filter((e) => e.id !== id);
-    if (db.enrollments.length === before) return NextResponse.json({ ok: false, error: "Enrollment tidak ditemukan." }, { status: 404 });
-    await writeLocalDb(db);
+    const removed = await revokeClassAccessForUser(id);
+    if (!removed) return NextResponse.json({ ok: false, error: "Enrollment tidak ditemukan." }, { status: 404 });
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("[admin/enrollments DELETE]", e);

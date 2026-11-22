@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpen, CheckCircle2, Clock, Gamepad2, Info } from "lucide-react";
-import { getClasses, getModules } from "@/lib/db";
-import AddToCartButton from "@/components/AddToCartButton";
+import { ArrowRight, BookOpen, Clock, Gamepad2, Info } from "lucide-react";
+import { getClasses, getModules, getPublishedIndependentGameCounts, getUserEnrollments } from "@/lib/db";
+import ClassAccessAction from "@/components/ClassAccessAction";
 import type { Metadata } from "next";
 import { canonicalUrl } from "@/lib/seo";
 import { formatIDR } from "@/lib/currency";
@@ -23,7 +23,7 @@ export const revalidate = 0;
 async function KelasIndexContent({
   searchParams,
 }: {
-  searchParams?: Promise<{ from?: string }>;
+  searchParams?: Promise<{ from?: string; tab?: string }>;
 }) {
   const sp = (await searchParams) || {};
   const session = await getSessionWithGuestContext();
@@ -36,6 +36,12 @@ async function KelasIndexContent({
     return (Number.isFinite(createdB) ? createdB : 0) - (Number.isFinite(createdA) ? createdA : 0);
   });
   const moduleMap = new Map(modules.map((m) => [m.id, m]));
+  const independentGameCounts = await getPublishedIndependentGameCounts(classes.map((item) => item.id));
+  const enrollments = session?.email ? await getUserEnrollments(session.email) : [];
+  const ownedClassIds = new Set(enrollments.map((enrollment) => enrollment.classId));
+  const canEnroll = Boolean(session?.email && session.emailVerified && session.authUserId && ["peserta", "umum", "member"].includes(session.role));
+  const isMyClassesTab = sp.tab === "mine";
+  const visibleClasses = isMyClassesTab ? classes.filter((cls) => isWarga || ownedClassIds.has(cls.id)) : classes;
 
   return (
     <div className="workbook-page">
@@ -48,9 +54,9 @@ async function KelasIndexContent({
         )}
         {!isWarga && <div className="mb-8 flex items-start gap-3 rounded-xl border border-rule bg-white/80 px-4 py-3 text-sm text-body">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-leaf" />
-          <p>Pendaftaran melalui pembayaran online belum tersedia sementara. Kelas yang Anda pilih tetap dapat disimpan di keranjang untuk ditinjau.</p>
+          <p>Kelas berbayar di keranjang akan aktif setelah pesanan diselesaikan. Kelas gratis dapat langsung diambil dari halaman detail kelas.</p>
         </div>}
-        <div className="mb-12 grid gap-8 border-b-2 border-ink pb-8 md:grid-cols-[1fr_auto] md:items-end">
+        <div className="mb-8 grid gap-8 border-b-2 border-ink pb-8 md:grid-cols-[1fr_auto] md:items-end">
           <div>
             <p className="workbook-print-note">Program belajar · daftar kelas</p>
             <h1 className="mt-3 max-w-3xl text-4xl sm:text-6xl">Pilih kelas yang pas untukmu.</h1>
@@ -58,14 +64,20 @@ async function KelasIndexContent({
           </div>
         </div>
 
+        <nav aria-label="Daftar kelas" className="mb-7 flex w-full rounded-xl border border-rule bg-white/80 p-1 sm:w-fit">
+          <Link aria-current={!isMyClassesTab ? "page" : undefined} href="/kelas" className={`inline-flex min-h-11 flex-1 items-center justify-center rounded-lg px-4 text-sm font-bold sm:flex-none ${!isMyClassesTab ? "bg-[#244b3a] text-white" : "text-[#244b3a] hover:bg-[#f5f1e8]"}`}>Semua</Link>
+          <Link aria-current={isMyClassesTab ? "page" : undefined} href="/kelas?tab=mine" className={`inline-flex min-h-11 flex-1 items-center justify-center rounded-lg px-4 text-sm font-bold sm:flex-none ${isMyClassesTab ? "bg-[#244b3a] text-white" : "text-[#244b3a] hover:bg-[#f5f1e8]"}`}>Kelas Saya</Link>
+        </nav>
+
         <div className="grid min-w-0 grid-cols-1 gap-6">
           <div className="grid gap-5">
-            {classes.length > 0 ? classes.map((cls, index) => {
-              const modCount = cls.modules?.filter((module) => module.status === "terbit").length || cls.moduleIds?.length || 0;
+            {visibleClasses.length > 0 ? visibleClasses.map((cls, index) => {
               const associatedModules = cls.modules?.length
                 ? cls.modules.filter((module) => module.status === "terbit").length
-                : cls.moduleIds?.map((id) => moduleMap.get(id)).filter(Boolean).length || modCount;
-              const moduleLabel = `${associatedModules} Modul`;
+                : cls.moduleIds?.map((id) => moduleMap.get(id)).filter(Boolean).length || 0;
+              const chapterLabel = `${associatedModules} Bab`;
+              const practiceCount = independentGameCounts[cls.id] || 0;
+              const enrolled = isWarga || ownedClassIds.has(cls.id);
               return (
                 <article key={cls.id} className="grid min-w-0 gap-5 rounded-2xl border border-rule bg-white p-5 shadow-card md:grid-cols-[minmax(0,1fr)_15rem] md:gap-6 md:p-6 lg:items-center">
                   <div className="min-w-0">
@@ -76,29 +88,31 @@ async function KelasIndexContent({
                   </div>
                   <div className="flex min-w-0 flex-col items-stretch gap-4 border-t border-rule pt-4 md:border-l md:border-t-0 md:pl-5 md:pt-0">
                     <div className="grid gap-2 text-sm text-body">
-                      <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 shrink-0 text-leaf" />{moduleLabel}</span>
-                      <span className="flex items-center gap-2"><Gamepad2 className="h-4 w-4 shrink-0 text-earth" />Latihan Mandiri</span>
+                      <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 shrink-0 text-leaf" />{chapterLabel}</span>
+                      <span className="flex items-center gap-2"><Gamepad2 className="h-4 w-4 shrink-0 text-earth" />{practiceCount} Latihan Mandiri</span>
                     </div>
                     <div className="grid gap-3 border-t border-rule pt-4">
-                      {!isWarga && <div><span className="block text-xs font-semibold text-muted">Investasi belajar</span><strong className="font-display text-2xl">{formatIDR(cls.priceIdr)}</strong></div>}
+                      {!isWarga && <div><span className="block text-xs font-semibold text-muted">{cls.priceIdr === 0 ? "Biaya kelas" : "Investasi belajar"}</span><strong className="font-display text-2xl">{cls.priceIdr === 0 ? "Gratis" : formatIDR(cls.priceIdr)}</strong></div>}
                       <div className="flex min-w-0 flex-col items-stretch gap-3">
                         <Link href={`/kelas/${cls.slug}`} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-earth px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-earth-dark">Detail kelas <ArrowRight className="h-4 w-4" /></Link>
-                        {!isWarga && <AddToCartButton classId={cls.id} compact />}
+                        {!isWarga && <ClassAccessAction classId={cls.id} classSlug={cls.slug} priceIdr={cls.priceIdr} isEnrolled={enrolled} canEnroll={canEnroll} />}
                       </div>
                     </div>
                   </div>
                 </article>
               );
-            }) : (
+            }) : isMyClassesTab && !session?.email && !isWarga ? (
+              <div className="rounded-2xl border border-rule bg-paper-light px-6 py-12 text-center shadow-card"><BookOpen className="mx-auto h-8 w-8 text-leaf" aria-hidden="true" /><h2 className="mt-4 text-xl">Masuk untuk melihat Kelas Saya</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">Kelas gratis yang diambil dan kelas yang dibeli akan tersimpan di akun Anda.</p><Link href="/masuk?next=%2Fkelas%3Ftab%3Dmine" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-md bg-leaf px-4 py-2 text-sm font-bold text-white">Masuk</Link></div>
+            ) : (
               <div className="rounded-2xl border border-rule bg-paper-light px-6 py-12 text-center shadow-card">
                 <BookOpen className="mx-auto h-8 w-8 text-leaf" aria-hidden="true" />
-                <h2 className="mt-4 text-xl">Kelas belum tersedia</h2>
-                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">Informasi kelas akan ditampilkan di halaman ini setelah tersedia.</p>
+                <h2 className="mt-4 text-xl">{isMyClassesTab ? "Belum ada kelas yang terdaftar" : "Kelas belum tersedia"}</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">{isMyClassesTab ? "Ambil kelas gratis atau selesaikan pesanan untuk mengisi daftar ini." : "Informasi kelas akan ditampilkan di halaman ini setelah tersedia."}</p>
                 <Link href="/tentang" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-md border border-leaf px-4 py-2 text-sm font-bold text-leaf hover:bg-leaf-soft">Tentang program</Link>
               </div>
             )}
           </div>
-          {!isWarga && <aside className="h-fit rounded-2xl border border-rule bg-white p-6 shadow-card">
+          {!isWarga && !isMyClassesTab && <aside className="h-fit rounded-2xl border border-rule bg-white p-6 shadow-card">
             <h2 className="text-xl">Sebelum memilih</h2>
             <p className="mt-3 text-sm leading-6 text-body">Pilih kelas satuan sesuai tujuan belajarmu. Tambahkan satu atau beberapa kelas ke keranjang, lalu daftar sekaligus.</p>
             <div className="mt-6 border-t border-rule pt-4 text-xs leading-5 text-muted"><Clock className="mb-2 h-4 w-4 text-earth" />Akses kelas berlaku selamanya</div>

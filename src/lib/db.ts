@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { randomUUID } from "crypto";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createInitialSeedData, getCurrentWeekLabel } from "./seed-data";
 import { createPublicSupabaseClient, isSupabaseConfigured } from "./supabase";
@@ -265,6 +266,7 @@ async function pushFullSchemaToSupabase(
       status: e.status || "active",
       paid_amount_idr: Number(e.paidAmountIdr ?? 0),
       payment_method: e.paymentMethod ?? null,
+      source: e.source || (Number(e.paidAmountIdr ?? 0) > 0 ? "beli" : "legacy"),
       created_at: e.createdAt || new Date().toISOString(),
     })));
   }
@@ -414,7 +416,7 @@ async function fetchFullSchemaFromSupabase(
     sb.from("word_challenges").select("id,module_id,challenge_type,clue_id,sentence_blank,answer,hint"),
     sb.from("leaderboard_entries").select("id,participant_key,participant_name,origin_badge,module_id,module_title,game_type,score,week_label,created_at"),
     sb.from("classes").select("id,slug,title,subtitle,description,cover_theme,price_idr,duration_days,module_ids,modules,materi,game_template_ids,is_published,tingkat,jadwal,kode_akses,status,created_at"),
-    sb.from("enrollments").select("id,class_id,user_email,user_name,starts_at,expires_at,status,paid_amount_idr,payment_method,created_at"),
+    sb.from("enrollments").select("id,class_id,user_email,user_name,starts_at,expires_at,status,paid_amount_idr,payment_method,source,created_at"),
     sb.from("games").select("id,nama_game,jenis_game,deskripsi,created_at,updated_at"),
     sb.from("game_soal").select("id,game_id,pertanyaan,clue,jawaban,urutan,data,created_at"),
     sb.from("rw_codes").select("id,rw,code_hash,code_display,is_active,updated_at,force_logout_at"),
@@ -609,6 +611,7 @@ async function fetchFullSchemaFromSupabase(
       status: e.status || "active",
       paidAmountIdr: Number(e.paid_amount_idr ?? 0),
       paymentMethod: e.payment_method || undefined,
+      source: e.source || (Number(e.paid_amount_idr ?? 0) > 0 ? "beli" : "legacy"),
       createdAt: e.created_at || new Date().toISOString(),
     })),
     games: (gamesRes.error && isMissingTableError(gamesRes.error)) ? [] : (gamesRes.data || []).map((g: any) => ({
@@ -1303,6 +1306,40 @@ export async function getClasses(includeUnpublished = false): Promise<ClassItem[
   return includeUnpublished ? normalized : normalized.filter((c) => c.isPublished);
 }
 
+export async function getPublishedIndependentGameCounts(classIds: string[]): Promise<Record<string, number>> {
+  const ids = [...new Set(classIds.filter(Boolean))];
+  const counts = Object.fromEntries(ids.map((id) => [id, 0]));
+  if (!ids.length) return counts;
+  try {
+    const supabase = await getSupabaseAdmin();
+    if (supabase) {
+      const { data: links, error: linksError } = await supabase.from("class_games").select("class_id,game_id").in("class_id", ids);
+      if (!linksError && links) {
+        if (!links.length) return counts;
+        const gameIds = [...new Set(links.map((link) => String(link.game_id)))];
+        const { data: games, error } = await supabase.from("game_blueprints").select("id,status,destination").in("id", gameIds).in("status", ["published", "independent"]).eq("destination", "independent");
+        if (!error) {
+          const valid = new Set((games || []).map((game) => String(game.id)));
+          for (const link of links) if (valid.has(String(link.game_id))) counts[String(link.class_id)] = (counts[String(link.class_id)] || 0) + 1;
+          return counts;
+        }
+      }
+    }
+  } catch {
+    // Use the local database snapshot when the optional Supabase source is unavailable.
+  }
+  const db = await readLocalDb();
+  const games = new Map((db.gameBlueprints || []).map((game) => [String(game.id), game]));
+  for (const cls of db.classes || []) {
+    if (!ids.includes(cls.id)) continue;
+    counts[cls.id] = [...new Set(cls.gameBlueprintIds || [])].filter((id) => {
+      const game = games.get(String(id));
+      return Boolean(game && ["published", "independent"].includes(game.status) && game.destination === "independent");
+    }).length;
+  }
+  return counts;
+}
+
 export async function getClassByIdOrSlug(idOrSlug: string): Promise<ClassItem | null> {
   const classes = await getClasses(true);
   return classes.find((c) => c.id === idOrSlug || c.slug === idOrSlug) || null;
@@ -1370,6 +1407,76 @@ export async function enrollUserInClass(opts: {
   db.enrollments.unshift(enrollment);
   await writeLocalDb(db);
   return enrollment;
+}
+
+export type ClassAccessSource = "beli" | "gratis" | "admin";
+
+export async function activateClassesForUser(opts: {
+  classIds: string[];
+  userEmail: string;
+  userName: string;
+  source: ClassAccessSource;
+}): Promise<{ activated: ClassEnrollment[]; alreadyOwned: string[] }> {
+  const email = opts.userEmail.trim().toLowerCase();
+  const classIds = [...new Set(opts.classIds.map((id) => String(id).trim()).filter(Boolean))];
+  if (!email || !classIds.length) throw new Error("Pilih setidaknya satu kelas untuk diaktifkan.");
+
+  const db = await readLocalDb();
+  const allClasses = db.classes || [];
+  const selected = classIds.map((id) => allClasses.find((item) => item.id === id));
+  if (selected.some((item) => !item || !item.isPublished)) throw new Error("Satu atau beberapa kelas sudah tidak tersedia.");
+  if (opts.source === "gratis" && selected.some((item) => Number(item?.priceIdr) !== 0)) throw new Error("Kelas ini tidak termasuk kelas gratis.");
+  if (opts.source === "beli" && selected.some((item) => Number(item?.priceIdr) <= 0)) throw new Error("Kelas gratis harus diambil melalui tombol Ambil kelas gratis.");
+
+  db.enrollments ||= [];
+  const now = new Date().toISOString();
+  const activated: ClassEnrollment[] = [];
+  const alreadyOwned: string[] = [];
+  for (const cls of selected) {
+    if (!cls) continue;
+    const existing = db.enrollments.find((entry) => entry.classId === cls.id && entry.userEmail.trim().toLowerCase() === email && entry.status === "active" && (!entry.expiresAt || Date.parse(entry.expiresAt) > Date.now()));
+    if (existing) { alreadyOwned.push(cls.id); continue; }
+    const previous = db.enrollments.find((entry) => entry.classId === cls.id && entry.userEmail.trim().toLowerCase() === email);
+    const enrollment: ClassEnrollment = {
+      id: previous?.id || `enr-${randomUUID()}`,
+      classId: cls.id,
+      userEmail: email,
+      userName: opts.userName.trim(),
+      startsAt: now,
+      status: "active",
+      paidAmountIdr: opts.source === "beli" ? cls.priceIdr : 0,
+      paymentMethod: opts.source === "admin" ? "Manual (Admin)" : opts.source,
+      source: opts.source,
+      createdAt: previous?.createdAt || now,
+    };
+    if (previous) Object.assign(previous, enrollment); else db.enrollments.unshift(enrollment);
+    activated.push(enrollment);
+  }
+  if (activated.length) {
+    try {
+      await writeLocalDb(db);
+    } catch (error) {
+      // Recheck after a concurrent request wins the unique ownership constraint.
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("23505") && !message.toLowerCase().includes("duplicate key")) throw error;
+      const latest = await readLocalDb();
+      const current = new Set((latest.enrollments || []).filter((entry) =>
+        entry.userEmail.trim().toLowerCase() === email && entry.status === "active" && (!entry.expiresAt || Date.parse(entry.expiresAt) > Date.now()),
+      ).map((entry) => entry.classId));
+      if (!classIds.every((id) => current.has(id))) throw error;
+      return { activated: [], alreadyOwned: classIds };
+    }
+  }
+  return { activated, alreadyOwned };
+}
+
+export async function revokeClassAccessForUser(enrollmentId: string): Promise<boolean> {
+  const db = await readLocalDb();
+  const before = (db.enrollments || []).length;
+  db.enrollments = (db.enrollments || []).filter((entry) => entry.id !== enrollmentId);
+  if (db.enrollments.length === before) return false;
+  await writeLocalDb(db);
+  return true;
 }
 
 export async function hasUserActiveEnrollmentForModule(

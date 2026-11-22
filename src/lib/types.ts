@@ -229,6 +229,7 @@ export interface ClassEnrollment {
   status: "active" | "expired";
   paidAmountIdr: number;
   paymentMethod?: string;
+  source?: "beli" | "gratis" | "admin" | "legacy";
   createdAt: string;
 }
 

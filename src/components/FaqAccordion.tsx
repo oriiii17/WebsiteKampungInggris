@@ -46,7 +46,7 @@ export const FAQ_LIST: FaqItem[] = [
   },
   {
     question: "Bagaimana proses pembayaran dan aktivasi kelas untuk peserta umum?",
-    answer: "Saat ini aktivasi kelas dilakukan melalui konfirmasi langsung dengan pengurus setelah Anda memilih kelas di keranjang. Fitur pembayaran otomatis akan segera hadir untuk memudahkan transaksi Anda.",
+    answer: "Pilih kelas, masukkan ke keranjang, lalu selesaikan pesanan. Kelas akan langsung aktif di menu Kelas Saya.",
   },
   {
     question: "Bagaimana cara kerja skor pada Kuis dan Papan Peringkat?",

@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Gamepad2, Lock, Loader2,
 import { useEffect, useState } from "react";
 import { ClassItem, ModuleItem, SessionPayload } from "@/lib/types";
 import type { GameBlueprint } from "@/lib/game-blueprint";
-import AddToCartButton from "@/components/AddToCartButton";
+import ClassAccessAction from "@/components/ClassAccessAction";
 import { formatIDR } from "@/lib/currency";
 
 interface Props {
@@ -14,9 +14,10 @@ interface Props {
   includedModules: ModuleItem[];
   isEnrolled: boolean;
   sessionUser: SessionPayload | null;
+  independentGameCount: number;
 }
 
-export default function ClassDetailClient({ classItem, includedModules, isEnrolled, sessionUser }: Props) {
+export default function ClassDetailClient({ classItem, includedModules, isEnrolled, sessionUser, independentGameCount }: Props) {
   const router = useRouter();
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceGames, setPracticeGames] = useState<GameBlueprint[]>([]);
@@ -66,7 +67,7 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
     }
   }
   const publishedModules = classItem.modules?.length
-    ? [...classItem.modules].sort((a, b) => a.urutan - b.urutan)
+    ? classItem.modules.filter((module) => module.status === "terbit").sort((a, b) => a.urutan - b.urutan)
     : includedModules.map((module, index) => ({
         id: module.id,
         kelasId: classItem.id,
@@ -89,25 +90,19 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
           </div>
           <h1 className="mt-3 break-words text-4xl sm:text-5xl">{classItem.title}</h1>
           {classItem.subtitle && <p className="mt-2 text-base font-bold text-leaf">{classItem.subtitle}</p>}
-          <p className="mt-4 max-w-2xl text-base leading-7 text-body">{classItem.description}</p>
+          <p className="mt-4 w-full break-words text-base leading-7 text-body">{classItem.description}</p>
           <div className="mt-7 flex flex-wrap gap-x-5 gap-y-3 border-t border-rule pt-5 text-sm text-body">
-            <span className="inline-flex items-center gap-2"><BookOpen className="h-4 w-4 text-leaf" />{publishedModules.length} Modul</span>
+            <span className="inline-flex items-center gap-2"><BookOpen className="h-4 w-4 text-leaf" />{publishedModules.length} Bab</span>
+            <span className="inline-flex items-center gap-2"><Gamepad2 className="h-4 w-4 text-earth" />{independentGameCount} Latihan Mandiri</span>
           </div>
         </div>
       {!inClassSession && !isWarga && <div className="class-detail-enrollment">
           <div>
-            <p className="workbook-print-note">Biaya akses kelas</p>
-            <p className="mt-1 font-display text-3xl">{formatIDR(classItem.priceIdr)}</p>
-            <p className="mt-1 max-w-sm text-xs leading-5 text-muted">Akses ke materi dan kuis kelas ini setelah pendaftaran tersedia.</p>
+            <p className="workbook-print-note">{classItem.priceIdr === 0 ? "Kelas gratis" : "Biaya akses kelas"}</p>
+            <p className="mt-1 font-display text-3xl">{classItem.priceIdr === 0 ? "Gratis" : formatIDR(classItem.priceIdr)}</p>
+            <p className="mt-1 max-w-sm text-xs leading-5 text-muted">{classItem.priceIdr === 0 ? "Ambil kelas untuk menyimpan aksesnya di Kelas Saya." : "Selesaikan pesanan untuk membuka akses di Kelas Saya."}</p>
           </div>
-          {!isEnrolled ? (
-            <div className="flex flex-col items-start gap-2">
-              <AddToCartButton classId={classItem.id} />
-              <p className="max-w-sm text-xs leading-5 text-muted">Pendaftaran online belum tersedia sementara. Pilihan kelas tersimpan di keranjang; belum ada transaksi yang dibuat.</p>
-            </div>
-          ) : (
-            <div className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-900"><CheckCircle2 className="h-5 w-5 text-green-700" /> Anda sudah terdaftar. Selamat belajar!</div>
-          )}
+          <ClassAccessAction classId={classItem.id} classSlug={classItem.slug} priceIdr={classItem.priceIdr} isEnrolled={isEnrolled} canEnroll={Boolean(sessionUser?.email && sessionUser.emailVerified && sessionUser.authUserId && ["peserta", "umum", "member"].includes(sessionUser.role))} />
         </div>}
       </section>
 
@@ -118,11 +113,11 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
 
       <section className="class-detail-section">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-rule pb-4">
-          <div><h2 className="text-2xl sm:text-3xl">Modul pelajaran</h2></div>
-          <span className="text-sm font-semibold text-muted">{publishedModules.length} Modul</span>
+          <div><h2 className="text-2xl sm:text-3xl">Bab pelajaran</h2></div>
+          <span className="text-sm font-semibold text-muted">{publishedModules.length} Bab</span>
         </div>
         {publishedModules.length === 0 ? (
-          <div className="sapen-empty-state text-center"><BookOpen className="mx-auto h-8 w-8 text-leaf" aria-hidden="true" /><h3 className="mt-3 text-xl">Materi sedang disiapkan</h3><p className="mt-2 text-sm leading-6 text-muted">Pengajar akan menambahkan modul pelajaran ke kelas ini.</p></div>
+            <div className="sapen-empty-state text-center"><BookOpen className="mx-auto h-8 w-8 text-leaf" aria-hidden="true" /><h3 className="mt-3 text-xl">Bab sedang disiapkan</h3><p className="mt-2 text-sm leading-6 text-muted">Pengajar akan menambahkan bab pelajaran ke kelas ini.</p></div>
         ) : (
           <ol className="class-module-list">
             {publishedModules.map((module, index) => (
@@ -131,11 +126,11 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
                 <div className="min-w-0 flex-1">
                   <h3 className="break-words text-lg font-bold">{module.judulBebas}</h3>
                   {module.deskripsi && <p className="mt-1 text-sm leading-6 text-body">{module.deskripsi}</p>}
-                  {module.quiz ? <p className="mt-2 text-xs font-bold text-leaf">{module.quiz.status === "terbuka" ? "Kuis tersedia untuk dikerjakan" : "Kuis belum dibuka oleh admin"}</p> : <p className="mt-2 text-xs text-muted">Tidak ada kuis untuk modul ini</p>}
+                  {module.quiz ? <p className="mt-2 text-xs font-bold text-leaf">{module.quiz.status === "terbuka" ? "Kuis tersedia untuk dikerjakan" : "Kuis belum dibuka oleh admin"}</p> : <p className="mt-2 text-xs text-muted">Tidak ada kuis untuk bab ini</p>}
                 </div>
                 {isEnrolled ? module.status === "terbit" ? (
-                  <Link href={`/kelas/${classItem.slug}/modul/${module.id}`} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-leaf px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-leaf-dark">Buka Modul <ArrowRight className="h-4 w-4" /></Link>
-                ) : <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-muted"><Lock role="img" aria-label="Modul masih berupa draf" className="h-3.5 w-3.5" />Draft</span> : <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-muted"><Lock role="img" aria-label="Modul terkunci sampai Anda memiliki akses ke kelas" className="h-3.5 w-3.5" /></span>}
+                  <Link href={`/kelas/${classItem.slug}/modul/${module.id}`} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-leaf px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-leaf-dark">Buka Bab <ArrowRight className="h-4 w-4" /></Link>
+                ) : <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-muted"><Lock role="img" aria-label="Bab masih berupa draf" className="h-3.5 w-3.5" />Draft</span> : <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-muted"><Lock role="img" aria-label="Bab terkunci sampai Anda memiliki akses ke kelas" className="h-3.5 w-3.5" /></span>}
               </li>
             ))}
           </ol>

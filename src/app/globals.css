@@ -544,7 +544,7 @@ table {
 .class-detail-copy, .class-detail-enrollment { min-width: 0; }
 .class-detail-copy { max-width: none; }
 .class-detail-enrollment { display: grid; gap: 1rem; align-items: center; border-top: 1px solid var(--rule); padding-top: clamp(1.25rem, 2.5vw, 2rem); }
-.class-detail-enrollment > div:last-child { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: .65rem; }
+.class-detail-enrollment > div:last-child { display: flex; min-width: 0; width: 100%; flex-direction: column; align-items: stretch; gap: .65rem; }
 .class-detail-enrollment > div:last-child > p { max-width: 42ch; }
 .class-detail-enrollment button { min-height: 48px; border-color: var(--tomato); border-radius: .55rem; color: white; background: var(--tomato); }
 .class-detail-enrollment button:hover { color: white; background: var(--tomato-deep); }
@@ -835,9 +835,9 @@ body > footer { flex: 0 0 auto; }
   body:has(.bottomNav) > main#main-content > * { min-width: 0; }
   body:has(.bottomNav) > main#main-content button { min-height: 44px; }
   body:has(.bottomNav) > main#main-content a[class*="inline-flex"] { min-height: 44px; }
-  .cart-summary, .class-detail-enrollment { position: sticky; z-index: 15; bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + .5rem); }
+  .cart-summary { position: sticky; z-index: 15; bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + .5rem); }
   .cart-summary { box-shadow: 0 -8px 28px rgba(24, 59, 45, .12); }
-  .class-detail-enrollment { padding: 1rem; border: 1px solid var(--rule); border-radius: 16px; background: var(--paper-light); box-shadow: 0 -8px 28px rgba(24, 59, 45, .12); }
+  .class-detail-enrollment { grid-template-columns: minmax(0, 1fr); padding: 1rem; }
   .site-footer-main { gap: 1.5rem 1rem; }
   .site-footer-nav a { min-height: 44px; }
   .auth-admin-header { margin-bottom: 1rem; }
@@ -862,7 +862,7 @@ body > footer { flex: 0 0 auto; }
   .home-testimonials h2, .home-faq h2 { margin-bottom: 1.25rem; }
   .home-trust { gap: 3rem; }
   .cart-summary { position: sticky; z-index: 15; bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + .5rem); box-shadow: 0 -8px 28px rgba(24, 59, 45, .12); }
-  .class-detail-enrollment { position: sticky; z-index: 15; bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + .5rem); padding: 1rem; border: 1px solid var(--rule); border-radius: 16px; background: var(--paper-light); box-shadow: 0 -8px 28px rgba(24, 59, 45, .12); }
+  .class-detail-enrollment { position: static; padding: 1rem; }
 }
 
 @keyframes faq-answer-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }

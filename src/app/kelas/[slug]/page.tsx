@@ -1,7 +1,7 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { getSessionWithGuestContext } from "@/lib/auth";
-import { getClassByIdOrSlug, getModules, getUserEnrollments } from "@/lib/db";
+import { getClassByIdOrSlug, getModules, getPublishedIndependentGameCounts, getUserEnrollments } from "@/lib/db";
 import ClassDetailClient from "./ClassDetailClient";
 import type { Metadata } from "next";
 import { canonicalUrl } from "@/lib/seo";
@@ -44,6 +44,7 @@ export default async function ClassDetailPage({
   }
 
   const includedModules = allModules.filter((m) => (classItem.moduleIds || []).includes(m.id));
+  const independentGameCount = (await getPublishedIndependentGameCounts([classItem.id]))[classItem.id] || 0;
   let isEnrolled = false;
   if (session?.role === "pengurus" || session?.role === "developer") {
     isEnrolled = true;
@@ -66,6 +67,7 @@ export default async function ClassDetailPage({
           includedModules={includedModules}
           isEnrolled={isEnrolled}
           sessionUser={session}
+          independentGameCount={independentGameCount}
         />
       </div>
     </div>
