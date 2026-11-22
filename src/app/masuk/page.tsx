@@ -44,6 +44,11 @@ function MasukContent() {
   const [wargaPasswordConfirm, setWargaPasswordConfirm] = useState("");
   const [savingWargaAccount, setSavingWargaAccount] = useState(false);
   const [wargaAccountError, setWargaAccountError] = useState("");
+  const [wargaFullName, setWargaFullName] = useState("");
+  const [wargaAccountCreated, setWargaAccountCreated] = useState(false);
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +65,21 @@ function MasukContent() {
     const timer = window.setTimeout(() => setShowWargaCode(false), 1000);
     return () => window.clearTimeout(timer);
   }, [wargaCode, wargaCodeDigits]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setTimeout(() => setResendCooldown((seconds) => Math.max(0, seconds - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
+
+  async function resendVerification() {
+    if (resendBusy || resendCooldown > 0) return;
+    setResendBusy(true);
+    try {
+      await fetch("/api/auth/resend-verification", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: umumEmail }) });
+      setResendCooldown(60);
+    } finally { setResendBusy(false); }
+  }
 
   async function handleWargaSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -124,12 +144,13 @@ function MasukContent() {
       const response = await fetch("/api/auth/warga-permanent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: wargaEmail, password: wargaPassword, confirmPassword: wargaPasswordConfirm }),
+        body: JSON.stringify({ fullName: wargaFullName, email: wargaEmail, password: wargaPassword, confirmPassword: wargaPasswordConfirm }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Akun permanen belum dapat dibuat.");
-      router.replace("/kelas");
-      router.refresh();
+      setWargaAccountCreated(true);
+      setWargaPassword("");
+      setWargaPasswordConfirm("");
     } catch (reason) {
       setWargaAccountError(reason instanceof Error ? reason.message : "Akun permanen belum dapat dibuat. Coba lagi.");
     } finally {
@@ -149,6 +170,7 @@ function MasukContent() {
       });
       const result = await response.json();
       if (!response.ok) {
+        setVerificationRequired(Boolean(result.verificationRequired));
         setError(result.error || "Email atau password belum sesuai.");
         setLoading(false);
         return;
@@ -166,9 +188,9 @@ function MasukContent() {
       <h1 className="workbook-auth-heading">Masuk ke akun Anda</h1>
         <section className="workbook-auth-card max-w-none">
           {searchParams.get("registered") === "1" && mode === "umum" && (
-            <p role="status" className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-800">Akun berhasil dibuat, silahkan masuk</p>
+            <div role="status" className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-800"><p>Verifikasi email Anda untuk mengaktifkan akun.</p><button type="button" onClick={resendVerification} disabled={resendBusy || resendCooldown > 0} className="mt-2 min-h-11 font-bold underline disabled:opacity-60">{resendBusy ? "Mengirim…" : resendCooldown ? `Kirim ulang (${resendCooldown} detik)` : "Kirim ulang"}</button></div>
           )}
-          {error && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-800">{error}</p>}
+          {error && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-800"><p>{error}</p>{verificationRequired && <button type="button" onClick={resendVerification} disabled={resendBusy || resendCooldown > 0} className="mt-2 min-h-11 font-bold underline disabled:opacity-60">{resendBusy ? "Mengirim…" : resendCooldown ? `Kirim ulang (${resendCooldown} detik)` : "Kirim ulang tautan verifikasi"}</button>}</div>}
 
           {mode === "umum" ? (
             <form onSubmit={handleUmumSubmit} className="space-y-4">
@@ -206,7 +228,7 @@ function MasukContent() {
           )}
         </section>
         <footer className="mt-4 border-t border-rule pt-3 text-center"><Link href="/admin/masuk" className="inline-flex min-h-11 items-center justify-center px-3 text-xs font-semibold text-muted underline underline-offset-4 hover:text-leaf">Masuk Admin</Link></footer>
-      {showWargaPrompt && <div className="fixed inset-0 z-[100] grid place-items-center bg-[#20251f]/55 p-4"><section role="dialog" aria-modal="true" aria-labelledby="warga-account-title" className="w-full max-w-md rounded-2xl border border-rule bg-paper-light p-5 shadow-xl sm:p-7"><h2 id="warga-account-title" className="font-display text-2xl font-bold text-forest-deep">Simpan akses ini sebagai akun permanen?</h2><p className="mt-2 text-sm leading-6 text-body">Pilihan ini opsional. Akses kelas gratis dengan kode akses tetap aktif jika kamu melewatinya.</p>{wargaAccountError && <p role="alert" className="mt-4 rounded-lg border border-earth/30 bg-[#f8e8e1] p-3 text-sm font-semibold text-earth-dark">{wargaAccountError}</p>}<form onSubmit={createPermanentWargaAccount} className="mt-5 space-y-3"><label className="block text-sm font-bold text-body">Email<input required type="email" autoComplete="email" value={wargaEmail} onChange={(event) => setWargaEmail(event.target.value)} placeholder="nama@email.com" className="mt-1.5 min-h-12 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm" /></label><label className="block text-sm font-bold text-body">Kata sandi<span className="mt-1.5 block"><PasswordInput required minLength={8} autoComplete="new-password" value={wargaPassword} onChange={setWargaPassword} placeholder="Minimal 8 karakter" /></span></label><label className="block text-sm font-bold text-body">Ulangi kata sandi<span className="mt-1.5 block"><PasswordInput required minLength={8} autoComplete="new-password" value={wargaPasswordConfirm} onChange={setWargaPasswordConfirm} placeholder="Ulangi kata sandi" /></span></label><button type="submit" disabled={savingWargaAccount} className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-earth px-4 text-sm font-extrabold text-white hover:bg-earth-dark disabled:opacity-60">{savingWargaAccount ? "Menyimpan akun…" : "Buat akun permanen"}</button></form><button type="button" onClick={() => { setShowWargaPrompt(false); router.replace("/kelas"); router.refresh(); }} className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-rule-strong px-4 text-sm font-bold text-leaf hover:bg-forest-soft">Nanti Saja, lanjut ke kelas</button></section></div>}
+      {showWargaPrompt && <div className="fixed inset-0 z-[100] grid place-items-center bg-[#20251f]/55 p-4"><section role="dialog" aria-modal="true" aria-labelledby="warga-account-title" className="w-full max-w-md rounded-2xl border border-rule bg-paper-light p-5 shadow-xl sm:p-7"><h2 id="warga-account-title" className="font-display text-2xl font-bold text-forest-deep">Simpan akses ini sebagai akun permanen?</h2><p className="mt-2 text-sm leading-6 text-body">Pilihan ini opsional. Akses kelas gratis dengan kode akses tetap aktif jika kamu melewatinya.</p>{wargaAccountError && <p role="alert" className="mt-4 rounded-lg border border-earth/30 bg-[#f8e8e1] p-3 text-sm font-semibold text-earth-dark">{wargaAccountError}</p>}{wargaAccountCreated ? <p role="status" className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-bold text-green-900">Cek email Anda untuk verifikasi</p> : <form onSubmit={createPermanentWargaAccount} className="mt-5 space-y-3"><label className="block text-sm font-bold text-body">Nama Lengkap<input required minLength={2} maxLength={80} autoComplete="name" value={wargaFullName} onChange={(event) => setWargaFullName(event.target.value)} placeholder="Masukkan nama lengkap" className="mt-1.5 min-h-12 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm" /></label><label className="block text-sm font-bold text-body">Email<input required type="email" autoComplete="email" value={wargaEmail} onChange={(event) => setWargaEmail(event.target.value)} placeholder="nama@email.com" className="mt-1.5 min-h-12 w-full rounded-lg border border-rule-strong bg-white px-3 text-sm" /></label><label className="block text-sm font-bold text-body">Kata sandi<span className="mt-1.5 block"><PasswordInput required minLength={8} autoComplete="new-password" value={wargaPassword} onChange={setWargaPassword} placeholder="Minimal 8 karakter" /></span></label><label className="block text-sm font-bold text-body">Ulangi kata sandi<span className="mt-1.5 block"><PasswordInput required minLength={8} autoComplete="new-password" value={wargaPasswordConfirm} onChange={setWargaPasswordConfirm} placeholder="Ulangi kata sandi" /></span></label><button type="submit" disabled={savingWargaAccount} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-earth px-4 text-sm font-extrabold text-white hover:bg-earth-dark disabled:opacity-60">{savingWargaAccount ? <><RefreshCw className="h-4 w-4 animate-spin" />Mengirim tautan…</> : "Buat akun permanen"}</button></form>}<button type="button" onClick={() => { setShowWargaPrompt(false); router.replace("/kelas"); router.refresh(); }} className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-rule-strong px-4 text-sm font-bold text-leaf hover:bg-forest-soft">{wargaAccountCreated ? "Oke, lanjut ke kelas" : "Nanti Saja, lanjut ke kelas"}</button></section></div>}
       {requestSuccessOpen && <div className="fixed inset-0 z-[110] grid place-items-center bg-[#20251f]/60 p-4"><section role="alertdialog" aria-modal="true" aria-labelledby="warga-code-success-title" className="w-full max-w-md rounded-2xl border border-rule bg-paper-light p-6 shadow-2xl"><div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#e6eadf] text-[#244b3a]"><CheckCircle2 className="h-6 w-6" /></div><h2 id="warga-code-success-title" className="mt-4 text-center font-display text-2xl font-bold text-forest-deep">Halo {requestName.trim()}</h2><p className="mt-2 text-center text-sm leading-6 text-body">Permintaan kode akses berhasil. Tekan Oke untuk mengisi kode di form masuk warga.</p><button type="button" onClick={() => { const digits = issuedCode.replace(/-/g, "").split("").slice(0, 6); setWargaCode(issuedCode.replace(/-/g, "")); setWargaCodeDigits(digits); setMode("warga"); setShowWargaCode(true); setShowRequestForm(false); setRequestSuccessOpen(false); }} className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d]">Oke</button></section></div>}
     </AuthShell>
   );

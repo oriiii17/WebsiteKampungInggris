@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { createPublicSupabaseClient } from "@/lib/supabase";
+import { createBrowserSupabaseClient } from "@/lib/supabase";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -10,11 +10,19 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    if (!supabase) { setError("Layanan pengaturan ulang kata sandi belum tersedia."); return; }
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) setError("Tautan reset tidak valid atau sudah kedaluwarsa. Minta tautan baru.");
+    });
+  }, []);
+
   async function updatePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setMessage("");
-    const supabase = createPublicSupabaseClient();
+    const supabase = createBrowserSupabaseClient();
     if (!supabase) {
       setError("Layanan pengaturan ulang kata sandi belum dikonfigurasi.");
       return;
@@ -44,6 +52,7 @@ export default function ResetPasswordPage() {
           <label className="block text-xs font-bold text-body">Kata Sandi baru<input required type="password" minLength={6} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1.5 min-h-12 w-full rounded-md border border-rule-strong bg-paper-light px-3 py-3 text-sm text-ink focus:border-leaf focus:outline-none" /></label>
           <button type="submit" disabled={loading} className="min-h-12 w-full rounded-md bg-earth px-4 py-3 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:opacity-60">{loading ? "Menyimpan..." : "Simpan Kata Sandi Baru"}</button>
           {message && <p className="text-center text-sm"><Link href="/masuk" className="font-bold text-leaf underline underline-offset-4">Ke halaman Masuk</Link></p>}
+          {error && <p className="text-center text-sm"><Link href="/lupa-password" className="font-bold text-leaf underline underline-offset-4">Minta tautan reset baru</Link></p>}
         </form>
       </div>
     </main>

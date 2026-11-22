@@ -49,6 +49,11 @@ export async function getServerSession(): Promise<SessionPayload | null> {
   const raw = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const session = decodeSessionToken(raw);
   if (session && session.role !== "guest" && session.origin !== "guest" && !(session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now())) {
+    const privilegedRole = session.role === "admin" || session.role === "pengurus" || session.role === "developer";
+    const accessCodeSession = session.origin === "warga_kode";
+    if (session.email && !privilegedRole && !accessCodeSession && session.emailVerified !== true) {
+      return getVerifiedSupabaseSession(cookieStore.get(SUPABASE_ACCESS_TOKEN_COOKIE)?.value);
+    }
     const hasSupabaseUserId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(session.id);
     if (!(session.origin === "admin" || session.origin === "tutor" || session.origin === "luar_belum_aktif" || session.origin === "luar_langganan") || hasSupabaseUserId) return session;
   }
@@ -97,6 +102,7 @@ export async function getSessionWithGuestContext(): Promise<SessionPayload | nul
 export function hasActiveMaterialAccess(session: SessionPayload | null): boolean {
   if (!session) return false;
   if (session.role === "pengurus" || session.role === "developer") return true;
+  if (session.email && !session.emailVerified && session.role !== "admin") return false;
   if (session.origin === "warga_kode") return true;
   if (session.origin === "luar_belum_aktif") return false;
   if (session.expiresAt) {

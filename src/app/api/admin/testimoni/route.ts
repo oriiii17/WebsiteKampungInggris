@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
   // Hanya user yang sudah login yang boleh submit testimoni
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: "Anda harus login untuk mengirim ulasan." }, { status: 401 });
+  if (session.email && !session.emailVerified) return NextResponse.json({ error: "Verifikasi email Anda sebelum mengirim ulasan." }, { status: 403 });
 
   const body = await req.json();
   const { nama, komentar } = body;

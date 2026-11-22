@@ -49,6 +49,7 @@ export interface SessionPayload {
   id: string;
   name: string;
   email?: string;
+  emailVerified?: boolean;
   role: UserRole;
   origin: AccessOrigin;
   codeUsed?: string;

@@ -3,6 +3,7 @@ import { readLocalDb, writeLocalDb } from "@/lib/db";
 import { checkApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseProjectUrl } from "@/lib/supabase";
+import { sendAppEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   const limit = checkApiRateLimit(`register:${getRequestIp(request)}`, 5, 10 * 60 * 1000);
@@ -23,11 +24,12 @@ export async function POST(request: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
     const db = await readLocalDb();
-    const { data, error } = await supabase.auth.admin.createUser({
+    const callbackUrl = new URL("/auth/callback?type=signup", request.nextUrl.origin).toString();
+    const { data, error } = await supabase.auth.admin.generateLink({
+      type: "signup",
       email,
       password,
-      email_confirm: true,
-      user_metadata: { full_name: name, role: "umum" },
+      options: { redirectTo: callbackUrl, data: { full_name: name, role: "umum" } },
     });
 
     if (error) {
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    if (!data.user) return NextResponse.json({ error: "Pendaftaran gagal." }, { status: 500 });
+    if (!data.user || !data.properties?.action_link) return NextResponse.json({ error: "Pendaftaran gagal." }, { status: 500 });
 
     const { error: profileError } = await supabase.from("profiles").insert({
       id: data.user.id,
@@ -67,8 +69,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Data akun gagal disimpan. Silakan coba lagi." }, { status: 500 });
     }
 
+    try {
+      await sendAppEmail({ to: email, subject: "Verifikasi email akun Sapen English", heading: "Verifikasi email Anda", intro: `Halo ${name}, klik tombol berikut untuk mengaktifkan akun Anda.`, actionUrl: data.properties.action_link, actionLabel: "Verifikasi email" });
+    } catch {
+      db.externalUsers = db.externalUsers.filter((user) => user.id !== data.user?.id);
+      await writeLocalDb(db).catch(() => undefined);
+      await supabase.from("profiles").delete().eq("id", data.user.id);
+      await supabase.auth.admin.deleteUser(data.user.id);
+      return NextResponse.json({ error: "Layanan email belum siap. Akun belum dibuat; silakan coba lagi nanti." }, { status: 503 });
+    }
+
     // Return no auth session; the user signs in manually on /masuk.
-    return NextResponse.json({ ok: true }, { status: 201 });
+    return NextResponse.json({ ok: true, message: "Akun dibuat. Cek email Anda untuk verifikasi." }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Gagal memproses pendaftaran." }, { status: 500 });
   }

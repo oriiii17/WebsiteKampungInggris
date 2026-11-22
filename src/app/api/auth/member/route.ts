@@ -35,10 +35,16 @@ export async function POST(req: NextRequest) {
     }
     const { data: authData, error: authError } = await authClient.auth.signInWithPassword({ email, password });
     if (authError || !authData.user) {
+      if (authError?.code === "email_not_confirmed" || authError?.message?.toLowerCase().includes("email not confirmed")) {
+        return NextResponse.json({ error: "Verifikasi email Anda sebelum masuk.", verificationRequired: true }, { status: 403 });
+      }
       return NextResponse.json(
         { error: "Email atau kata sandi belum sesuai." },
         { status: 401 }
       );
+    }
+    if (!authData.user.email_confirmed_at) {
+      return NextResponse.json({ error: "Verifikasi email Anda sebelum masuk.", verificationRequired: true }, { status: 403 });
     }
 
     const profile = await authClient.from("profiles").select("full_name,role,origin_type").eq("id", authData.user.id).maybeSingle();
@@ -59,6 +65,7 @@ export async function POST(req: NextRequest) {
       name: authName,
       email,
       role,
+      emailVerified: Boolean(authData.user.email_confirmed_at),
       origin: role === "tutor" ? "tutor" : isWargaAccount ? "warga_kode" : activeSub ? "luar_langganan" : "luar_belum_aktif",
       ...(isWargaAccount ? { rw, rtRw: typeof authData.user.user_metadata?.rt_rw === "string" ? authData.user.user_metadata.rt_rw : undefined } : {}),
       expiresAt: activeSub?.expiresAt,

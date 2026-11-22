@@ -4,7 +4,6 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { Mail } from "lucide-react";
 import CommunityIllustrationPanel from "@/components/CommunityIllustrationPanel";
-import { createPublicSupabaseClient } from "@/lib/supabase";
 import AuthShell from "@/components/auth/AuthShell";
 
 export default function LupaPasswordPage() {
@@ -17,23 +16,13 @@ export default function LupaPasswordPage() {
     event.preventDefault();
     setError("");
     setMessage("");
-    const supabase = createPublicSupabaseClient();
-    if (!supabase) {
-      setError("Layanan pengaturan ulang kata sandi belum dikonfigurasi.");
-      return;
-    }
     setLoading(true);
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      if (resetError) {
-        setError("Link reset belum dapat dikirim. Periksa email dan coba lagi.");
-        return;
-      }
-      setMessage("Jika email terdaftar, tautan untuk mengatur ulang kata sandi akan segera dikirim.");
+      const response = await fetch("/api/auth/forgot-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
+      const result = await response.json();
+      setMessage(result.message || "Jika email terdaftar, tautan untuk mengatur ulang kata sandi akan segera dikirim.");
     } catch {
-      setError("Link reset belum dapat dikirim. Periksa koneksi lalu coba lagi.");
+      setMessage("Jika email terdaftar, tautan untuk mengatur ulang kata sandi akan segera dikirim.");
     } finally {
       setLoading(false);
     }

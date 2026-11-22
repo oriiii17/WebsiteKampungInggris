@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { encodeSessionToken, getServerSession, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { getServerSession } from "@/lib/auth";
 import { getSupabaseProjectUrl } from "@/lib/supabase";
-import { isHttpsRequest } from "@/lib/request-security";
-import type { SessionPayload } from "@/lib/types";
+import { sendAppEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   const wargaSession = await getServerSession();
@@ -13,31 +12,33 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+    const fullName = String(body.fullName || "").trim();
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
     const confirmation = String(body.confirmPassword || "");
-    if (!email.includes("@") || password.length < 8 || password !== confirmation) {
-      return NextResponse.json({ error: "Masukkan email valid, kata sandi minimal 8 karakter, dan konfirmasi yang sama." }, { status: 400 });
+    if (fullName.length < 2 || fullName.length > 80 || !email.includes("@") || password.length < 8 || password !== confirmation) {
+      return NextResponse.json({ error: "Masukkan nama lengkap, email valid, kata sandi minimal 8 karakter, dan konfirmasi yang sama." }, { status: 400 });
     }
     if (!getSupabaseProjectUrl() || !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
-      return NextResponse.json({ error: "Pembuatan akun belum tersedia. Coba lagi nanti atau hubungi pengurus." }, { status: 503 });
+      return NextResponse.json({ error: "Layanan email belum siap" }, { status: 503 });
     }
 
     const admin = createSupabaseAdminClient();
-    const { data, error } = await admin.auth.admin.createUser({
+    const callbackUrl = new URL("/auth/callback?type=signup", request.nextUrl.origin).toString();
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: "signup",
       email,
       password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: wargaSession.name,
+      options: { redirectTo: callbackUrl, data: {
+        full_name: fullName,
         role: "peserta",
         origin_type: "warga_kode",
         warga_id: wargaSession.id,
         rw: wargaSession.rw,
         rt_rw: wargaSession.rtRw,
-      },
+      } },
     });
-    if (error || !data.user) {
+    if (error || !data.user || !data.properties?.action_link) {
       const duplicate = `${error?.message || ""} ${error?.code || ""}`.toLowerCase();
       return NextResponse.json({ error: duplicate.includes("already") || duplicate.includes("exists") ? "Email ini sudah digunakan. Masuk dengan email tersebut atau gunakan email lain." : "Akun belum dapat dibuat. Periksa data lalu coba lagi." }, { status: duplicate.includes("already") || duplicate.includes("exists") ? 409 : 400 });
     }
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     const { error: profileError } = await admin.from("profiles").insert({
       id: data.user.id,
       email,
-      full_name: wargaSession.name,
+      full_name: fullName,
       role: "peserta",
       origin_type: "warga",
     });
@@ -53,14 +54,14 @@ export async function POST(request: NextRequest) {
       await admin.auth.admin.deleteUser(data.user.id);
       return NextResponse.json({ error: "Akun belum selesai disimpan. Periksa kembali skema profil atau coba lagi." }, { status: 500 });
     }
-
-    const session: SessionPayload = { ...wargaSession, email, watermarkText: `${wargaSession.name} · Warga Sapen` };
-    const response = NextResponse.json({ ok: true, message: "Akun permanen berhasil dibuat." });
-    response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), {
-      httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30,
-      secure: isHttpsRequest(request),
-    });
-    return response;
+    try {
+      await sendAppEmail({ to: email, subject: "Verifikasi email akun Sapen English", heading: "Verifikasi email Anda", intro: `Halo ${fullName}, klik tombol berikut untuk mengaktifkan akun permanen Anda. Akses Kode Akses Anda tetap dapat digunakan.`, actionUrl: data.properties.action_link, actionLabel: "Verifikasi email" });
+    } catch {
+      await admin.from("profiles").delete().eq("id", data.user.id);
+      await admin.auth.admin.deleteUser(data.user.id);
+      return NextResponse.json({ error: "Layanan email belum siap" }, { status: 503 });
+    }
+    return NextResponse.json({ ok: true, message: "Cek email Anda untuk verifikasi" });
   } catch {
     return NextResponse.json({ error: "Akun belum dapat dibuat karena koneksi terganggu. Coba lagi." }, { status: 500 });
   }
