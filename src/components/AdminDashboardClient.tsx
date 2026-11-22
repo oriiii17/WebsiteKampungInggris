@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
+import { publishSessionChanged } from "@/lib/session-sync";
 import {
   BookOpen,
   CalendarClock,
@@ -110,7 +111,7 @@ export default function AdminDashboardClient() {
     dashboard: "Dashboard",
     classes: "Kelas",
     warga: "Akses RW & Peserta",
-    testimoni: "Testimoni",
+    testimoni: "Ulasan",
     codes: "Peserta & Akses Kelas",
     games: "Host Kuis",
     "game-builder": "Kelola Kuis",
@@ -179,6 +180,7 @@ export default function AdminDashboardClient() {
     try {
       const response = await fetch("/api/auth/session", { method: "DELETE", cache: "no-store" });
       if (!response.ok) throw new Error("Permintaan keluar belum berhasil.");
+      publishSessionChanged();
       try { localStorage.removeItem("sapen_last_quiz_name"); } catch {}
       router.replace("/");
       router.refresh();

@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createInitialSeedData, getCurrentWeekLabel } from "./seed-data";
-import { isSupabaseConfigured } from "./supabase";
+import { createPublicSupabaseClient, isSupabaseConfigured } from "./supabase";
 import { getSupabaseServerClient as getSupabaseAdmin } from "./supabase-server";
 import {
   AccessCode,
@@ -1075,8 +1075,21 @@ export async function getWargaStats(): Promise<{
 
 /** Ambil testimoni yang sudah disetujui */
 export async function getApprovedTestimoni(): Promise<TestimoniRecord[]> {
+  const supabase = createPublicSupabaseClient();
+  if (supabase) {
+    const { data, error } = await supabase.from("reviews").select("id,user_id,rating,isi,status,display_name,created_at").eq("status", "terbit").order("created_at", { ascending: false });
+    if (!error && data) {
+      const db = await readLocalDb();
+      return data.map((row) => {
+        const user = (db.externalUsers || []).find((item) => item.id === row.user_id);
+        const nama = String(row.display_name || user?.name || "Peserta Sapen");
+        const isi = String(row.isi || "");
+        return { id: String(row.id), userId: String(row.user_id), rating: Number(row.rating), isi, status: "terbit" as const, avatarDataUrl: user?.avatarDataUrl, nama, rw: "", komentar: isi, isApproved: true, createdAt: String(row.created_at) };
+      });
+    }
+  }
   const db = await readLocalDb();
-  return (db.testimoni || []).filter((t) => t.isApproved);
+  return (db.testimoni || []).filter((t) => t.isApproved || t.status === "terbit").map((t) => ({ ...t, status: "terbit" as const, rating: t.rating || 5, isi: t.isi || t.komentar }));
 }
 
 /** Tambah testimoni baru */

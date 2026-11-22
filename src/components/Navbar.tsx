@@ -8,6 +8,7 @@ import { BookOpen, ShoppingCart, ChevronDown, Gamepad2, GraduationCap, KeyRound,
 import { SessionPayload } from "@/lib/types";
 import { SITE_CONFIG } from "@/config/site";
 import styles from "./Navbar.module.css";
+import { publishSessionChanged } from "@/lib/session-sync";
 
 interface NavbarProps {
   session: SessionPayload | null;
@@ -98,6 +99,7 @@ export default function Navbar({ session }: NavbarProps) {
       } catch {}
     }
     try { await fetch("/api/auth/session", { method: "DELETE" }); } catch {}
+    publishSessionChanged();
     try { localStorage.removeItem("sapen_last_quiz_name"); } catch {}
     setOpen(false);
     router.push("/");

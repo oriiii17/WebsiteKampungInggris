@@ -28,9 +28,6 @@ const assets = {
   conversation: "/images/community/diskusi-warga-card.webp",
   grammar: "/images/baru/TataBahasa.jpg",
   camp: "/images/community/english-camp.webp",
-  galleryOne: "/images/community/belajar-kawasan-card.webp",
-  galleryTwo: "/images/community/belajar-pantai-card.webp",
-  community: "/images/community/kampung-sapen-belajar.webp",
 };
 
 function LocalPhoto({
@@ -58,10 +55,9 @@ function LocalPhoto({
 
 async function HomeTestimonials() {
   const [session, testimonials] = await Promise.all([getServerSession(), getApprovedTestimoni()]);
-  return <TestimoniSection initialTestimoni={testimonials} isLoggedIn={Boolean(session)} currentUserName={session?.name} />;
+  const isEligible = Boolean(session?.email && session.emailVerified === true && session.authUserId && ["peserta", "umum", "member"].includes(session.role));
+  return <TestimoniSection initialTestimoni={testimonials} isEligible={isEligible} isLoggedIn={Boolean(session)} userId={session?.authUserId} />;
 }
-
-const featuredClassIds = ["class-1794595557465", "class-conversation-starter"];
 
 function formatPrice(price: number) {
   return formatIDR(price);
@@ -88,10 +84,10 @@ const learningRoutes = [
 
 export default async function HomePage() {
   const availableClasses = await getClasses(false);
-  const classesById = new Map(availableClasses.map((item) => [item.id, item]));
-  const featuredClasses = featuredClassIds
-    .map((id) => classesById.get(id))
-    .filter((item): item is ClassItem => Boolean(item));
+  const featuredClasses: ClassItem[] = availableClasses
+    .filter((item) => item.isPublished)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 2);
 
   return (
     <div className="home-page workbook-page">
@@ -192,41 +188,24 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="home-community" aria-labelledby="home-community-title">
-        <div className="workbook-wrap home-community-layout">
-          <div className="home-community-copy">
-            <h2 id="home-community-title" className="font-display">Satu lingkungan, banyak cara untuk belajar.</h2>
-            <p>Ruang belajar ini dibangun untuk warga Kampung Sapen dan siapa pun yang ingin ikut berlatih.</p>
-            <Link href="/tentang" className="home-light-link">Kenali Kampung Inggris Sapen <ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
-          </div>
-          <div className="home-gallery" aria-label="Suasana belajar di Kampung Inggris Sapen">
-            <figure className="home-gallery-main">
-              <LocalPhoto file={assets.community} alt="Warga mengikuti kegiatan belajar bersama di Kampung Sapen" />
-              <figcaption>Belajar bersama di lingkungan sendiri</figcaption>
-            </figure>
-            <figure className="home-gallery-side home-gallery-sunrise">
-              <LocalPhoto file={assets.galleryOne} alt="Lingkar belajar Bahasa Inggris saat matahari terbit" />
-              <figcaption>English Circle</figcaption>
-            </figure>
-            <figure className="home-gallery-side home-gallery-together">
-              <LocalPhoto file={assets.galleryTwo} alt="Anak-anak berlatih Bahasa Inggris bersama" />
-              <figcaption>Berlatih bersama</figcaption>
-            </figure>
-          </div>
+      <section className="home-reviews workbook-wrap" aria-labelledby="home-reviews-title">
+        <div className="home-reviews-heading">
+          <p className="home-eyebrow">Cerita peserta</p>
+          <h2 id="home-reviews-title" className="font-display">Ulasan dari ruang belajar Sapen.</h2>
+          <p>Pengalaman belajar dibagikan oleh peserta yang sudah terverifikasi.</p>
         </div>
+        <Suspense fallback={<div aria-hidden="true" className="home-testimonials-loading" />}>
+          <HomeTestimonials />
+        </Suspense>
       </section>
 
-      <section className="home-trust workbook-wrap" aria-label="Cerita peserta dan pertanyaan umum">
-        <div className="home-testimonials">
-          <h2 className="font-display">Cerita dari ruang belajar Sapen.</h2>
-          <Suspense fallback={<div aria-hidden="true" className="home-testimonials-loading" />}>
-            <HomeTestimonials />
-          </Suspense>
-        </div>
-        <div className="home-faq">
-          <h2 className="font-display">Ada yang ingin ditanyakan?</h2>
+      <section className="home-faq-section site-surface" aria-labelledby="home-faq-title">
+        <div className="workbook-wrap home-faq-inner">
+          <div className="home-faq">
+          <h2 id="home-faq-title" className="font-display">Ada yang ingin ditanyakan?</h2>
           <FaqAccordion items={HOME_FAQ_LIST} />
           <Link href="/faq" className="home-text-link">Baca semua pertanyaan <ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
+          </div>
         </div>
       </section>
 

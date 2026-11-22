@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import { publishSessionChanged } from "@/lib/session-sync";
 
 type PublicSession = { id: string; code: string; title: string; status: string; requireApproval?: boolean; canAttendAsMember?: boolean; registrationStatus?: string; viewerType?: "guest" | "regular" | "visitor"; classId?: string; classTitle?: string; classSlug?: string; startsAt?: string; activeGamePin?: string | null; participantName?: string };
 const inputClass = "mt-1.5 min-h-12 w-full rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] px-3 py-2 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20";
@@ -141,6 +142,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       setSession((current) => current ? { ...current, registrationStatus: data.status, canAttendAsMember: false, activeGamePin: data.activeGamePin || null, participantName: data.participantName || cleanName } : current);
       if (data.status === "pending") setNotice(data.participantType === "account" || data.participantType === "member" ? "Permintaan diterima. Pengurus akan menyetujui akses sebelum sesi dibuka untukmu." : "Pendaftaran diterima. Pengurus akan memeriksa permintaanmu sebelum akses sesi dibuka.");
       else setNotice("Presensi berhasil dicatat. Selamat belajar!");
+      publishSessionChanged();
     } catch (reason) {
       console.error("Pendaftaran sesi tamu gagal", { code, apiResponse: apiResponseDetails, error: reason });
       setError(reason instanceof Error ? reason.message : "Pendaftaran belum berhasil. Periksa koneksi lalu coba lagi.");

@@ -4,6 +4,7 @@ import {
   encodeSessionToken,
   getServerSession,
   SESSION_COOKIE_NAME,
+  sessionCookieOptions,
 } from "@/lib/auth";
 import { getPlans, readLocalDb, writeLocalDb } from "@/lib/db";
 import { isMidtransConfigured } from "@/lib/supabase";
@@ -73,12 +74,7 @@ export async function POST(req: NextRequest) {
         origin: "luar_langganan",
         expiresAt: sub.expiresAt,
       };
-      res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updatedSession), {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 30,
-      });
+      res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updatedSession), sessionCookieOptions(updatedSession, req.headers.get("x-forwarded-proto") === "https" || new URL(req.url).protocol === "https:"));
     }
 
     return res;

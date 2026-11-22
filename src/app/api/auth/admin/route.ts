@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { encodeSessionToken, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { encodeSessionToken, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, sessionCookieOptions } from "@/lib/auth";
 import { createPublicSupabaseClient, getSupabasePublicConfig, isSupabaseConfigured } from "@/lib/supabase";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { SessionPayload, UserRole } from "@/lib/types";
@@ -89,23 +89,17 @@ export async function POST(req: NextRequest) {
       email,
       role: matchedRole,
       origin: "admin",
+      lastActivityAt: Date.now(),
       watermarkText: `PREVIEW ADMIN • ${adminName.toUpperCase()}`,
     };
 
     const res = NextResponse.json({ ok: true, session });
-    res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-      secure: isHttpsRequest(req),
-    });
+    res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), sessionCookieOptions(session, isHttpsRequest(req)));
     res.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
     res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, accessToken, {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60,
       secure: isHttpsRequest(req),
     });
     return res;

@@ -1,204 +1,108 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { MessageSquarePlus, Send, Star, LogIn } from "lucide-react";
-import { TestimoniRecord } from "@/lib/types";
+import React, { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { ChevronLeft, ChevronRight, MessageSquarePlus, Send, Star } from "lucide-react";
+import type { TestimoniRecord } from "@/lib/types";
 
-interface TestimoniSectionProps {
+const PAGE_SIZE = 5;
+
+export default function TestimoniSection({ initialTestimoni, isEligible, isLoggedIn, userId }: {
   initialTestimoni: TestimoniRecord[];
+  isEligible: boolean;
   isLoggedIn: boolean;
-  currentUserName?: string;
-}
-
-export default function TestimoniSection({
-  initialTestimoni,
-  isLoggedIn,
-  currentUserName,
-}: TestimoniSectionProps) {
-  const [list] = useState<TestimoniRecord[]>(initialTestimoni);
+  userId?: string;
+}) {
+  const [list, setList] = useState(initialTestimoni);
+  const [myReview, setMyReview] = useState<TestimoniRecord | null>(null);
+  const [rating, setRating] = useState(0);
+  const [isi, setIsi] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [nama, setNama] = useState(currentUserName || "");
-  const [komentar, setKomentar] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [page, setPage] = useState(1);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [authed, setAuthed] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    setAuthed(Boolean(isLoggedIn));
-  }, [isLoggedIn]);
+    let active = true;
+    if (!isEligible || !userId) return;
+    fetch("/api/admin/testimoni?mine=true", { cache: "no-store" }).then((response) => response.json()).then((data) => {
+      if (active && data.review) {
+        setMyReview(data.review);
+        setRating(data.review.rating || 0);
+        setIsi(data.review.isi || data.review.komentar || "");
+      }
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [isEligible, userId]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (!nama.trim() || !komentar.trim()) return;
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/testimoni", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nama, komentar }),
-      });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(result.error || "Ulasan belum dapat dikirim. Silakan coba lagi.");
-      setSubmitted(true);
-      setKomentar("");
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Ulasan belum dapat dikirim. Periksa koneksi lalu coba lagi.");
-    } finally {
-      setLoading(false);
-    }
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const visibleReviews = useMemo(() => list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [list, page]);
+
+  function openForm() {
+    if (!isEligible) return;
+    setError(""); setMessage(""); setShowForm(true);
+    setRating(myReview?.rating || 0);
+    setIsi(myReview?.isi || myReview?.komentar || "");
   }
 
-  const loginAction = (
-    <Link
-      href="/masuk"
-      className="mt-5 inline-flex items-center gap-2 rounded-xl border border-leaf text-leaf px-5 py-2.5 text-xs sm:text-sm font-extrabold transition hover:bg-leaf-soft"
-    >
-      <LogIn className="h-4 w-4" /> Masuk untuk Menulis Ulasan
-    </Link>
-  );
+  async function submitReview(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(""); setMessage("");
+    if (!rating) { setError("Pilih bintang 1 sampai 5 terlebih dahulu."); return; }
+    if (!isi.trim()) { setError("Isi kesan dan cerita belajar Anda."); return; }
+    setSaving(true);
+    try {
+      const response = await fetch("/api/admin/testimoni", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rating, isi }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Ulasan belum dapat dikirim. Coba lagi.");
+      setMyReview(data.review);
+      setList((current) => current.filter((review) => review.userId !== userId));
+      setPage(1); setMessage("Ulasan tersimpan dan menunggu peninjauan admin."); setShowForm(false);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Ulasan belum dapat dikirim. Periksa koneksi lalu coba lagi.");
+    } finally { setSaving(false); }
+  }
 
-  return (
-    <div className="space-y-8">
-      {list.length === 0 ? (
-        <div className="home-empty-review border border-rule bg-paper-light p-8 text-center sm:p-12">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-leaf text-sunshine">
-            <MessageSquarePlus className="h-6 w-6" />
+  const writeAction = !isLoggedIn
+    ? <Link href="/masuk" className="home-review-action inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-earth px-5 py-2.5 text-sm font-extrabold text-white"><MessageSquarePlus className="h-4 w-4" />Tulis ulasan</Link>
+    : isEligible
+      ? <button type="button" onClick={openForm} className="home-review-action inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-earth px-5 py-2.5 text-sm font-extrabold text-white"><MessageSquarePlus className="h-4 w-4" />Tulis ulasan</button>
+      : <p className="text-sm font-semibold text-muted">Verifikasi email akun Anda untuk menulis ulasan.</p>;
+
+  return <div className="home-reviews-content">
+    {message && <p role="status" className="mb-4 rounded-xl border border-[#cdd8c9] bg-[#edf3e9] p-4 text-sm font-bold text-forest-deep">{message}</p>}
+    {list.length === 0 ? <div className="home-empty-review"><span className="home-review-mark"><MessageSquarePlus aria-hidden="true" /></span><h3 className="font-display">Belum ada ulasan yang diterbitkan</h3><p>Jadilah yang pertama berbagi kesan belajar di Kampung Inggris Sapen.</p>{writeAction}</div> : <>
+      <div className="home-review-grid">
+        {visibleReviews.map((review) => <article key={review.id} className="home-review-card">
+          <div className="home-review-card-head">
+            <div className="home-review-avatar" aria-label={`Foto profil ${review.nama}`}>
+              {review.avatarDataUrl ? <Image src={review.avatarDataUrl} alt={`Foto profil ${review.nama}`} width={48} height={48} unoptimized /> : <span aria-hidden="true">{review.nama.trim().slice(0, 1).toLocaleUpperCase("id-ID") || "P"}</span>}
+            </div>
+            <div className="home-review-person"><h3>{review.nama}</h3><p>Peserta terverifikasi</p></div>
+            <time dateTime={review.createdAt}>{new Date(review.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</time>
           </div>
-          <h3 className="mt-4 text-lg font-extrabold text-ink">Belum ada ulasan yang diterbitkan</h3>
-          <p className="mt-1 text-sm text-muted max-w-md mx-auto">Jadilah yang pertama membagikan pengalaman belajarmu di platform ini!</p>
-          {mounted && authed ? (
-            <button
-              type="button"
-              onClick={() => setShowForm(!showForm)}
-              className="home-review-action mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-earth px-5 py-2.5 text-xs sm:text-sm font-extrabold text-white shadow-sm transition hover:bg-earth-dark"
-            >
-              <MessageSquarePlus className="h-4 w-4" /> Tulis Ulasan Pertama
-            </button>
-          ) : (
-            loginAction
-          )}
-        </div>
-      ) : (
-        <div>
-          {/* Editorial List Layout */}
-          <div className="space-y-4">
-            {list.map((item) => (
-              <article
-                key={item.id}
-                className="grid gap-5 border-b border-rule py-6 md:grid-cols-[1fr_auto] md:items-end md:gap-10"
-              >
-                <div className="flex-shrink-0">
-                  <div className="mb-3 flex items-center gap-1 text-earth">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-current" />
-                    ))}
-                  </div>
-                  <p className="text-sm italic leading-relaxed text-body max-w-xl">&ldquo;{item.komentar}&rdquo;</p>
-                </div>
-                <div className="flex-shrink-0 ml-auto flex flex-col items-end">
-                  <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-md bg-leaf text-white font-extrabold text-xs">
-                    {item.nama.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="text-right">
-                    <h4 className="text-sm font-extrabold text-ink">{item.nama}</h4>
-                    <p className="text-xs text-muted">Pengguna Terverifikasi</p>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+          <div className="home-review-stars" aria-label={`Rating ${review.rating || 5} dari 5`}>{Array.from({ length: 5 }, (_, index) => <Star key={index} aria-hidden="true" className={index < (review.rating || 5) ? "is-filled" : ""} />)}</div>
+          <p className="home-review-copy">“{review.isi || review.komentar}”</p>
+        </article>)}
+      </div>
+      {pageCount > 1 && <nav className="home-review-pagination" aria-label="Halaman ulasan">
+        <button type="button" disabled={page === 1} onClick={() => setPage((current) => current - 1)} aria-label="Halaman sebelumnya"><ChevronLeft aria-hidden="true" /></button>
+        {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => <button type="button" key={number} aria-current={page === number ? "page" : undefined} onClick={() => setPage(number)}>{number}</button>)}
+        <button type="button" disabled={page === pageCount} onClick={() => setPage((current) => current + 1)} aria-label="Halaman berikutnya"><ChevronRight aria-hidden="true" /></button>
+      </nav>}
+      <div className="home-reviews-write">{writeAction}</div>
+    </>}
 
-          {/* Tombol tulis ulasan - hanya jika sudah login */}
-          {mounted && authed && !showForm && !submitted ? (
-            <div className="mt-8 text-center">
-              <button
-                type="button"
-                onClick={() => setShowForm(true)}
-                className="inline-flex items-center gap-2 rounded-xl border border-leaf text-leaf px-5 py-2.5 text-xs sm:text-sm font-extrabold transition hover:bg-leaf-soft"
-              >
-                <MessageSquarePlus className="h-4 w-4" /> Bagikan Pengalamanmu
-              </button>
-            </div>
-          ) : null}
-
-          {!mounted || !authed ? (
-            <div className="mt-8 text-center">
-              <Link
-                href="/masuk"
-                className="inline-flex items-center gap-2 rounded-xl border border-leaf text-leaf px-5 py-2.5 text-xs sm:text-sm font-extrabold transition hover:bg-leaf-soft"
-              >
-                <LogIn className="h-4 w-4" /> Masuk untuk Menulis Ulasan
-              </Link>
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {/* Form kirim ulasan */}
-      {mounted && authed && showForm && (
-        <div className="border-y border-rule-strong bg-paper-light p-6 sm:p-8">
-          {submitted ? (
-            <div className="rounded-lg bg-leaf-soft p-4 text-center text-sm font-bold text-leaf border border-leaf/25">
-              Terima kasih! Ulasanmu telah dikirimkan dan akan segera ditampilkan setelah diverifikasi pengurus.
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4 max-w-lg mx-auto">
-              <div className="text-center mb-4">
-                <h4 className="text-base font-extrabold text-ink">Bagikan Pengalaman Belajarmu</h4>
-                <p className="text-xs text-muted mt-0.5">Ceritakan pengalamanmu belajar di platform ini untuk memotivasi pengguna lain.</p>
-              </div>
-              {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-
-              <div>
-                <label className="block text-xs font-bold text-body uppercase tracking-wider">Nama yang Ditampilkan</label>
-                <input
-                  type="text"
-                  required
-                  value={nama}
-                  onChange={(e) => setNama(e.target.value)}
-                  placeholder="Nama panggilan Anda"
-                  className="mt-1 w-full rounded-lg border border-rule-strong bg-paper-light px-3.5 py-2.5 text-sm text-ink focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/15"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-body uppercase tracking-wider">Kesan & Cerita Belajar</label>
-                <textarea
-                  required
-                  rows={3}
-                  value={komentar}
-                  onChange={(e) => setKomentar(e.target.value)}
-                  placeholder="Ceritakan pengalamanmu belajar di platform ini..."
-                  className="mt-1 w-full rounded-lg border border-rule-strong bg-paper-light px-3.5 py-2.5 text-sm text-ink focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/15"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="flex-1 rounded-lg border border-rule-strong py-2.5 text-xs font-bold text-body hover:bg-paper-deep"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-earth py-2.5 text-xs font-bold text-white shadow-sm hover:bg-earth-dark disabled:opacity-60"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  {loading ? "Mengirim..." : "Kirim Ulasan"}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      )}
-    </div>
-  );
+    {showForm && <form onSubmit={submitReview} className="home-review-form">
+      <div><h3 className="font-display">Kesan & cerita belajar</h3><p>Ulasan ditinjau sebelum ditampilkan di Beranda. Anda dapat mengedit ulasan; perubahan akan ditinjau kembali.</p></div>
+      {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</p>}
+      <fieldset><legend className="text-sm font-bold text-body">Beri bintang <span aria-hidden="true">*</span></legend><div className="home-review-rating" role="radiogroup" aria-label="Pilih rating">
+        {Array.from({ length: 5 }, (_, index) => { const value = index + 1; return <button key={value} type="button" role="radio" aria-checked={rating === value} aria-label={`${value} bintang`} onClick={() => setRating(value)}><Star aria-hidden="true" className={value <= rating ? "is-filled" : ""} /></button>; })}
+      </div></fieldset>
+      <label className="block text-sm font-bold text-body">Kesan & cerita belajar <span aria-hidden="true">*</span><textarea required maxLength={500} rows={4} value={isi} onChange={(event) => setIsi(event.target.value)} placeholder="Ceritakan pengalaman belajar Anda…" className="mt-2 min-h-28 w-full resize-y rounded-xl border border-rule-strong bg-white p-3 text-sm font-normal text-ink" /></label>
+      <div className="flex items-center justify-between gap-3 text-xs text-muted"><span>Maksimal 500 karakter</span><span>{isi.length}/500</span></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => setShowForm(false)} className="min-h-11 rounded-lg border border-rule-strong bg-white px-4 text-sm font-bold text-body">Batal</button><button type="submit" disabled={saving} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-earth px-5 text-sm font-extrabold text-white disabled:opacity-60"><Send aria-hidden="true" className="h-4 w-4" />{saving ? "Menyimpan…" : myReview ? "Simpan perubahan" : "Kirim ulasan"}</button></div>
+    </form>}
+  </div>;
 }

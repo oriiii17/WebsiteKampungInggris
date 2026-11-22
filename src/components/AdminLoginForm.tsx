@@ -6,6 +6,7 @@ import { Mail } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import AuthShell from "@/components/auth/AuthShell";
 import PasswordInput from "@/components/auth/PasswordInput";
+import { publishSessionChanged } from "@/lib/session-sync";
 
 export default function AdminLoginForm({ nextUrl = "/admin" }: { nextUrl?: string }) {
   const router = useRouter();
@@ -54,6 +55,7 @@ export default function AdminLoginForm({ nextUrl = "/admin" }: { nextUrl?: strin
         setLoading(false);
         return;
       }
+      publishSessionChanged();
       router.push(nextUrl);
       router.refresh();
     } catch {

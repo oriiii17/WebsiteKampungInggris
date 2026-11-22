@@ -91,7 +91,7 @@ export default function GameCatalogClient({ isGuest = false, guestParticipantId,
   }
 
   const steps = [[KeyRound, "Dapatkan PIN atau Pilih kuis", "Tutor membagikan PIN untuk kuis kelas."], [Search, "Masuk atau pilih latihan", "Gabung dengan PIN atau buka kuis mandiri."], [Trophy, "Mulai berlatih", "Jawab soal dan lihat hasil belajarmu."] ] as const;
-  return <main className="min-h-dvh bg-[#f3e9d5] px-4 pt-8 pb-28 text-[#20251f] sm:px-8 sm:pt-12 sm:pb-28 lg:pb-12"><div className="mx-auto max-w-6xl">
+  return <main className="min-h-dvh bg-transparent px-4 pt-8 pb-28 text-[#20251f] sm:px-8 sm:pt-12 sm:pb-28 lg:pb-12"><div className="mx-auto max-w-6xl">
     <header className="max-w-2xl"><h1 className="font-display text-4xl font-bold leading-tight text-[#183b2d] sm:text-5xl">{isGuest ? "Belajar bersama kelasmu." : "Belajar lewat permainan."}</h1><p className="mt-4 text-base leading-7 text-[#3d4038]">{isGuest ? "Masukkan PIN dari tutor untuk bergabung. Kuis untuk kelasmu ada di bawah." : "Pilih latihan untuk bermain sendiri, atau masukkan PIN untuk bergabung ke kuis yang sedang dipandu tutor."}</p></header>
 
     <nav aria-label="Menu Kuis" className="mt-7 flex flex-wrap gap-2 border-b border-[#d2c5ad] pb-3">

@@ -3,6 +3,7 @@ import {
   encodeSessionToken,
   GUEST_SESSION_COOKIE_NAME,
   SESSION_COOKIE_NAME,
+  sessionCookieOptions,
 } from "@/lib/auth";
 import { getActiveSubscriptionForEmail } from "@/lib/db";
 import { SessionPayload } from "@/lib/types";
@@ -62,10 +63,12 @@ export async function POST(req: NextRequest) {
 
     const session: SessionPayload = {
       id: isWargaAccount && wargaId ? wargaId : authData.user.id,
+      authUserId: authData.user.id,
       name: authName,
       email,
       role,
       emailVerified: Boolean(authData.user.email_confirmed_at),
+      lastActivityAt: Date.now(),
       origin: role === "tutor" ? "tutor" : isWargaAccount ? "warga_kode" : activeSub ? "luar_langganan" : "luar_belum_aktif",
       ...(isWargaAccount ? { rw, rtRw: typeof authData.user.user_metadata?.rt_rw === "string" ? authData.user.user_metadata.rt_rw : undefined } : {}),
       expiresAt: activeSub?.expiresAt,
@@ -77,20 +80,13 @@ export async function POST(req: NextRequest) {
       session,
       hasActiveSubscription: Boolean(activeSub),
     });
-    res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-      secure: isHttpsRequest(req),
-    });
+    res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), sessionCookieOptions(session, isHttpsRequest(req)));
     res.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
     if (role === "tutor" && authData.session?.access_token) {
       res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, authData.session.access_token, {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        maxAge: 60 * 60,
         secure: isHttpsRequest(req),
       });
     } else {

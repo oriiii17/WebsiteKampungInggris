@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { BookOpen, ChevronDown, Gamepad2, LogOut } from "lucide-react";
 import { SITE_CONFIG } from "@/config/site";
 import styles from "./Navbar.module.css";
+import { publishSessionChanged } from "@/lib/session-sync";
 
 export default function GuestNavbar({ guestClassHref, displayName = "Guest", isGuest = true }: { guestClassHref: string; displayName?: string; isGuest?: boolean }) {
   const pathname = usePathname();
@@ -24,6 +25,7 @@ export default function GuestNavbar({ guestClassHref, displayName = "Guest", isG
     try {
       const response = await fetch(isGuest ? "/api/auth/session?scope=guest" : "/api/auth/session", { method: "DELETE", cache: "no-store" });
       if (!response.ok) throw new Error("Sesi belum berhasil dihapus. Coba lagi.");
+      publishSessionChanged();
       window.dispatchEvent(new Event("sapen:guest-session-updated"));
       setOpen(false);
       router.replace("/");

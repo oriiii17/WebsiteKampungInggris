@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { encodeSessionToken, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { encodeSessionToken, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, sessionCookieOptions } from "@/lib/auth";
 import { createPublicSupabaseClient } from "@/lib/supabase";
 import { checkApiRateLimit, clearApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import { isHttpsRequest } from "@/lib/request-security";
@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
     const session: SessionPayload = {
       id: String(verified.id),
       name,
+      lastActivityAt: Date.now(),
       role: "peserta",
       origin: "warga_kode",
       codeUsed: code,
@@ -70,13 +71,7 @@ export async function POST(req: NextRequest) {
 
     clearApiRateLimit(key);
     const response = NextResponse.json({ ok: true, session });
-    response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-      secure: isHttpsRequest(req),
-    });
+    response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), sessionCookieOptions(session, isHttpsRequest(req)));
     response.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
     response.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
     return response;

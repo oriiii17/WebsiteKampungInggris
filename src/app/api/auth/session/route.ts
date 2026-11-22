@@ -5,13 +5,20 @@ import {
   getGuestServerSession,
   getServerSession,
   SESSION_COOKIE_NAME,
+  sessionCookieOptions,
 } from "@/lib/auth";
 import { getActiveSubscriptionForEmail, readLocalDb, writeLocalDb } from "@/lib/db";
 import { createPublicSupabaseClient } from "@/lib/supabase";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { SessionPayload } from "@/lib/types";
 import { isHttpsRequest } from "@/lib/request-security";
 import { SUPABASE_ACCESS_TOKEN_COOKIE } from "@/lib/supabase-server";
 import { getGuestApprovalStatus } from "@/lib/guest-approval";
+
+function canEditAccount(session: SessionPayload) {
+  if (["admin", "pengurus", "developer"].includes(session.role)) return true;
+  return Boolean(session.email && session.emailVerified === true && ["peserta", "umum", "member"].includes(session.role));
+}
 
 export async function GET(req: Request) {
   const scope = new URL(req.url).searchParams.get("scope");
@@ -38,7 +45,7 @@ export async function GET(req: Request) {
       : { ...session, origin: "luar_belum_aktif", expiresAt: undefined };
 
     const res = NextResponse.json({ session: updated });
-    res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 60 * 60 * 24 * 30 });
+    res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updated), sessionCookieOptions(updated, isHttpsRequest(req)));
     return res;
   }
 
@@ -52,17 +59,23 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const action = body.action as string;
 
+    if (["update_profile", "update_name", "update_password"].includes(action) && body.sessionId !== session.id) {
+      return NextResponse.json({ ok: false, error: "Sesi akun berubah. Muat ulang halaman sebelum melanjutkan." }, { status: 409 });
+    }
+
     if (action === "clear_class_session") {
       const updated: SessionPayload = { ...session };
       delete updated.guestSessionId;
       delete updated.guestRegistrationId;
       delete updated.guestClassHref;
       const res = NextResponse.json({ ok: true, session: updated });
-      res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 60 * 60 * 24 * 30 });
+      updated.lastActivityAt = Date.now();
+      res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updated), sessionCookieOptions(updated, isHttpsRequest(req)));
       return res;
     }
 
     if (action === "update_profile") {
+      if (!canEditAccount(session)) return NextResponse.json({ ok: false, error: "Akun Kode Akses belum dapat mengubah profil. Buat akun permanen dan verifikasi email terlebih dahulu." }, { status: 403 });
       const name = String(body.name || "").trim();
       if (name.length < 2) return NextResponse.json({ ok: false, error: "Nama minimal 2 karakter." }, { status: 400 });
       const avatarDataUrl = typeof body.avatarDataUrl === "string" ? body.avatarDataUrl : undefined;
@@ -82,51 +95,65 @@ export async function PATCH(req: Request) {
           return NextResponse.json({ ok: false, error: "Isi foto tidak sesuai dengan format PNG atau JPG." }, { status: 415 });
         }
       }
-      let existingAvatar = session.avatarDataUrl;
-      // persist avatar/name where possible
       const db = await readLocalDb();
       const email = (session.email || "").toLowerCase();
       if (email) {
-        const user = (db.externalUsers || []).find((u: any) => u.email.toLowerCase() === email);
-        if (user) { (user as any).name = name; existingAvatar = (user as any).avatarDataUrl || existingAvatar; if (avatarDataUrl) (user as any).avatarDataUrl = avatarDataUrl; await writeLocalDb(db); }
+        db.externalUsers ||= [];
+        const authUserId = session.authUserId || session.id;
+        let user = db.externalUsers.find((entry) => entry.email.toLowerCase() === email);
+        if (!user) {
+          user = { id: authUserId, name, email, passwordHash: "", createdAt: new Date().toISOString() };
+          db.externalUsers.push(user);
+        }
+        user.name = name;
+        if (avatarDataUrl) user.avatarDataUrl = avatarDataUrl;
+        await writeLocalDb(db);
+
+        if (process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+          const admin = createSupabaseAdminClient();
+          await admin.auth.admin.updateUserById(authUserId, { user_metadata: { full_name: name } });
+          await admin.from("profiles").update({ full_name: name }).eq("id", authUserId);
+        }
       }
-      if (session.origin === "warga_kode" && session.id) {
-        const w = (db.warga || []).find((x: any) => x.id === session.id);
-        if (w) { (w as any).namaPanggilan = name; existingAvatar = (w as any).avatarDataUrl || existingAvatar; if (avatarDataUrl) (w as any).avatarDataUrl = avatarDataUrl; await writeLocalDb(db); }
-      }
-      const updated: SessionPayload = { ...session, name, watermarkText: session.watermarkText?.includes(" - ") ? `${name} - ${(session.email || session.codeUsed || "")}`.trim() : (session.watermarkText || name), ...(avatarDataUrl || existingAvatar ? { avatarDataUrl: avatarDataUrl || existingAvatar } : {}) };
+      const updated: SessionPayload = { ...session, name, lastActivityAt: Date.now(), watermarkText: session.watermarkText?.includes(" - ") ? `${name} - ${(session.email || session.codeUsed || "")}`.trim() : (session.watermarkText || name) };
+      delete updated.avatarDataUrl;
       const res = NextResponse.json({ ok: true, session: updated });
-      res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 60 * 60 * 24 * 30 });
+      res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updated), sessionCookieOptions(updated, isHttpsRequest(req)));
       return res;
     }
 
     if (action === "update_name") {
+      if (!canEditAccount(session)) return NextResponse.json({ ok: false, error: "Akun Kode Akses belum dapat mengubah profil. Buat akun permanen dan verifikasi email terlebih dahulu." }, { status: 403 });
       const name = String(body.name || "").trim();
       if (name.length < 2) return NextResponse.json({ ok: false, error: "Nama minimal 2 karakter." }, { status: 400 });
-      const updated: SessionPayload = { ...session, name, watermarkText: session.watermarkText?.includes(" - ") ? `${name} - ${(session.email || session.codeUsed || "")}`.trim() : (session.watermarkText || name) };
+      const updated: SessionPayload = { ...session, name, lastActivityAt: Date.now(), watermarkText: session.watermarkText?.includes(" - ") ? `${name} - ${(session.email || session.codeUsed || "")}`.trim() : (session.watermarkText || name) };
       const res = NextResponse.json({ ok: true, session: updated });
-      res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 60 * 60 * 24 * 30 });
+      res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updated), sessionCookieOptions(updated, isHttpsRequest(req)));
       return res;
     }
 
     if (action === "update_password") {
+      if (!canEditAccount(session)) return NextResponse.json({ ok: false, error: "Akun Kode Akses belum dapat mengubah kata sandi. Buat akun permanen dan verifikasi email terlebih dahulu." }, { status: 403 });
       const oldPassword = String(body.oldPassword || "");
       const password = String(body.password || body.newPassword || "");
       const confirm = body.confirmPassword != null ? String(body.confirmPassword) : null;
-      if (!oldPassword) return NextResponse.json({ ok: false, error: "Password lama wajib diisi." }, { status: 400 });
-      if (password.length < 8) return NextResponse.json({ ok: false, error: "Password baru minimal 8 karakter." }, { status: 400 });
-      if (confirm !== null && password !== confirm) return NextResponse.json({ ok: false, error: "Konfirmasi password baru tidak cocok." }, { status: 400 });
+      if (!oldPassword) return NextResponse.json({ ok: false, error: "Kata sandi lama wajib diisi." }, { status: 400 });
+      if (password.length < 8) return NextResponse.json({ ok: false, error: "Kata sandi baru minimal 8 karakter." }, { status: 400 });
+      if (confirm !== null && password !== confirm) return NextResponse.json({ ok: false, error: "Konfirmasi kata sandi baru tidak cocok." }, { status: 400 });
       const email = (session.email || "").toLowerCase();
       if (!email) return NextResponse.json({ ok: false, error: "Akun ini tidak memiliki password untuk diganti." }, { status: 400 });
       const supabase = createPublicSupabaseClient();
       if (!supabase) return NextResponse.json({ ok: false, error: "Layanan akun belum tersedia." }, { status: 503 });
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password: oldPassword });
-      if (authError || !authData.user || authData.user.id !== session.id) {
-        return NextResponse.json({ ok: false, error: "Password lama salah." }, { status: 400 });
+      const accountUserId = session.authUserId || session.id;
+      if (authError || !authData.user || authData.user.id !== accountUserId || !authData.session) {
+        return NextResponse.json({ ok: false, error: "Kata sandi lama salah." }, { status: 400 });
       }
+      const { error: setSessionError } = await supabase.auth.setSession({ access_token: authData.session.access_token, refresh_token: authData.session.refresh_token });
+      if (setSessionError) return NextResponse.json({ ok: false, error: "Sesi verifikasi kata sandi belum dapat disiapkan. Coba lagi." }, { status: 400 });
       const { error: updateError } = await supabase.auth.updateUser({ password });
-      if (updateError) return NextResponse.json({ ok: false, error: "Password baru belum dapat disimpan." }, { status: 400 });
-      return NextResponse.json({ ok: true, message: "Password berhasil diperbarui." });
+      if (updateError) return NextResponse.json({ ok: false, error: "Kata sandi baru belum dapat disimpan." }, { status: 400 });
+      return NextResponse.json({ ok: true, message: "Kata sandi berhasil diperbarui." });
     }
 
     return NextResponse.json({ ok: false, error: "Aksi tidak dikenal." }, { status: 400 });

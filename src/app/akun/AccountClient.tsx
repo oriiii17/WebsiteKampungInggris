@@ -3,8 +3,10 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, ImagePlus, LogOut, Save, User, Lock } from "lucide-react";
+import { ImagePlus, LogOut, Save, User } from "lucide-react";
 import type { SessionPayload } from "@/lib/types";
+import PasswordInput from "@/components/auth/PasswordInput";
+import { publishSessionChanged } from "@/lib/session-sync";
 
 const MAX_PHOTO = 10 * 1024 * 1024;
 
@@ -19,9 +21,6 @@ export default function AccountClient({ initialSession, wargaDeferred = false }:
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showOld, setShowOld] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -55,7 +54,7 @@ export default function AccountClient({ initialSession, wargaDeferred = false }:
     if (photoErr) { setErr(photoErr); return; }
     setSavingProfile(true);
     try {
-      const payload = { action: "update_profile", name: name.trim(), ...(hasNewPhoto && avatarDataUrl ? { avatarDataUrl } : {}) };
+      const payload = { action: "update_profile", sessionId: session.id, name: name.trim(), ...(hasNewPhoto && avatarDataUrl ? { avatarDataUrl } : {}) };
       const res = await fetch("/api/auth/session", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok || !data?.ok) throw new Error(data?.error || "Gagal menyimpan profil.");
@@ -74,7 +73,7 @@ export default function AccountClient({ initialSession, wargaDeferred = false }:
     if (newPassword !== confirmPassword) { setErr("Konfirmasi kata sandi baru tidak cocok."); return; }
     setSavingPass(true);
     try {
-      const res = await fetch("/api/auth/session", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "update_password", oldPassword, password: newPassword, confirmPassword }) });
+      const res = await fetch("/api/auth/session", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "update_password", sessionId: session.id, oldPassword, password: newPassword, confirmPassword }) });
       const data = await res.json();
       if (!res.ok || !data?.ok) throw new Error(data?.error || "Gagal mengganti password.");
       setOldPassword(""); setNewPassword(""); setConfirmPassword("");
@@ -85,14 +84,16 @@ export default function AccountClient({ initialSession, wargaDeferred = false }:
   async function logout() {
     setLoggingOut(true);
     try { await fetch("/api/auth/session", { method: "DELETE" }); } catch {}
+    publishSessionChanged();
     router.push("/");
     router.refresh();
   }
 
   const isWarga = session.origin === "warga_kode";
+  const isWargaCodeOnly = isWarga && (!session.email || session.emailVerified !== true);
   const initial = (name.trim()[0] || "U").toUpperCase();
 
-  if (isWarga && wargaDeferred) return <main className="grid min-h-[calc(100dvh-5rem)] place-items-center bg-[#FDFBF7] px-4 py-10"><section className="w-full max-w-md rounded-2xl border border-[#d2c5ad] bg-white p-6 shadow-sm sm:p-8"><p className="text-xs font-extrabold uppercase tracking-wide text-[#625f54]">Warga Sapen</p><h1 className="mt-2 font-display text-3xl font-bold text-[#183b2d]">Akses warga aktif</h1><p className="mt-3 text-sm leading-6 text-[#3d4038]">Kamu bisa terus masuk dengan kode akses, atau membuat akun email dan kata sandi agar lebih mudah masuk berikutnya.</p><Link href="/masuk?mode=warga&account=1" className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ba472f] px-4 text-sm font-extrabold text-white hover:bg-[#943520]">Daftar Akun</Link><button type="button" onClick={logout} disabled={loggingOut} className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#b8aa8e] px-4 text-sm font-bold text-[#244b3a] hover:bg-[#f3e9d5] disabled:opacity-60"><LogOut className="h-4 w-4" />{loggingOut ? "Keluar…" : "Logout"}</button>{err && <p role="alert" className="mt-3 text-sm text-red-700">{err}</p>}</section></main>;
+  if (isWargaCodeOnly && wargaDeferred) return <main className="min-h-[calc(100dvh-5rem)] bg-[#FDFBF7] px-4 py-8 sm:py-10"><div className="mx-auto grid w-full max-w-3xl gap-4 md:grid-cols-2"><section className="rounded-2xl border border-[#d2c5ad] bg-white p-6 shadow-sm sm:p-8"><p className="text-xs font-extrabold uppercase tracking-wide text-[#625f54]">Warga Sapen</p><h1 className="mt-2 font-display text-3xl font-bold text-[#183b2d]">Akses warga aktif</h1><p className="mt-3 text-sm leading-6 text-[#3d4038]">Akses Kode Anda tetap bisa digunakan. Daftar akun permanen bila ingin masuk memakai email dan kata sandi.</p><Link href="/masuk?mode=warga&account=1" className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ba472f] px-4 text-sm font-extrabold text-white transition hover:bg-[#943520]">Daftar akun</Link></section><section className="flex flex-col rounded-2xl border border-[#d2c5ad] bg-white p-6 shadow-sm sm:p-8"><div><h2 className="font-display text-2xl font-bold text-[#183b2d]">Keluar</h2><p className="mt-2 text-sm leading-6 text-[#3d4038]">Akhiri akses Kode Anda di perangkat ini.</p></div><button type="button" onClick={logout} disabled={loggingOut} className="mt-auto inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#244b3a] bg-white px-4 text-sm font-bold text-[#244b3a] transition hover:bg-[#e6eadf] disabled:opacity-60"><LogOut className="h-4 w-4" />{loggingOut ? "Keluar…" : "Keluar"}</button></section></div>{err && <p role="alert" className="mx-auto mt-4 max-w-3xl text-sm font-semibold text-red-700">{err}</p>}</main>;
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] pb-24 md:pb-16">
@@ -134,30 +135,18 @@ export default function AccountClient({ initialSession, wargaDeferred = false }:
 
           <section className="rounded-xl border border-[#E5E7EB] bg-white p-5 sm:p-6">
             <h2 className="text-base font-extrabold text-[#1A2E1A] mb-3">Ubah Kata Sandi</h2>
-            {isWarga ? (
+            {isWargaCodeOnly ? (
               <p className="text-sm text-[#1A2E1A]/70">Akun warga menggunakan kode akses tanpa kata sandi. Untuk berganti akun, gunakan tombol Keluar di bawah.</p>
             ) : (
               <form onSubmit={savePassword} className="space-y-3">
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/70">Kata Sandi Lama
-                  <div className="relative mt-1">
-                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input type={showOld ? "text" : "password"} value={oldPassword} onChange={(e)=>setOldPassword(e.target.value)} className="w-full rounded-md border border-[#E5E7EB] py-3 pl-10 pr-11 text-sm text-[#1A2E1A] focus:border-[#14532D] focus:outline-none" />
-                    <button type="button" onClick={()=>setShowOld(v=>!v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-500" aria-label="Tampilkan/sembunyikan">{showOld ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}</button>
-                  </div>
+                  <span className="mt-1 block"><PasswordInput required value={oldPassword} onChange={setOldPassword} autoComplete="current-password" placeholder="Masukkan kata sandi lama" /></span>
                 </label>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/70">Kata Sandi Baru
-                  <div className="relative mt-1">
-                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input type={showNew ? "text" : "password"} value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} minLength={8} placeholder="Minimal 8 karakter" className="w-full rounded-md border border-[#E5E7EB] py-3 pl-10 pr-11 text-sm text-[#1A2E1A] focus:border-[#14532D] focus:outline-none" />
-                    <button type="button" onClick={()=>setShowNew(v=>!v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-500" aria-label="Tampilkan/sembunyikan">{showNew ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}</button>
-                  </div>
+                  <span className="mt-1 block"><PasswordInput required minLength={8} value={newPassword} onChange={setNewPassword} autoComplete="new-password" placeholder="Minimal 8 karakter" /></span>
                 </label>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/70">Konfirmasi Kata Sandi Baru
-                  <div className="relative mt-1">
-                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input type={showConfirm ? "text" : "password"} value={confirmPassword} onChange={(e)=>setConfirmPassword(e.target.value)} minLength={8} className="w-full rounded-md border border-[#E5E7EB] py-3 pl-10 pr-11 text-sm text-[#1A2E1A] focus:border-[#14532D] focus:outline-none" />
-                    <button type="button" onClick={()=>setShowConfirm(v=>!v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-500" aria-label="Tampilkan/sembunyikan">{showConfirm ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}</button>
-                  </div>
+                  <span className="mt-1 block"><PasswordInput required minLength={8} value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="Ulangi kata sandi baru" /></span>
                 </label>
                 <p className="text-[11px] text-[#1A2E1A]/60">Urutan: Kata Sandi Lama, Kata Sandi Baru, Konfirmasi. Setelah berhasil, Anda tetap login.</p>
                 <button type="submit" disabled={savingPass} className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#14532D] bg-white px-5 py-2.5 text-sm font-extrabold text-[#14532D] hover:bg-[#FDFBF7] disabled:opacity-50"><Save className="h-4 w-4" />{savingPass ? "Menyimpan..." : "Simpan Kata Sandi"}</button>

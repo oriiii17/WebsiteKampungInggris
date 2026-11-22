@@ -14,5 +14,6 @@ export default async function AkunPage({ searchParams }: { searchParams?: Promis
     ? (db.externalUsers || []).find((user) => user.email.toLowerCase() === session.email?.toLowerCase())?.avatarDataUrl
     : (db.warga || []).find((warga) => warga.id === session.id)?.avatarDataUrl;
   const params = (await searchParams) || {};
-  return <AccountClient initialSession={{ ...session, avatarDataUrl: storedPhoto || session.avatarDataUrl }} wargaDeferred={params.warga === "deferred"} />;
+  const wargaDeferred = session.origin === "warga_kode" && (!session.email || session.emailVerified !== true);
+  return <AccountClient initialSession={{ ...session, avatarDataUrl: storedPhoto || session.avatarDataUrl }} wargaDeferred={wargaDeferred || params.warga === "deferred"} />;
 }

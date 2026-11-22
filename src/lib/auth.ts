@@ -28,6 +28,17 @@ export function encodeSessionToken(payload: SessionPayload): string {
   return `${json}.${sig}`;
 }
 
+export function sessionCookieOptions(session: SessionPayload, secure: boolean) {
+  const privileged = session.role === "admin" || session.role === "pengurus" || session.role === "developer" || session.role === "tutor" || session.origin === "admin" || session.origin === "tutor";
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    path: "/",
+    secure,
+    ...(privileged ? {} : { maxAge: 60 * 60 * 24 * 7 }),
+  };
+}
+
 export function decodeSessionToken(token: string | undefined): SessionPayload | null {
   if (!token || !token.includes(".")) return null;
   const [json, sig] = token.split(".");
@@ -48,7 +59,12 @@ export async function getServerSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const raw = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const session = decodeSessionToken(raw);
-  if (session && session.role !== "guest" && session.origin !== "guest" && !(session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now())) {
+  if (session && session.role !== "guest" && session.origin !== "guest") {
+    if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) return null;
+    const idleLimit = session.role === "admin" || session.role === "pengurus" || session.role === "developer" || session.role === "tutor" || session.origin === "admin" || session.origin === "tutor"
+      ? 40 * 60 * 1000
+      : 7 * 24 * 60 * 60 * 1000;
+    if (!session.lastActivityAt || Date.now() - session.lastActivityAt > idleLimit) return null;
     const privilegedRole = session.role === "admin" || session.role === "pengurus" || session.role === "developer";
     const accessCodeSession = session.origin === "warga_kode";
     if (session.email && !privilegedRole && !accessCodeSession && session.emailVerified !== true) {

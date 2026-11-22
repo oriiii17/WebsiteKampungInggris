@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getGuestServerSession, getServerSession, getSessionWithGuestContext, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, encodeSessionToken } from "@/lib/auth";
+import { getGuestServerSession, getServerSession, getSessionWithGuestContext, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, encodeSessionToken, sessionCookieOptions } from "@/lib/auth";
 import { readLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type { SessionPayload } from "@/lib/types";
@@ -34,7 +34,7 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
         if (classSlug) {
           const updated: SessionPayload = { ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` };
           const cookieName = session.role === "guest" ? GUEST_SESSION_COOKIE_NAME : SESSION_COOKIE_NAME;
-          response.cookies.set(cookieName, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", path: "/", maxAge: session.role === "guest" ? 60 * 60 * 12 : 60 * 60 * 24 * 30, secure: isHttpsRequest(request) });
+          response.cookies.set(cookieName, encodeSessionToken(updated), session.role === "guest" ? { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) } : sessionCookieOptions(updated, isHttpsRequest(request)));
         }
         return response;
       }
@@ -52,7 +52,7 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
         if (classSlug) {
           const updated: SessionPayload = { ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` };
           const cookieName = session.role === "guest" ? GUEST_SESSION_COOKIE_NAME : SESSION_COOKIE_NAME;
-          response.cookies.set(cookieName, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", path: "/", maxAge: session.role === "guest" ? 60 * 60 * 12 : 60 * 60 * 24 * 30, secure: isHttpsRequest(request) });
+          response.cookies.set(cookieName, encodeSessionToken(updated), session.role === "guest" ? { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) } : sessionCookieOptions(updated, isHttpsRequest(request)));
         }
         return response;
       }
@@ -92,7 +92,7 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
       if (guest.status === "approved" && classSlug) {
         const updated: SessionPayload = { ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` };
         const cookieName = session.role === "guest" ? GUEST_SESSION_COOKIE_NAME : SESSION_COOKIE_NAME;
-        response.cookies.set(cookieName, encodeSessionToken(updated), { httpOnly: true, sameSite: "lax", path: "/", maxAge: session.role === "guest" ? 60 * 60 * 12 : 60 * 60 * 24 * 30, secure: isHttpsRequest(request) });
+        response.cookies.set(cookieName, encodeSessionToken(updated), session.role === "guest" ? { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) } : sessionCookieOptions(updated, isHttpsRequest(request)));
       }
       return response;
     }
@@ -187,7 +187,8 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
     }
     const updatedMember: SessionPayload = { ...current, guestSessionId: sessionId, guestRegistrationId: registrationId, guestClassHref };
     const response = NextResponse.json({ ok: true, status: registrationStatus, sessionId, title, participantType: "account", participantName: guest.name });
-    response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updatedMember), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30, secure: isHttpsRequest(request) });
+    updatedMember.lastActivityAt = Date.now();
+    response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updatedMember), sessionCookieOptions(updatedMember, isHttpsRequest(request)));
     return response;
   }
   let result: { registrationId: string; sessionId: string; title: string; status: "pending" | "approved" | "rejected" } | null = null;

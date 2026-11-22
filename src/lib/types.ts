@@ -36,8 +36,13 @@ export interface RwCode {
 
 export interface TestimoniRecord {
   id: string;
+  userId?: string;
+  rating?: number;
+  isi?: string;
+  status?: "menunggu" | "terbit";
+  avatarDataUrl?: string;
   nama: string;
-  rw: string;
+  rw?: string;
   komentar: string;
   isApproved: boolean;
   createdAt: string;
@@ -47,6 +52,8 @@ export type AccessOrigin = "admin" | "tutor" | "guest" | "warga_kode" | "luar_la
 
 export interface SessionPayload {
   id: string;
+  authUserId?: string;
+  lastActivityAt?: number;
   name: string;
   email?: string;
   emailVerified?: boolean;
