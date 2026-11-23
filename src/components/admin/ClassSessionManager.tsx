@@ -291,7 +291,7 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.error || "Sesi kuis belum dapat dibuka.");
       localStorage.setItem(`sapen_host_${data.pin}`, data.hostId);
-      popup.location.href = mode === "host" ? `/game/host/${data.pin}` : `/game/join?pin=${data.pin}`;
+      popup.location.href = new URL(mode === "host" ? `/game/host/${data.pin}` : `/game/join?pin=${data.pin}`, window.location.origin).toString();
       setGameActionTarget(null);
       setToast(mode === "host" ? `Mode Host dibuka · PIN ${data.pin}` : `Halaman Ikut Bermain dibuka · PIN ${data.pin}`);
       await loadDetail(selected);

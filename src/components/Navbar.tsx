@@ -151,7 +151,7 @@ export default function Navbar({ session }: NavbarProps) {
           ) : (
             <div className={styles.accountWrap} ref={menuRef}>
               <button type="button" onClick={() => setOpen((v) => !v)} className={styles.accountButton} aria-expanded={open}>
-                <span className={styles.avatar}>{initial}</span>
+                {avatarDataUrl ? <Image src={avatarDataUrl} alt="" width={32} height={32} unoptimized className={`${styles.avatar} aspect-square rounded-full object-cover`} /> : <span className={styles.avatar}>{initial}</span>}
               </button>
               {open && (
                 <div className={styles.accountMenu}>
@@ -206,7 +206,7 @@ export default function Navbar({ session }: NavbarProps) {
         <Link href="/sesi" aria-current={pathname === "/sesi" ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname === "/sesi" || pathname.startsWith("/sesi/") ? styles.bottomLinkActive : ""}`}><CalendarDays aria-hidden="true" />Sesi Kelas</Link>
         <Link href="/games" aria-current={pathname.startsWith("/games") || pathname.startsWith("/game") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 aria-hidden="true" />Kuis</Link>
         {hasPermanentAccount ? <Link href="/akun" aria-label="Akun saya" title="Akun saya" aria-current={pathname.startsWith("/akun") ? "page" : undefined} className={`${styles.bottomLink} ${styles.bottomAccountLink} ${pathname.startsWith("/akun") ? styles.bottomLinkActive : ""}`}>
-          {avatarDataUrl ? <Image src={avatarDataUrl} alt="" width={32} height={32} unoptimized className={styles.bottomAvatar} /> : <span className={styles.bottomAvatarInitial}>{initial}</span>}
+          {avatarDataUrl ? <Image src={avatarDataUrl} alt="" width={32} height={32} unoptimized className={`${styles.bottomAvatar} aspect-square rounded-full`} /> : <span className={styles.bottomAvatarInitial}>{initial}</span>}
         </Link> : <Link href="/masuk" aria-current={pathname.startsWith("/masuk") ? "page" : undefined} className={`${styles.bottomLink} ${pathname.startsWith("/masuk") ? styles.bottomLinkActive : ""}`}><KeyRound aria-hidden="true" />Masuk</Link>}
       </nav>
     </header>

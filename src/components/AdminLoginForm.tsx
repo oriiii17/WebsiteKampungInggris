@@ -55,7 +55,7 @@ export default function AdminLoginForm({ nextUrl = "/admin" }: { nextUrl?: strin
         setLoading(false);
         return;
       }
-      publishSessionChanged();
+      publishSessionChanged(data.session?.authUserId || data.session?.id || authData.user.id);
       router.push(nextUrl);
       router.refresh();
     } catch {

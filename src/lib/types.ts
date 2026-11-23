@@ -336,6 +336,7 @@ export type GameChoiceMode = "single" | "multiple";
 export interface GameQuestionBase {
   id: string;
   prompt: string;          // pertanyaan / instruksi (max 120 di UI)
+  imageUrl?: string;
   timeLimitSec: number;    // 5/10/20/30/60
   points: GamePoints;      // standar/2x/tanpa poin
   choiceMode: GameChoiceMode; // tunggal/ganda (relevan kuis/tebak gambar/duel)

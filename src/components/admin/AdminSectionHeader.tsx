@@ -11,7 +11,7 @@ export function AdminSectionHeader({ title, description, actions, className = ""
   return (
     <div className={`flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${className}`}>
       <div className="min-w-0">
-        <div className="text-lg font-extrabold text-[#183b2d]">{title}</div>
+        <div className="inline-flex max-w-full items-center rounded-full border border-[#d2c5ad] bg-[#e8eee5] px-4 py-2 text-lg font-extrabold text-[#183b2d]">{title}</div>
         {description && <p className="mt-1 max-w-2xl text-sm leading-6 text-[#625f54]">{description}</p>}
       </div>
       {actions && <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}</div>}

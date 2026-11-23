@@ -13,7 +13,7 @@ function blueprintToLiveGame(game: GameBlueprint): GameRecord {
       ? game.items.flatMap((item) => (item.words || []).map((word, index) => ({ ...item, id: `${item.id}-${index + 1}`, prompt: `${item.prompt || "Temukan kata target"} · kata ${index + 1}`, answer: word, words: [word] })))
     : game.items;
   const questions: GameQuestion[] = items.map((item, index) => {
-    const base = { id: item.id || `q-${index + 1}`, prompt: item.prompt || game.topic, timeLimitSec: game.settings.timeLimitSec || 20, points: "standard" as const, choiceMode: "single" as const, explanation: item.explanation };
+    const base = { id: item.id || `q-${index + 1}`, prompt: item.prompt || game.topic, imageUrl: item.imageUrl, timeLimitSec: game.settings.timeLimitSec || 20, points: "standard" as const, choiceMode: "single" as const, explanation: item.explanation };
     if (game.template === "multiple-choice-quiz" || game.template === "listen-and-choose") {
       const options = (item.options || []).map((option) => option.text).filter(Boolean);
       return { ...base, type: "kuis_live", prompt: game.template === "listen-and-choose" && item.audioText ? (item.prompt || "Dengarkan audio, lalu pilih jawabannya.") : base.prompt, audioText: game.template === "listen-and-choose" ? item.audioText : undefined, options, correctIndexes: [Math.max(0, item.correctIndex || 0)] } as GameQuestion;

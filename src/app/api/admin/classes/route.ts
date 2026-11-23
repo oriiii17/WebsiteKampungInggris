@@ -151,7 +151,12 @@ function buildClass(body: any, existing?: ClassItem): ClassItem {
 
 async function getSessionImpact(classId: string) {
   const supabase = await getSupabaseServerClient();
-  if (!supabase) return { sessions: 0, attendance: 0 };
+  if (!supabase) {
+    const db = await readLocalDb();
+    const sessions = (db.classSessions || []).filter((entry) => entry.classId === classId);
+    const ids = new Set(sessions.map((entry) => entry.id));
+    return { sessions: sessions.length, attendance: (db.classSessionAttendance || []).filter((entry) => ids.has(entry.sessionId)).length };
+  }
   const { data, error } = await supabase.from("class_sessions").select("id").eq("class_id", classId);
   if (error) throw new Error(`Gagal memeriksa sesi kelas (${error.code || "Supabase"}).`);
   const ids = (data || []).map((row) => row.id);
@@ -240,8 +245,15 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ ok: false, error: "ID kelas diperlukan." }, { status: 400 });
-    const impact = await getSessionImpact(id);
-    if (impact.sessions > 0) return NextResponse.json({ ok: false, error: "Kelas masih dipakai sesi. Pindahkan sesi ke kelas lain terlebih dahulu agar riwayat sesi dan presensi tetap tersimpan.", impact }, { status: 409 });
+    const supabase = await getSupabaseServerClient();
+    if (supabase) {
+      const { error } = await supabase.rpc("delete_class_with_enrollments", { p_class_id: id });
+      if (error) {
+        console.error("[api/admin/classes DELETE] Supabase dependency delete", { code: error.code, message: error.message, details: error.details });
+        const migrationHint = error.code === "PGRST202" || error.code === "42883" ? " Jalankan migrasi penghapusan kelas yang disediakan." : "";
+        return NextResponse.json({ ok: false, error: `Penghapusan belum berhasil${error.code ? ` (${error.code})` : ""}: ${error.message}.${migrationHint}` }, { status: 500 });
+      }
+    }
     const ok = await deleteClass(id);
     const stillThere = await getClassByIdOrSlug(id);
     if (ok && stillThere) {

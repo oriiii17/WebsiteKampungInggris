@@ -110,7 +110,7 @@ function MasukContent() {
         setLoading(false);
         return;
       }
-      publishSessionChanged();
+      publishSessionChanged(result.session?.authUserId || result.session?.id || null);
       setLoading(false);
       setShowWargaPrompt(true);
     } catch (requestError) {
@@ -182,7 +182,7 @@ function MasukContent() {
         setLoading(false);
         return;
       }
-      publishSessionChanged();
+      publishSessionChanged(result.session?.authUserId || result.session?.id || null);
       router.push(nextUrl.startsWith("/") && !nextUrl.startsWith("//") ? nextUrl : "/kelas");
       router.refresh();
     } catch {

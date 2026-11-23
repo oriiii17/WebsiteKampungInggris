@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import GuestNavbar from "@/components/GuestNavbar";
@@ -17,6 +17,7 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
   const [acknowledgingEnd, setAcknowledgingEnd] = useState(false);
   const [endError, setEndError] = useState("");
   const [sessionChanged, setSessionChanged] = useState(false);
+  const initialAccountUserId = useRef(session && session.origin !== "guest" && session.role !== "guest" ? (session.authUserId || session.id) : null).current;
   const activeSession = activeAccountSession || activeGuestSession;
   const activeSessionId = activeSession?.guestSessionId;
   const activeGuest = !session && (activeGuestSession?.role === "guest" || activeGuestSession?.origin === "guest");
@@ -27,7 +28,12 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
     setParticipantPending(initialParticipantPending);
   }, [guestSession, initialParticipantPending, session]);
 
-  useEffect(() => subscribeToSessionChanges(() => setSessionChanged(true)), []);
+  useEffect(() => {
+    if (!initialAccountUserId) return;
+    return subscribeToSessionChanges((nextUserId) => {
+      if (!nextUserId || nextUserId !== initialAccountUserId) setSessionChanged(true);
+    });
+  }, [initialAccountUserId]);
 
   useEffect(() => {
     if (!sessionChanged) return;

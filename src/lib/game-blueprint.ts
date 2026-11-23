@@ -19,6 +19,7 @@ export type GameBlueprintDestination = "public" | "session" | "independent";
 export interface GameBlueprintItem {
   id: string;
   prompt: string;
+  imageUrl?: string;
   explanation?: string;
   options?: { id: string; text: string }[];
   correctIndex?: number;
@@ -78,6 +79,7 @@ export function normalizeGameBlueprint(value: unknown): GameBlueprint {
       id: String(item.id || `item-${itemIndex + 1}`),
       prompt: String(item.prompt || ""),
     };
+    if (typeof item.imageUrl === "string" && /^https?:\/\//.test(item.imageUrl)) normalized.imageUrl = item.imageUrl;
     if (item.explanation !== undefined) normalized.explanation = String(item.explanation || "");
     if (item.answer !== undefined) normalized.answer = String(item.answer || "");
     if (template === "multiple-choice-quiz" || template === "listen-and-choose") {

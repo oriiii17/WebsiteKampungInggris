@@ -55,6 +55,7 @@
       "properties": {
         "id": { "type": "string", "minLength": 1, "maxLength": 100 },
         "prompt": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "imageUrl": { "type": "string", "format": "uri", "pattern": "^https?://", "maxLength": 2048 },
         "explanation": { "type": "string", "maxLength": 1000 },
     "options": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "$ref": "#/definitions/optionItem" } },
         "correctIndex": { "type": "integer", "minimum": 0, "maximum": 5 },

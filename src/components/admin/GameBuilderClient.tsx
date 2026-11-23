@@ -49,7 +49,7 @@ function GamePreview({ game, item, viewport }: { game: GameBlueprint; item: Game
   };
   const controlClass = "min-h-11 rounded-lg border border-[#b8aa8e] bg-white px-3 text-sm text-[#20251f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ba472f]";
 
-  return <section className={`overflow-hidden rounded-xl border border-[#d2c5ad] bg-[#e6eadf] ${viewport === "phone" ? "mx-auto w-full max-w-[360px]" : "w-full"}`} aria-label="Pratinjau kuis interaktif"><div className="border-b border-[#d2c5ad] px-4 py-3"><h3 className="font-bold text-[#183b2d]">Pratinjau: {game.title || "Kuis baru"}</h3><p className="mt-1 text-xs text-[#3d4038]">{GAME_TEMPLATES.find((template) => template.id === game.template)?.title} · {game.level}</p></div><div className="space-y-4 bg-[#fdf9f0] p-5"><p className="text-sm font-semibold leading-6 text-[#20251f]">{item.prompt || "Instruksi soal akan tampil di sini."}</p>
+  return <section className={`overflow-hidden rounded-xl border border-[#d2c5ad] bg-[#e6eadf] ${viewport === "phone" ? "mx-auto w-full max-w-[360px]" : "w-full"}`} aria-label="Pratinjau kuis interaktif"><div className="border-b border-[#d2c5ad] px-4 py-3"><h3 className="font-bold text-[#183b2d]">Pratinjau: {game.title || "Kuis baru"}</h3><p className="mt-1 text-xs text-[#3d4038]">{GAME_TEMPLATES.find((template) => template.id === game.template)?.title} · {game.level}</p></div><div className="space-y-4 bg-[#fdf9f0] p-5">{item.imageUrl && <img src={item.imageUrl} alt="Gambar soal" className="max-h-72 w-full rounded-lg object-contain" />}<p className="text-sm font-semibold leading-6 text-[#20251f]">{item.prompt || "Instruksi soal akan tampil di sini."}</p>
     {game.template === "multiple-choice-quiz" && <div className="space-y-2">{(item.options || []).map((option, index) => <button key={option.id} type="button" onClick={() => { setChoice(index); setChecked(null); }} className={`min-h-11 w-full rounded-lg border px-3 text-left text-sm ${choice === index ? "border-[#244b3a] bg-[#e6eadf]" : "border-[#d2c5ad] bg-white"}`}>{option.text || `Pilihan ${index + 1}`}</button>)}</div>}
     {game.template === "listen-and-choose" && <div className="space-y-2"><button type="button" onClick={speak} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a]"><Volume2 className="h-4 w-4" />Dengarkan</button>{(item.options || []).map((option, index) => <button key={option.id} type="button" onClick={() => { setChoice(index); setChecked(null); }} className={`min-h-11 w-full rounded-lg border px-3 text-left text-sm ${choice === index ? "border-[#244b3a] bg-[#e6eadf]" : "border-[#d2c5ad] bg-white"}`}>{option.text || `Pilihan ${index + 1}`}</button>)}</div>}
     {game.template === "drag-and-sort" && <div className="space-y-2">{(item.sortItems || []).map((sortItem, index) => <label key={`${sortItem.text}-${index}`} className="grid grid-cols-[1fr_1fr] items-center gap-2 text-sm"><span>{sortItem.text || `Kata ${index + 1}`}</span><select aria-label={`Kategori untuk ${sortItem.text || `kata ${index + 1}`}`} className={controlClass} value={categories[index] || ""} onChange={(event) => setCategories((current) => { const next = [...current]; next[index] = event.target.value; return next; })}><option value="">Pilih kategori</option>{(item.categories || []).map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}</select></label>)}</div>}
@@ -70,6 +70,29 @@ function ItemEditor({ item, template, onChange, onSpeak, confirmDelete, promptEr
   promptError?: boolean;
 }) {
   const edit = (key: keyof GameBlueprintItem, value: unknown) => onChange({ ...item, [key]: value });
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState("");
+  const uploadImage = async (source: File) => {
+    setImageError("");
+    if (!/[\/]?image\/(jpeg|png|webp)/.test(source.type) || source.size > 2 * 1024 * 1024) { setImageError("Pilih JPG, PNG, atau WebP maksimal 2 MB."); return; }
+    setImageBusy(true);
+    try {
+      const bitmap = await createImageBitmap(source);
+      const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Gambar belum dapat diproses.");
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
+      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Gambar belum dapat diproses.")), "image/webp", 0.86));
+      const form = new FormData(); form.append("file", new File([blob], "kuis.webp", { type: "image/webp" }));
+      const response = await fetch("/api/admin/game-images", { method: "POST", body: form });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Gambar belum dapat disimpan.");
+      edit("imageUrl", result.url);
+    } catch (error) { setImageError(error instanceof Error ? error.message : "Gambar belum dapat disimpan."); }
+    finally { setImageBusy(false); }
+  };
   const options = item.options || [];
   return <div className="space-y-4">
     <label className="block text-sm font-bold text-[#20251f]">Instruksi atau pertanyaan
@@ -77,6 +100,12 @@ function ItemEditor({ item, template, onChange, onSpeak, confirmDelete, promptEr
       {promptError && <span role="alert" className="mt-1 block text-sm font-semibold text-[#943520]">Instruksi untuk peserta belum diisi.</span>}
       <span className="mt-1 block text-xs font-normal text-[#625f54]">{item.prompt.length}/500 karakter</span>
     </label>
+    <div className="rounded-lg border border-[#d2c5ad] bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-bold text-[#20251f]">Gambar soal <span className="font-normal text-[#625f54]">(opsional)</span></span><div className="flex flex-wrap gap-2">{item.imageUrl && <button type="button" onClick={() => edit("imageUrl", undefined)} className="min-h-11 rounded-lg border border-[#d2c5ad] px-3 text-sm font-bold text-[#943520]">Hapus gambar</button>}<label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg bg-[#244b3a] px-3 text-sm font-bold text-white hover:bg-[#183b2d]">{imageBusy ? "Mengunggah…" : item.imageUrl ? "Ganti gambar" : "Tambah gambar"}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={imageBusy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.currentTarget.value = ""; }} /></label></div></div>
+      {imageError && <p role="alert" className="mt-2 text-sm font-semibold text-[#943520]">{imageError}</p>}
+      {item.imageUrl && <img src={item.imageUrl} alt="Pratinjau gambar soal" className="mt-3 max-h-64 w-full rounded-lg object-contain" />}
+      <p className="mt-2 text-xs text-[#625f54]">JPG, PNG, atau WebP · maksimal 2 MB. Gambar akan diperkecil sebelum disimpan.</p>
+    </div>
     {(template === "multiple-choice-quiz" || template === "listen-and-choose") && <>
       {template === "listen-and-choose" && <label className="block text-sm font-bold">Teks yang dibacakan
         <div className="flex gap-2"><input className={fieldClass} value={item.audioText || ""} onChange={(event) => edit("audioText", event.target.value)} /><button type="button" className={iconButtonClass} aria-label="Pratinjau audio" onClick={() => onSpeak(item.audioText || "") }><Volume2 className="h-4 w-4" /></button></div>
@@ -347,7 +376,7 @@ export default function GameBuilderClient({ notify }: { notify: (message: string
 
   if (loading) return <div className="flex items-center gap-3 p-8 text-sm text-[#3d4038]"><Loader2 className="h-5 w-5 animate-spin" />Memuat Kuis Builder…</div>;
   if (!draft) return <section className="space-y-6 text-[#20251f]">
-    <header className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-2xl font-extrabold text-[#183b2d]">Kelola Kuis</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-[#3d4038]">Susun kuis, tentukan tujuan, lalu simpan atau terbitkan.</p></div><button type="button" onClick={() => setTemplatePickerOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white transition hover:bg-[#183b2d]"><Plus className="h-4 w-4" />Buat Kuis Baru</button></header>
+    <header className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="inline-flex max-w-full items-center rounded-full border border-[#d2c5ad] bg-[#e8eee5] px-4 py-2 text-2xl font-extrabold text-[#183b2d]">Kelola Kuis</h2><p className="mt-3 max-w-2xl text-sm leading-6 text-[#3d4038]">Susun kuis, tentukan tujuan, lalu simpan atau terbitkan.</p></div><button type="button" onClick={() => setTemplatePickerOpen(true)} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#183b2d]"><Plus className="h-4 w-4" />Buat Kuis Baru</button></header>
     {error && <p role="alert" className="rounded-lg border border-[#943520]/25 bg-[#ba472f]/5 px-4 py-3 text-sm text-[#943520]">{error}</p>}
     {templatePickerOpen && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTemplatePickerOpen(false); }} className="fixed inset-0 z-[120] grid place-items-center bg-[#13271f]/60 p-3"><section role="dialog" aria-modal="true" aria-labelledby="new-quiz-dialog-title" className="w-full max-w-5xl rounded-2xl border border-[#c9bda7] bg-[#fdf9f0] p-4 shadow-2xl sm:p-6"><div className="flex items-start justify-between gap-3"><div><h3 id="new-quiz-dialog-title" className="text-xl font-bold text-[#183b2d]">Pilih jenis kuis</h3><p className="mt-1 text-sm text-[#514b3e]">7 template tersedia.</p></div><button type="button" onClick={() => setTemplatePickerOpen(false)} aria-label="Tutup pilihan template" className="min-h-11 min-w-11 rounded-lg border border-[#b8aa8e] text-[#244b3a]">×</button></div><div className="mt-4 flex gap-2 overflow-x-auto pb-2">{GAME_TEMPLATES.map((template) => { const { Icon } = templateVisuals[template.id]; return <button key={template.id} type="button" onClick={() => createGame(template.id)} className={`group min-w-[8.5rem] flex-1 rounded-xl border border-[#d2c5ad] p-3 text-left transition hover:-translate-y-0.5 hover:border-[#244b3a] ${templateVisuals[template.id].tone}`}><Icon aria-hidden="true" className="h-5 w-5 text-[#244b3a]" /><strong className="mt-2 block text-sm text-[#183b2d]">{template.title}</strong></button>; })}</div></section></div>}
     <section className="pt-5">

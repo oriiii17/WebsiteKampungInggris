@@ -261,7 +261,7 @@ export default function AdminClassesManager({ notify }: Props) {
 
   return (
     <div className="mt-6 space-y-6 text-[#1A2E1A]">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-extrabold text-[#183b2d]">Kelola kelas</h2><p className="mt-1 text-sm text-muted">Atur kelas, bab, materi, dan latihan mandiri.</p></div><button type="button" onClick={() => { resetForm(); setEditorOpen(true); }} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d]"><Plus className="h-4 w-4" />Buat Kelas Baru</button></div>
+      <div className="flex flex-wrap items-center justify-between gap-4"><div className="min-w-0"><h2 className="inline-flex max-w-full items-center rounded-full border border-[#d2c5ad] bg-[#e8eee5] px-4 py-2 text-xl font-extrabold text-[#183b2d]">Kelas</h2><p className="mt-2 text-sm text-muted">Atur kelas, bab, materi, dan latihan mandiri.</p></div><button type="button" onClick={() => { resetForm(); setEditorOpen(true); }} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d]"><Plus className="h-4 w-4" />Buat Kelas Baru</button></div>
       <div className="grid grid-cols-1 items-start gap-6">
         {editorOpen && <form onSubmit={(event) => { event.preventDefault(); handleSave(false); }} className="mx-auto w-full max-w-3xl space-y-5 rounded-xl border border-[#E5E7EB] bg-white p-5 pb-28 sm:p-6 sm:pb-28 md:pb-6">
           <div className="flex items-center justify-between gap-3">

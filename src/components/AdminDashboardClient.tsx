@@ -423,7 +423,6 @@ export default function AdminDashboardClient() {
                     <p className="mt-1 text-sm text-muted">Buka alur yang paling sering dipakai pengurus.</p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {[
-                        ["classes", "Kelola kelas"],
                         ["sessions", "Buat sesi tatap muka"],
                         ["game-builder", "Buat kuis"],
                       ].map(([id, label]) => <button key={id} type="button" onClick={() => handleSelectTab(id as TabType)} className="inline-flex min-h-11 items-center rounded-lg border border-rule bg-white px-3 py-2 text-sm font-bold text-leaf transition-colors hover:border-forest hover:bg-forest-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tomato">{label}</button>)}

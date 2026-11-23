@@ -77,7 +77,7 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
     const { data, error } = await supabase.rpc("get_class_session_info", { p_code: code });
     const row = Array.isArray(data) ? data[0] : data;
     if (error || !row) return NextResponse.json({ error: "Kode sesi tidak ditemukan." }, { status: 404 });
-    return NextResponse.json({ session: { id: row.id, code: row.code, title: row.title, status: row.status, requireApproval: row.require_approval, attendeeCount: row.attendee_count, classId: row.class_id, classTitle: row.class_title, classSlug: row.class_slug, startsAt: row.starts_at, canAttendAsMember: Boolean(session && ["member", "peserta", "umum"].includes(session.role)), participantName: session?.name, viewerType } });
+    return NextResponse.json({ session: { id: row.id, code: row.code, title: row.title, status: row.status, requireApproval: row.require_approval, attendeeCount: row.attendee_count, classId: row.class_id, classTitle: row.class_title, classSlug: row.class_slug, startsAt: row.starts_at, canAttendAsMember: Boolean(session && (session.origin === "warga_kode" || ["member", "peserta", "umum"].includes(session.role))), canEditSessionName: Boolean(session?.origin === "warga_kode" && !session.email), participantName: session?.name, viewerType } });
   }
   const db = await readLocalDb();
   const local = db.classSessions?.find((item) => item.code === code);
@@ -100,7 +100,7 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
   if (session?.guestSessionId === local.id && db.classSessionAttendance?.some((item) => item.sessionId === local.id && item.participantKey === `${session.origin}:${session.id}`)) {
     return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, registrationStatus: "approved", classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, viewerType: "regular" } });
   }
-  return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, requireApproval: local.requireApproval, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, canAttendAsMember: Boolean(session && ["member", "peserta", "umum"].includes(session.role)), participantName: session?.name, viewerType } });
+  return NextResponse.json({ session: { id: local.id, code: local.code, title: local.title, status: local.status, requireApproval: local.requireApproval, classId: local.classId, classTitle: db.classes?.find((item) => item.id === local.classId)?.title, classSlug: db.classes?.find((item) => item.id === local.classId)?.slug, canAttendAsMember: Boolean(session && (session.origin === "warga_kode" || ["member", "peserta", "umum"].includes(session.role))), canEditSessionName: Boolean(session?.origin === "warga_kode" && !session.email), participantName: session?.name, viewerType } });
 }
 
 async function joinPublicSession(request: Request, context: { params: Promise<{ code: string }> }) {
@@ -135,6 +135,7 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
   // RW-code users stay on the account-session path even if their role label changes.
   // Session approval is attached to their existing account token; it must never mint a Guest token.
   const isAccountParticipant = Boolean(current && (current.origin === "warga_kode" || ["member", "peserta", "umum"].includes(current.role)));
+  const participantName = current && (current.origin !== "warga_kode" || current.email) ? current.name : guest.name;
   if (isAccountParticipant && current) {
     let registrationId: string | undefined;
     let sessionId = "";
@@ -151,18 +152,20 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
       if (existing.data) {
         registrationId = existing.data.id;
         registrationStatus = !target.require_approval || existing.data.status === "approved" ? "approved" : "pending";
+        const { error: nameError } = await supabase.from("class_session_guests").update({ full_name: participantName }).eq("id", existing.data.id).eq("session_id", sessionId);
+        if (nameError) return NextResponse.json({ error: "Nama peserta belum berhasil diperbarui. Coba lagi." }, { status: 503 });
         if (!target.require_approval && existing.data.status !== "approved") {
           const { error: approvalError } = await supabase.from("class_session_guests").update({ status: "approved" }).eq("id", existing.data.id);
           if (approvalError) return NextResponse.json({ error: "Sesi tidak memerlukan persetujuan, tetapi status peserta belum dapat diperbarui. Coba lagi." }, { status: 503 });
         }
       } else {
         const status = target.require_approval ? "pending" : "approved";
-        const { data: created, error: createError } = await supabase.from("class_session_guests").insert({ session_id: sessionId, full_name: guest.name, whatsapp: guest.whatsapp || null, status }).select("id,status").single();
+        const { data: created, error: createError } = await supabase.from("class_session_guests").insert({ session_id: sessionId, full_name: participantName, whatsapp: guest.whatsapp || null, status }).select("id,status").single();
         if (createError || !created) return NextResponse.json({ error: createError?.code === "23505" ? "Nomor ini sudah terdaftar pada sesi. Muat ulang untuk melihat statusnya." : "Permintaan bergabung belum tersimpan. Coba lagi." }, { status: 409 });
         registrationId = created.id; registrationStatus = status;
       }
       if (registrationStatus === "approved") {
-        const { error: attendanceError } = await supabase.from("class_session_attendance").upsert({ session_id: sessionId, participant_key: `guest:${registrationId}`, participant_name: guest.name, participant_type: "guest", guest_registration_id: registrationId, whatsapp: guest.whatsapp || null }, { onConflict: "session_id,participant_key" });
+        const { error: attendanceError } = await supabase.from("class_session_attendance").upsert({ session_id: sessionId, participant_key: `guest:${registrationId}`, participant_name: participantName, participant_type: "guest", guest_registration_id: registrationId, whatsapp: guest.whatsapp || null }, { onConflict: "session_id,participant_key" });
         if (attendanceError) return NextResponse.json({ error: "Akses sesi aktif, tetapi presensi belum tercatat. Muat ulang halaman untuk menyinkronkan presensi." }, { status: 503 });
       }
     } else {
@@ -173,14 +176,14 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
       sessionId = target.id; title = target.title;
       const guests = db.classSessionGuests ||= [];
       const existing = current.guestSessionId === sessionId && current.guestRegistrationId ? guests.find((item) => item.id === current.guestRegistrationId && item.sessionId === sessionId) : undefined;
-      if (existing) { registrationId = existing.id; registrationStatus = !target.requireApproval || existing.status === "approved" ? "approved" : "pending"; if (!target.requireApproval) existing.status = "approved"; }
+      if (existing) { registrationId = existing.id; existing.name = participantName; registrationStatus = !target.requireApproval || existing.status === "approved" ? "approved" : "pending"; if (!target.requireApproval) existing.status = "approved"; }
       else {
-        const created = { id: crypto.randomUUID(), sessionId, name: guest.name, whatsapp: guest.whatsapp, status: (target.requireApproval ? "pending" : "approved") as "pending" | "approved", registeredAt: new Date().toISOString() };
+        const created = { id: crypto.randomUUID(), sessionId, name: participantName, whatsapp: guest.whatsapp, status: (target.requireApproval ? "pending" : "approved") as "pending" | "approved", registeredAt: new Date().toISOString() };
         guests.push(created); registrationId = created.id; registrationStatus = created.status;
       }
       if (registrationStatus === "approved") {
         const attendance = db.classSessionAttendance ||= [];
-        if (!attendance.some((row) => row.sessionId === sessionId && row.participantKey === `guest:${registrationId}`)) attendance.push({ id: crypto.randomUUID(), sessionId, participantKey: `guest:${registrationId}`, participantName: guest.name, participantType: "guest", guestRegistrationId: registrationId, whatsapp: guest.whatsapp || undefined, attendedAt: new Date().toISOString() });
+        if (!attendance.some((row) => row.sessionId === sessionId && row.participantKey === `guest:${registrationId}`)) attendance.push({ id: crypto.randomUUID(), sessionId, participantKey: `guest:${registrationId}`, participantName, participantType: "guest", guestRegistrationId: registrationId, whatsapp: guest.whatsapp || undefined, attendedAt: new Date().toISOString() });
       }
       const { writeLocalDb } = await import("@/lib/db"); await writeLocalDb(db);
     }
@@ -199,7 +202,7 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
       if (klass) guestClassHref = `/kelas/${encodeURIComponent(klass.slug || klass.id)}`;
     }
     const updatedMember: SessionPayload = { ...current, guestSessionId: sessionId, guestRegistrationId: registrationId, guestClassHref };
-    const response = NextResponse.json({ ok: true, status: registrationStatus, sessionId, title, participantType: "account", participantName: guest.name });
+    const response = NextResponse.json({ ok: true, status: registrationStatus, sessionId, title, participantType: "account", participantName });
     updatedMember.lastActivityAt = Date.now();
     response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(updatedMember), sessionCookieOptions(updatedMember, isHttpsRequest(request)));
     return response;

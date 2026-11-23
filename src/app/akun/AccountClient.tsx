@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
@@ -94,10 +94,10 @@ export default function AccountClient({ initialSession, wargaDeferred = false }:
   const isWargaCodeOnly = isWarga && (!session.email || session.emailVerified !== true);
   const initial = (name.trim()[0] || "U").toUpperCase();
 
-  if (isWargaCodeOnly && wargaDeferred) return <main className="min-h-[calc(100dvh-5rem)] bg-[#FDFBF7] px-4 py-8 sm:py-10"><div className="mx-auto grid w-full max-w-3xl gap-4 md:grid-cols-2"><section className="rounded-2xl border border-[#d2c5ad] bg-white p-6 shadow-sm sm:p-8"><p className="text-xs font-extrabold uppercase tracking-wide text-[#625f54]">Warga Sapen</p><h1 className="mt-2 font-display text-3xl font-bold text-[#183b2d]">Akses warga aktif</h1><p className="mt-3 text-sm leading-6 text-[#3d4038]">Akses Kode Anda tetap bisa digunakan. Daftar akun permanen bila ingin masuk memakai email dan kata sandi.</p><Link href="/masuk?mode=warga&account=1" className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ba472f] px-4 text-sm font-extrabold text-white transition hover:bg-[#943520]">Daftar akun</Link></section><section className="flex flex-col rounded-2xl border border-[#d2c5ad] bg-white p-6 shadow-sm sm:p-8"><div><h2 className="font-display text-2xl font-bold text-[#183b2d]">Keluar</h2><p className="mt-2 text-sm leading-6 text-[#3d4038]">Akhiri akses Kode Anda di perangkat ini.</p></div><button type="button" onClick={logout} disabled={loggingOut} className="mt-auto inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#244b3a] bg-white px-4 text-sm font-bold text-[#244b3a] transition hover:bg-[#e6eadf] disabled:opacity-60"><LogOut className="h-4 w-4" />{loggingOut ? "Keluar…" : "Keluar"}</button></section></div>{err && <p role="alert" className="mx-auto mt-4 max-w-3xl text-sm font-semibold text-red-700">{err}</p>}</main>;
+  if (isWargaCodeOnly && wargaDeferred) return <main className="min-h-[calc(100dvh-5rem)] bg-transparent px-4 py-8 sm:py-10"><div className="mx-auto grid w-full max-w-3xl gap-4 md:grid-cols-2"><section className="rounded-2xl border border-[#d2c5ad] bg-white p-6 shadow-sm sm:p-8"><p className="text-xs font-extrabold uppercase tracking-wide text-[#625f54]">Warga Sapen</p><h1 className="mt-2 font-display text-3xl font-bold text-[#183b2d]">Akses warga aktif</h1><p className="mt-3 text-sm leading-6 text-[#3d4038]">Akses Kode Anda tetap bisa digunakan. Daftar akun permanen bila ingin masuk memakai email dan kata sandi.</p><Link href="/masuk?mode=warga&account=1" className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#ba472f] px-4 text-sm font-extrabold text-white transition hover:bg-[#943520]">Daftar akun</Link></section><section className="flex flex-col rounded-2xl border border-[#d2c5ad] bg-white p-6 shadow-sm sm:p-8"><div><h2 className="font-display text-2xl font-bold text-[#183b2d]">Keluar</h2><p className="mt-2 text-sm leading-6 text-[#3d4038]">Akhiri akses Kode Anda di perangkat ini.</p></div><button type="button" onClick={logout} disabled={loggingOut} className="mt-auto inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#244b3a] bg-white px-4 text-sm font-bold text-[#244b3a] transition hover:bg-[#e6eadf] disabled:opacity-60"><LogOut className="h-4 w-4" />{loggingOut ? "Keluar…" : "Keluar"}</button></section></div>{err && <p role="alert" className="mx-auto mt-4 max-w-3xl text-sm font-semibold text-red-700">{err}</p>}</main>;
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] pb-24 md:pb-16">
+    <div className="min-h-screen bg-transparent pb-24 md:pb-16">
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
         <h1 className="text-2xl font-extrabold text-[#1A2E1A]">Pengaturan akun</h1>
         <p className="mt-1 text-sm text-[#1A2E1A]/70">Ubah profil dan kata sandi akun Anda.</p>
@@ -110,7 +110,7 @@ export default function AccountClient({ initialSession, wargaDeferred = false }:
             <h2 className="text-base font-extrabold text-[#1A2E1A] mb-4">Ubah Profil</h2>
             <form onSubmit={saveProfile} className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 overflow-hidden rounded-full bg-[#14532D] text-white flex items-center justify-center text-xl font-extrabold border border-[#E5E7EB]">
+                <div className="aspect-square h-16 w-16 shrink-0 overflow-hidden rounded-full bg-[#14532D] text-white flex items-center justify-center text-xl font-extrabold border border-[#E5E7EB]">
                   {avatarDataUrl ? <img src={avatarDataUrl} alt="Foto profil" className="h-full w-full object-cover" /> : initial}
                 </div>
                 <div className="flex-1">

@@ -363,8 +363,8 @@ async function pushFullSchemaToSupabase(
   }
 
   // Sinkronkan penghapusan (remote harus mengikuti data lokal untuk tabel yang dikelola)
-  await syncDeletionsById(sb, "classes", (data.classes || []).map((c: any) => c.id));
   await syncDeletionsById(sb, "enrollments", (data.enrollments || []).map((e: any) => e.id));
+  await syncDeletionsById(sb, "classes", (data.classes || []).map((c: any) => c.id));
   // Master game bersifat tetap: sinkronisasi aplikasi tidak menghapus baris games.
 
   if (data.rwCodes?.length) {
@@ -1405,6 +1405,12 @@ export async function deleteClass(id: string): Promise<boolean> {
   const before = db.classes.length;
   db.classes = db.classes.filter((c) => c.id !== id);
   if (db.classes.length === before) return false;
+  const sessionIds = new Set((db.classSessions || []).filter((entry) => entry.classId === id).map((entry) => entry.id));
+  db.classSessions = (db.classSessions || []).filter((entry) => !sessionIds.has(entry.id));
+  db.classSessionAttendance = (db.classSessionAttendance || []).filter((entry) => !sessionIds.has(entry.sessionId));
+  db.classSessionGuests = (db.classSessionGuests || []).filter((entry) => !sessionIds.has(entry.sessionId));
+  db.classSessionGames = (db.classSessionGames || []).filter((entry) => !sessionIds.has(entry.sessionId));
+  db.enrollments = (db.enrollments || []).filter((enrollment) => enrollment.classId !== id);
   await writeLocalDb(db);
   return true;
 }
