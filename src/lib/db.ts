@@ -21,7 +21,7 @@ import {
 } from "./types";
 import { getBuiltinGames } from "./builtin-games";
 
-const DATA_DIR = process.env.VERCEL ? path.join("/tmp", ".data") : path.join(process.cwd(), ".data");
+const DATA_DIR = process.env.VERCEL !== undefined ? path.join("/tmp", ".data") : path.join(process.cwd(), ".data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
 const PRIVATE_PAGES_DIR = path.join(DATA_DIR, "private-pages");
 let memoryDb: DatabaseSchema | null = null;
@@ -681,8 +681,11 @@ async function readNormalizedLocalDb(): Promise<DatabaseSchema | null> {
   await ensureDirs();
   try {
     let raw: string;
-    try { raw = await fs.readFile(DB_FILE, "utf8"); }
-    catch { if (memoryDb) raw = JSON.stringify(memoryDb); else return null; }
+    if (memoryDb) raw = JSON.stringify(memoryDb);
+    else {
+      try { raw = await fs.readFile(DB_FILE, "utf8"); }
+      catch { return null; }
+    }
     const parsed = JSON.parse(raw) as DatabaseSchema;
     const initial = createInitialSeedData();
     if (!parsed.warga) parsed.warga = [];

@@ -3,6 +3,7 @@ import { readLocalDb, writeLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { closeSessionGame, getLiveSession } from "@/lib/game-session";
 
+// TODO: Temporary local/memory fallback until session persistence fully migrates to Supabase.
 /** Closes due sessions lazily on session polling/reads; this works without a separate cron service. */
 export async function closeExpiredClassSessions() {
   const now = new Date().toISOString();
