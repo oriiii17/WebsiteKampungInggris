@@ -21,13 +21,50 @@ import {
 } from "./types";
 import { getBuiltinGames } from "./builtin-games";
 
-const DATA_DIR = path.join(process.cwd(), ".data");
+const DATA_DIR = process.env.VERCEL ? path.join("/tmp", ".data") : path.join(process.cwd(), ".data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
 const PRIVATE_PAGES_DIR = path.join(DATA_DIR, "private-pages");
+let memoryDb: DatabaseSchema | null = null;
+const memoryFiles = new Map<string, Buffer>();
+
+function cloneDb(data: DatabaseSchema): DatabaseSchema {
+  return JSON.parse(JSON.stringify(data)) as DatabaseSchema;
+}
+
+async function persistDb(data: DatabaseSchema): Promise<void> {
+  memoryDb = cloneDb(data);
+  const tempFile = `${DB_FILE}.tmp`;
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(tempFile, JSON.stringify(data, null, 2), "utf8");
+    await fs.rename(tempFile, DB_FILE);
+  } catch {
+    try { await fs.unlink(tempFile); } catch {}
+  }
+}
+
+async function tryWriteFile(filePath: string, contents: Buffer | string): Promise<void> {
+  try {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, contents);
+    if (Buffer.isBuffer(contents)) memoryFiles.set(filePath, Buffer.from(contents));
+  } catch {
+    if (Buffer.isBuffer(contents)) memoryFiles.set(filePath, Buffer.from(contents));
+  }
+}
+
+async function tryReadFile(filePath: string): Promise<Buffer> {
+  try { return await fs.readFile(filePath); }
+  catch {
+    const cached = memoryFiles.get(filePath);
+    if (cached) return Buffer.from(cached);
+    throw new Error("File tidak ditemukan.");
+  }
+}
 
 async function ensureDirs() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.mkdir(PRIVATE_PAGES_DIR, { recursive: true });
+  try { await fs.mkdir(DATA_DIR, { recursive: true }); } catch {}
+  try { await fs.mkdir(PRIVATE_PAGES_DIR, { recursive: true }); } catch {}
 }
 
 // ============================================================================
@@ -643,7 +680,9 @@ function ensureBuiltinGames(parsed: DatabaseSchema): boolean {
 async function readNormalizedLocalDb(): Promise<DatabaseSchema | null> {
   await ensureDirs();
   try {
-    const raw = await fs.readFile(DB_FILE, "utf8");
+    let raw: string;
+    try { raw = await fs.readFile(DB_FILE, "utf8"); }
+    catch { if (memoryDb) raw = JSON.stringify(memoryDb); else return null; }
     const parsed = JSON.parse(raw) as DatabaseSchema;
     const initial = createInitialSeedData();
     if (!parsed.warga) parsed.warga = [];
@@ -660,13 +699,14 @@ async function readNormalizedLocalDb(): Promise<DatabaseSchema | null> {
     if (!parsed.classSessionAttendance) parsed.classSessionAttendance = [];
     if (!parsed.classSessionGames) parsed.classSessionGames = [];
     const changed = ensureBuiltinGames(parsed);
-    if (changed) await fs.writeFile(DB_FILE, JSON.stringify(parsed, null, 2), "utf8");
+    if (changed) await persistDb(parsed);
     return parsed;
   } catch {
     return null;
   }
 }
 
+// TODO: Temporary Vercel /tmp and in-memory fallback until the full Supabase migration.
 export async function readLocalDb(): Promise<DatabaseSchema> {
   await ensureDirs();
   const local = await readNormalizedLocalDb();
@@ -692,7 +732,7 @@ export async function readLocalDb(): Promise<DatabaseSchema> {
         testimoni: mergeByIdPreferLocal(local?.testimoni || [], (remote.testimoni || []) as any) as any,
       };
       ensureBuiltinGames(merged);
-      await fs.writeFile(DB_FILE, JSON.stringify(merged, null, 2), "utf8");
+      await persistDb(merged);
       return merged;
     }
   }
@@ -701,10 +741,11 @@ export async function readLocalDb(): Promise<DatabaseSchema> {
   const initial = createInitialSeedData();
   initial.games = getBuiltinGames();
   await ensureDirs();
-  await fs.writeFile(DB_FILE, JSON.stringify(initial, null, 2), "utf8");
+  await persistDb(initial);
   return initial;
 }
 
+// TODO: Temporary Vercel /tmp and in-memory persistence until the full Supabase migration.
 export async function writeLocalDb(data: DatabaseSchema): Promise<void> {
   await ensureDirs();
   // 1) Sinkronisasi remote terlebih dahulu; jangan mengakui simpan sebelum database konfirmasi.
@@ -716,9 +757,7 @@ export async function writeLocalDb(data: DatabaseSchema): Promise<void> {
     await pushFullSchemaToSupabase(sb, data, rwCodesUnchanged, plansUnchanged);
   }
   // 2) Atomik di disk, setelah remote berhasil sehingga random code tidak hilang diam-diam.
-  const tempFile = `${DB_FILE}.tmp`;
-  await fs.writeFile(tempFile, JSON.stringify(data, null, 2), "utf8");
-  await fs.rename(tempFile, DB_FILE);
+  await persistDb(data);
 }
 
 export async function resetLocalDbToSeed(): Promise<DatabaseSchema> {
@@ -742,9 +781,8 @@ export async function savePrivatePageImage(
 
   // 1. Simpan selalu ke disk lokal sebagai salinan aman instan
   const modDir = path.join(PRIVATE_PAGES_DIR, moduleId);
-  await fs.mkdir(modDir, { recursive: true });
   const localFilePath = path.join(modDir, `page-${pageNumber}.${ext}`);
-  await fs.writeFile(localFilePath, buffer);
+  await tryWriteFile(localFilePath, buffer);
 
   // 2. Unggah juga ke Supabase Storage & tabel module_pages jika terhubung
   const sb = await getSupabaseAdmin();
@@ -810,8 +848,7 @@ export async function readPrivatePageImage(
 
           // Simpan juga ke cache lokal agar pembacaan berikutnya instan
           const modDir = path.join(PRIVATE_PAGES_DIR, moduleId);
-          await fs.mkdir(modDir, { recursive: true }).catch(() => {});
-          await fs.writeFile(path.join(modDir, `page-${pageNumber}.${sp.endsWith(".png") ? "png" : "webp"}`), buffer).catch(() => {});
+          await tryWriteFile(path.join(modDir, `page-${pageNumber}.${sp.endsWith(".png") ? "png" : "webp"}`), buffer);
 
           // Auto-repair record tabel module_pages jika belum tercatat
           Promise.resolve(
@@ -834,7 +871,7 @@ export async function readPrivatePageImage(
   for (const ext of ["webp", "png"]) {
     try {
       const filePath = path.join(modDir, `page-${pageNumber}.${ext}`);
-      const buf = await fs.readFile(filePath);
+      const buf = await tryReadFile(filePath);
       return {
         buffer: buf,
         contentType: ext === "png" ? "image/png" : "image/webp",
@@ -1285,6 +1322,7 @@ const DEFAULT_INITIAL_CLASSES: ClassItem[] = [
   },
 ];
 
+// TODO: Temporary Vercel /tmp and in-memory fallback until the full Supabase migration.
 export async function getClasses(includeUnpublished = false): Promise<ClassItem[]> {
   const db = await readLocalDb();
   let changed = false;
@@ -1416,6 +1454,7 @@ export async function activateClassesForUser(opts: {
   userEmail: string;
   userName: string;
   source: ClassAccessSource;
+  paidAmountIdr?: number;
 }): Promise<{ activated: ClassEnrollment[]; alreadyOwned: string[] }> {
   const email = opts.userEmail.trim().toLowerCase();
   const classIds = [...new Set(opts.classIds.map((id) => String(id).trim()).filter(Boolean))];
@@ -1444,7 +1483,7 @@ export async function activateClassesForUser(opts: {
       userName: opts.userName.trim(),
       startsAt: now,
       status: "active",
-      paidAmountIdr: opts.source === "beli" ? cls.priceIdr : 0,
+      paidAmountIdr: Number.isSafeInteger(opts.paidAmountIdr) ? Math.max(0, opts.paidAmountIdr as number) : opts.source === "beli" ? cls.priceIdr : 0,
       paymentMethod: opts.source === "admin" ? "Manual (Admin)" : opts.source,
       source: opts.source,
       createdAt: previous?.createdAt || now,
@@ -1479,6 +1518,16 @@ export async function revokeClassAccessForUser(enrollmentId: string): Promise<bo
   return true;
 }
 
+export async function expireClassAccessForUser(enrollmentId: string): Promise<boolean> {
+  const db = await readLocalDb();
+  const enrollment = (db.enrollments || []).find((entry) => entry.id === enrollmentId);
+  if (!enrollment) return false;
+  enrollment.status = "expired";
+  enrollment.expiresAt = new Date().toISOString();
+  await writeLocalDb(db);
+  return true;
+}
+
 export async function hasUserActiveEnrollmentForModule(
   userEmail: string,
   moduleId: string
@@ -1502,9 +1551,8 @@ export async function saveClassModuleFile(opts: {
   await ensureDirs();
   const safe = opts.originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
   const dir = path.join(PRIVATE_PAGES_DIR, "class-files", opts.classId);
-  await fs.mkdir(dir, { recursive: true });
   const fileName = `${opts.moduleId}-${Date.now()}-${safe}`;
-  await fs.writeFile(path.join(dir, fileName), opts.buffer);
+  await tryWriteFile(path.join(dir, fileName), opts.buffer);
   const storagePath = `class-files/${opts.classId}/${fileName}`;
   const lower = safe.toLowerCase();
   const fileType: "pdf" | "ppt" | "pptx" | "other" = lower.endsWith(".pdf") ? "pdf" : lower.endsWith(".pptx") ? "pptx" : lower.endsWith(".ppt") ? "ppt" : "other";
@@ -1544,7 +1592,7 @@ export async function readClassModuleFile(storagePath: string): Promise<{ buffer
     const base = path.resolve(PRIVATE_PAGES_DIR);
     const resolved = path.resolve(PRIVATE_PAGES_DIR, storagePath);
     if (!resolved.startsWith(base)) return null;
-    const buffer = await fs.readFile(resolved);
+    const buffer = await tryReadFile(resolved);
     const lower = resolved.toLowerCase();
     const contentType = lower.endsWith(".pdf")
       ? "application/pdf"

@@ -9,6 +9,7 @@ function toRow(game: GameBlueprint) {
   return {
     id: game.id,
     title: game.title,
+    card_initials: game.cardInitials,
     template: game.template,
     level: game.level,
     topic: game.topic,
@@ -25,7 +26,7 @@ function toRow(game: GameBlueprint) {
 
 function fromRow(row: any): GameBlueprint {
   return normalizeGameBlueprint({
-    id: row.id, title: row.title, template: row.template, level: row.level, topic: row.topic,
+    id: row.id, title: row.title, cardInitials: row.card_initials, template: row.template, level: row.level, topic: row.topic,
     language: row.language, status: row.status, destination: row.destination, plays: row.play_count || 0,
     settings: row.settings, items: row.items, createdAt: row.created_at, updatedAt: row.updated_at,
   });
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
       && ["solo", "class", "both"].includes(settings.mode) && ["forest", "tomato", "saffron", "ocean"].includes(settings.theme)
       && typeof settings.randomizeQuestions === "boolean" && typeof settings.randomizeOptions === "boolean";
     const validItems = Array.isArray(value.items) && value.items.length <= 200 && value.items.every((item: unknown) => item && typeof item === "object" && !Array.isArray(item));
-    if (!validTemplate || !["A1", "A2", "B1", "B2"].includes(value.level) || typeof value.title !== "string" || value.title.length > 100 || typeof value.topic !== "string" || value.topic.length > 80 || !["id", "en", "id-en"].includes(value.language) || !validItems || !validSettings || value.status !== "draft" || !["public", "session", "independent"].includes(value.destination || "public")) {
+    if (!validTemplate || !["A1", "A2", "B1", "B2", "C1", "C2"].includes(value.level) || !/^[A-Z0-9]{2,4}$/.test(value.cardInitials) || typeof value.title !== "string" || value.title.length > 100 || typeof value.topic !== "string" || value.topic.length > 80 || !["id", "en", "id-en"].includes(value.language) || !validItems || !validSettings || value.status !== "draft" || !["public", "session", "independent"].includes(value.destination || "public")) {
       return NextResponse.json({ error: "Data dasar draf game tidak valid.", code: "INVALID_DRAFT" }, { status: 400 });
     }
   }

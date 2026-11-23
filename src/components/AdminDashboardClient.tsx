@@ -21,7 +21,6 @@ import {
   X,
   RefreshCw,
   Users,
-  Radio,
 } from "lucide-react";
 import { formatIDR } from "@/lib/currency";
 import {
@@ -40,7 +39,6 @@ import {
 import AdminWargaManager from "@/components/admin/AdminWargaManager";
 import AdminTestimoniManager from "@/components/admin/AdminTestimoniManager";
 import AdminClassesManager from "@/components/admin/AdminClassesManager";
-import AdminHostGameTab from "@/components/admin/AdminHostGameTab";
 import GameBuilderClient from "@/components/admin/GameBuilderClient";
 import ClassSessionManager from "@/components/admin/ClassSessionManager";
 import AdminCodesManager from "@/components/admin/AdminCodesManager";
@@ -93,10 +91,12 @@ interface AdminOverviewData {
   classes?: ClassItem[];
   enrollments?: ClassEnrollment[];
   externalUsers?: Array<{ id: string; name: string; email: string; createdAt: string }>;
+  dashboardSessions?: Array<{ id: string; title: string; startsAt: string | null; status: string }>;
+  recentActivity?: Array<{ id: string; name: string; kind: string; createdAt: string }>;
   plans?: Array<{ id: string; name: string; priceIdr: number; durationDays: number }>;
 }
 
-const ADMIN_TABS = ["dashboard", "classes", "warga", "testimoni", "codes", "games", "game-builder", "sessions", "public", "payments"] as const;
+const ADMIN_TABS = ["dashboard", "classes", "warga", "testimoni", "codes", "game-builder", "sessions", "public", "payments"] as const;
 type TabType = (typeof ADMIN_TABS)[number];
 
 export default function AdminDashboardClient() {
@@ -110,10 +110,9 @@ export default function AdminDashboardClient() {
   const tabLabels: Record<TabType, string> = {
     dashboard: "Dashboard",
     classes: "Kelas",
-    warga: "Akses RW & Peserta",
+    warga: "Kode Akses",
     testimoni: "Ulasan",
     codes: "Peserta & Akses Kelas",
-    games: "Host Kuis",
     "game-builder": "Kelola Kuis",
     sessions: "Sesi Tatap Muka",
     public: "Situs Publik",
@@ -134,7 +133,7 @@ export default function AdminDashboardClient() {
   // State Manual Subscription Grant
   const [manualName, setManualName] = useState("");
   const [manualEmail, setManualEmail] = useState("");
-  const [manualPlanId, setManualPlanId] = useState("bulanan");
+  const [manualPlanId, setManualPlanId] = useState("");
   const [manualDurationDays, setManualDurationDays] = useState(30);
   const [savingManualGrant, setSavingManualGrant] = useState(false);
 
@@ -234,17 +233,17 @@ export default function AdminDashboardClient() {
     fetchOverview();
   }, [fetchOverview]);
 
-  // (legacy module/game state removed; kuis live dipisah ke tab Host Kuis / Game)
+  // Kuis live dikelola dari tab Sesi Tatap Muka.
 
   async function handleGrantManualAccess(e: React.FormEvent) {
     e.preventDefault();
     if (!manualName.trim() || !manualEmail.trim()) { await dialog.alert("Nama dan email wajib diisi."); return; }
     setSavingManualGrant(true);
     try {
-      const res = await fetch("/api/admin/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: manualName, userEmail: manualEmail, planId: manualPlanId, durationDays: manualDurationDays }) });
+      const res = await fetch("/api/admin/enrollments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: manualName, email: manualEmail, classId: manualPlanId }) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Gagal memberikan akses.");
-      notify(`Akses materi berhasil diberikan kepada ${manualName}!`);
+      notify(json.alreadyOwned ? `${manualName} sudah memiliki akses kelas ini.` : `Akses kelas berhasil diberikan kepada ${manualName}.`);
       setManualName(""); setManualEmail(""); fetchOverview();
     } catch (err: any) { await dialog.alert(err.message); } finally { setSavingManualGrant(false); }
   }
@@ -292,10 +291,9 @@ export default function AdminDashboardClient() {
       items: [
         { id: "classes" as const, label: "Kelas", icon: GraduationCap },
         { id: "sessions" as const, label: "Sesi Tatap Muka", icon: CalendarClock },
-        { id: "warga" as const, label: "Akses RW & Peserta", icon: KeyRound },
+        { id: "warga" as const, label: "Kode Akses", icon: KeyRound },
         { id: "codes" as const, label: "Peserta & Akses Kelas", icon: Users },
         { id: "game-builder" as const, label: "Kelola Kuis", icon: Gamepad2 },
-        { id: "games" as const, label: "Host Kuis", icon: Radio },
         { id: "public" as const, label: "Situs Publik", icon: ExternalLink, href: "/" },
         { id: "payments" as const, label: "Pembayaran", icon: CreditCard },
       ],
@@ -402,11 +400,11 @@ export default function AdminDashboardClient() {
 
             {tab === "dashboard" && (
               <section aria-label="Ringkasan pengelolaan" className="space-y-6">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <StatCard label="Modul Aktif" value={`${data.stats.totalModules}`} subValue="Flipbook terbit" icon={<BookOpen className="h-4 w-4" />} />
-                  <StatCard label="Kode Akses" value={`${data.stats.totalCodes}`} subValue="Kode aktif" icon={<KeyRound className="h-4 w-4" />} />
-                  <StatCard label="Soal & Kosakata" value={`${data.stats.totalQuizQuestions + data.stats.totalFlashcards}`} subValue="Item latihan" icon={<Gamepad2 className="h-4 w-4" />} />
-                  <StatCard label="Pendapatan" value={`${formatIDR(data.stats.totalRevenueIdr)}`} subValue="Langganan umum" icon={<CreditCard className="h-4 w-4" />} />
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                  <button type="button" onClick={() => handleSelectTab("classes")} className="rounded-xl text-left transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ba472f]"><StatCard label="Bab Aktif" value={`${data.stats.totalModules}`} subValue="Materi terbit" icon={<BookOpen className="h-4 w-4" />} /></button>
+                  <button type="button" onClick={() => handleSelectTab("warga")} className="rounded-xl text-left transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ba472f]"><StatCard label="Kode Akses" value={`${data.stats.totalCodes}`} subValue="Kode aktif" icon={<KeyRound className="h-4 w-4" />} /></button>
+                  <button type="button" onClick={() => handleSelectTab("game-builder")} className="rounded-xl text-left transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ba472f]"><StatCard label="Soal & Kosakata" value={`${data.stats.totalQuizQuestions + data.stats.totalFlashcards}`} subValue="Item latihan" icon={<Gamepad2 className="h-4 w-4" />} /></button>
+                  <button type="button" onClick={() => handleSelectTab("payments")} className="rounded-xl text-left transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ba472f]"><StatCard label="Pendapatan" value={`${formatIDR(data.stats.totalRevenueIdr)}`} subValue="Akses kelas" icon={<CreditCard className="h-4 w-4" />} /></button>
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
@@ -416,7 +414,7 @@ export default function AdminDashboardClient() {
                     <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
                       <div><dt className="text-xs text-muted">Kelas</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.classes?.length ?? 0}</dd></div>
                       <div><dt className="text-xs text-muted">Login kode akses</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.totalWarga ?? 0}</dd></div>
-                      <div><dt className="text-xs text-muted">Menunggu moderasi</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.pendingTestimoni ?? 0}</dd></div>
+                      <div><dt className="text-xs text-muted">Menunggu moderasi</dt><dd className={`mt-1 text-xl font-extrabold tabular-nums ${(data.stats.pendingTestimoni ?? 0) > 0 ? "rounded-lg bg-[#fbe3d8] px-2 text-[#8f2f1b]" : ""}`}>{data.stats.pendingTestimoni ?? 0}</dd></div>
                     </dl>
                   </section>
                   <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
@@ -427,9 +425,20 @@ export default function AdminDashboardClient() {
                         ["classes", "Kelola kelas"],
                         ["sessions", "Buat sesi tatap muka"],
                         ["game-builder", "Buat kuis"],
-                        ["games", "Host kuis live"],
                       ].map(([id, label]) => <button key={id} type="button" onClick={() => handleSelectTab(id as TabType)} className="inline-flex min-h-11 items-center rounded-lg border border-rule bg-white px-3 py-2 text-sm font-bold text-leaf transition-colors hover:border-forest hover:bg-forest-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tomato">{label}</button>)}
                     </div>
+                  </section>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
+                    <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-leaf">Sesi Tatap Muka Terdekat</h2><p className="mt-1 text-sm text-muted">Jadwal sesi yang masih berlangsung atau akan datang.</p></div><button type="button" onClick={() => handleSelectTab("sessions")} className="min-h-11 shrink-0 rounded-lg border border-rule bg-white px-3 text-sm font-bold text-leaf">Buka sesi</button></div>
+                    <ul className="mt-4 divide-y divide-rule">{(data.dashboardSessions || []).slice(0, 4).map((session: any) => <li key={session.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span className="font-bold text-ink">{session.title}</span><time className="text-muted">{session.startsAt ? new Date(session.startsAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }) : "Dibuka langsung"}</time></li>)}</ul>
+                    {!data.dashboardSessions?.length && <p className="mt-4 rounded-lg bg-white px-3 py-4 text-sm text-muted">Belum ada sesi aktif atau terjadwal.</p>}
+                  </section>
+                  <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
+                    <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-leaf">Aktivitas &amp; Pendaftaran Terbaru</h2><p className="mt-1 text-sm text-muted">Perubahan terbaru dari peserta dan sesi kelas.</p></div><button type="button" onClick={() => handleSelectTab("codes")} className="min-h-11 shrink-0 rounded-lg border border-rule bg-white px-3 text-sm font-bold text-leaf">Lihat peserta</button></div>
+                    <ul className="mt-4 divide-y divide-rule">{(data.recentActivity || []).slice(0, 5).map((activity: any) => <li key={activity.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span><strong className="text-ink">{activity.name || "Peserta"}</strong><span className="ml-2 text-muted">{activity.kind}</span></span><time className="text-xs text-muted">{activity.createdAt ? new Date(activity.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) : ""}</time></li>)}</ul>
+                    {!data.recentActivity?.length && <p className="mt-4 rounded-lg bg-white px-3 py-4 text-sm text-muted">Belum ada aktivitas terbaru.</p>}
                   </section>
                 </div>
               </section>
@@ -473,9 +482,6 @@ export default function AdminDashboardClient() {
 
       {tab === "sessions" && <ClassSessionManager />}
 
-      {tab === "games" && (
-        <AdminHostGameTab notify={notify} />
-      )}
 
       {tab === "public" && (
         <section aria-labelledby="public-site-empty-title" className="rounded-2xl border border-rule bg-paper-light px-5 py-8 text-center sm:px-8 sm:py-10">
@@ -550,34 +556,32 @@ function PaymentsTab(props: any) {
       </div>
 
       <div className="rounded-xl border border-[#E5E7EB] bg-white p-6">
-        <h2 className="text-base font-extrabold text-slate-900 mb-1">Beri Akses Materi Manual (Admin Grant)</h2>
-        <p className="text-xs text-slate-500 mb-4">Gunakan form ini untuk mengaktifkan akses modul berbayar bagi murid les umum atau donatur.</p>
+        <h2 className="text-base font-extrabold text-slate-900 mb-1">Beri Akses Kelas Manual (Admin Grant)</h2>
+        <p className="text-xs text-slate-500 mb-4">Akses kelas berlaku permanen berdasarkan email peserta.</p>
         <form onSubmit={handleGrantManualAccess} className="grid grid-cols-1 gap-3 sm:grid-cols-4 items-end">
           <div><label className="block text-xs font-bold text-slate-700 mb-1">Nama Pengguna</label><input type="text" value={manualName} onChange={(e) => setManualName(e.target.value)} placeholder="Contoh: Rina Anggraini" required className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 focus:border-[#14532D] focus:outline-none" /></div>
           <div><label className="block text-xs font-bold text-slate-700 mb-1">Alamat Email</label><input type="email" value={manualEmail} onChange={(e) => setManualEmail(e.target.value)} placeholder="rina@example.com" required className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 focus:border-[#14532D] focus:outline-none" /></div>
-          <div><label className="block text-xs font-bold text-slate-700 mb-1">Durasi Akses</label><select value={manualDurationDays} onChange={(e) => setManualDurationDays(Number(e.target.value))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs text-slate-900 focus:border-[#14532D] focus:outline-none"><option value={30}>30 Hari (1 Bulan)</option><option value={90}>90 Hari (3 Bulan)</option><option value={180}>180 Hari (6 Bulan)</option><option value={365}>365 Hari (1 Tahun)</option></select></div>
-          <button type="submit" disabled={savingManualGrant} className="rounded-xl bg-[#14532D] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#0f3d21] disabled:bg-slate-300 transition">{savingManualGrant ? "Menyimpan..." : "+ Berikan Akses Materi"}</button>
+          <div><label className="block text-xs font-bold text-slate-700 mb-1">Pilih Kelas</label><select required value={manualPlanId} onChange={(e) => setManualPlanId(e.target.value)} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-900 focus:border-[#14532D] focus:outline-none"><option value="">Pilih kelas</option>{(data.classes || []).filter((item: ClassItem) => item.isPublished).map((item: ClassItem) => <option key={item.id} value={item.id}>{item.title} · {item.priceIdr ? formatIDR(item.priceIdr) : "Gratis"}</option>)}</select></div>
+          <button type="submit" disabled={savingManualGrant} className="min-h-11 rounded-xl bg-[#14532D] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#0f3d21] disabled:bg-slate-300 transition">{savingManualGrant ? "Menyimpan..." : "+ Berikan Akses Kelas"}</button>
         </form>
       </div>
 
       <div className="rounded-xl border border-[#E5E7EB] bg-white p-6">
-        <h2 className="text-lg font-extrabold text-slate-900">Riwayat Pembayaran & Langganan Peserta Umum ({data.subscriptions.length})</h2>
+        <h2 className="text-lg font-extrabold text-slate-900">Riwayat Pembayaran & Akses Kelas ({(data.enrollments || []).length})</h2>
         <div className="mt-4">
           <ResponsiveTable
-            rows={data.subscriptions}
-            getRowKey={(subscription: SubscriptionRecord) => subscription.id}
-            ariaLabel="Riwayat pembayaran dan langganan"
-            emptyMessage="Belum ada transaksi dari pengunjung luar kampung. Anda dapat menambahkan akses manual di atas."
+            rows={data.enrollments || []}
+            getRowKey={(enrollment: ClassEnrollment) => enrollment.id}
+            ariaLabel="Riwayat pembayaran dan akses kelas"
+            emptyMessage="Belum ada akses kelas yang tercatat. Berikan akses permanen melalui formulir di atas."
             tableMinWidthClassName="min-w-[920px]"
             tableClassName="text-xs sm:text-sm text-slate-700"
             columns={[
-              { id: "order", label: "Order ID", cellClassName: "font-mono text-xs text-slate-500", render: (subscription: SubscriptionRecord) => subscription.orderId },
-              { id: "participant", label: "Peserta", render: (subscription: SubscriptionRecord) => <><p className="font-bold text-slate-900">{subscription.userName}</p><p className="break-words text-xs text-slate-500">{subscription.userEmail}</p></> },
-              { id: "plan", label: "Paket", cellClassName: "font-semibold text-slate-800", render: (subscription: SubscriptionRecord) => subscription.planName },
-              { id: "method", label: "Metode", render: (subscription: SubscriptionRecord) => subscription.paymentMethod },
-              { id: "expires", label: "Berlaku S/d", render: (subscription: SubscriptionRecord) => subscription.expiresAt ? new Date(subscription.expiresAt).toLocaleDateString("id-ID") : "—" },
-              { id: "status", label: "Status", render: (subscription: SubscriptionRecord) => <span className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold ${subscription.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{subscription.status === "active" ? "Aktif" : subscription.status}</span> },
-              { id: "actions", label: "Aksi", action: true, render: (subscription: SubscriptionRecord) => <div className="flex flex-wrap gap-2 md:justify-end"><button type="button" onClick={() => handleSubAction(subscription.id, "extend30")} className="min-h-11 rounded-lg bg-emerald-50 px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-100" title="Perpanjang 30 hari">+30 Hari</button><button type="button" onClick={() => handleSubAction(subscription.id, "toggle")} className="min-h-11 rounded-lg bg-slate-100 px-3 text-xs font-bold text-slate-700 hover:bg-slate-200">{subscription.status === "active" ? "Nonaktifkan" : "Aktifkan"}</button><button type="button" onClick={() => handleDeleteSub(subscription.id)} className="min-h-11 rounded-lg bg-red-50 px-3 text-xs font-bold text-red-600 hover:bg-red-100">Hapus</button></div> },
+              { id: "participant", label: "Peserta", render: (enrollment: ClassEnrollment) => <><p className="font-bold text-slate-900">{enrollment.userName}</p><p className="break-words text-xs text-slate-500">{enrollment.userEmail}</p></> },
+              { id: "class", label: "Kelas Dibeli", cellClassName: "font-semibold text-slate-800", render: (enrollment: ClassEnrollment) => (data.classes || []).find((item: ClassItem) => item.id === enrollment.classId)?.title || enrollment.classId },
+              { id: "amount", label: "Nominal / Biaya", render: (enrollment: ClassEnrollment) => enrollment.paidAmountIdr ? formatIDR(enrollment.paidAmountIdr) : "Gratis" },
+              { id: "date", label: "Tanggal Transaksi", render: (enrollment: ClassEnrollment) => new Date(enrollment.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) },
+              { id: "actions", label: "Aksi", action: true, render: (enrollment: ClassEnrollment) => <div className="flex flex-wrap gap-2 md:justify-end"><button type="button" onClick={async () => { if (!(await dialog.confirm(`Cabut akses ${enrollment.userName} ke kelas ini?`, "Cabut akses kelas?"))) return; const response = await fetch("/api/admin/enrollments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: enrollment.id, action: "revoke" }) }); if (response.ok) { notify("Akses kelas dicabut."); fetchOverview(); } }} className="min-h-11 rounded-lg bg-[#fff2ec] px-3 text-xs font-bold text-[#943520] hover:bg-[#f9e1d8]">Cabut Akses</button><button type="button" onClick={async () => { if (!(await dialog.confirm("Hapus catatan akses ini secara permanen?", "Hapus catatan?"))) return; const response = await fetch(`/api/admin/enrollments?id=${encodeURIComponent(enrollment.id)}`, { method: "DELETE" }); if (response.ok) { notify("Catatan akses dihapus."); fetchOverview(); } }} className="min-h-11 rounded-lg border border-[#c9bda7] px-3 text-xs font-bold text-slate-700 hover:bg-[#f6f1e8]">Hapus</button></div> },
             ]}
           />
         </div>

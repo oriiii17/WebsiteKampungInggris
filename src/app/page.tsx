@@ -8,18 +8,29 @@ import { getApprovedTestimoni, getClasses } from "@/lib/db";
 import { getServerSession } from "@/lib/auth";
 import type { ClassItem } from "@/lib/types";
 import type { Metadata } from "next";
-import { canonicalUrl } from "@/lib/seo";
+import { getSiteUrl, publicPageMetadata } from "@/lib/site";
 import { formatIDR } from "@/lib/currency";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Kampung Inggris Sapen | Belajar Bahasa Inggris di Demangan, Yogyakarta",
-  description: "Kelas, materi, dan permainan Bahasa Inggris untuk warga RW 06, 07, 08 Demangan, Yogyakarta serta peserta umum.",
-  alternates: canonicalUrl("/") ? { canonical: canonicalUrl("/") } : undefined,
-  openGraph: {
-    title: "Kampung Inggris Sapen | Belajar Bahasa Inggris di Demangan, Yogyakarta",
-    description: "Kelas, materi, dan permainan Bahasa Inggris untuk warga RW 06, 07, 08 Demangan, Yogyakarta serta peserta umum.",
+export const metadata: Metadata = publicPageMetadata({
+  title: "Belajar Bahasa Inggris di Demangan, Yogyakarta",
+  description: "Kampung Inggris Sapen menyediakan kelas, materi, dan permainan Bahasa Inggris untuk warga Demangan dan peserta umum. Mulai berlatih bersama komunitas belajar di Yogyakarta.",
+  pathname: "/",
+});
+
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "EducationalOrganization",
+  name: "Kampung Inggris Sapen",
+  description: "Program belajar Bahasa Inggris untuk warga Demangan dan peserta umum di Yogyakarta.",
+  url: getSiteUrl(),
+  image: `${getSiteUrl()}/images/baru/LatarBelakang.webp`,
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Demangan, Yogyakarta",
+    addressRegion: "Daerah Istimewa Yogyakarta",
+    addressCountry: "ID",
   },
 };
 
@@ -91,6 +102,7 @@ export default async function HomePage() {
 
   return (
     <div className="home-page workbook-page">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, "\\u003c") }} />
       <section className="home-opening workbook-wrap" aria-labelledby="home-title">
         <div className="home-opening-copy">
           <h1 id="home-title" className="home-title font-display">

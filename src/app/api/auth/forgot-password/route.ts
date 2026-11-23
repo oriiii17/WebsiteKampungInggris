@@ -4,6 +4,7 @@ import { getSupabaseProjectUrl } from "@/lib/supabase";
 import { sendAppEmail } from "@/lib/email";
 import { getRequestIp } from "@/lib/api-rate-limit";
 import { checkEmailRateLimit } from "@/lib/email-rate-limit";
+import { getSiteUrl } from "@/lib/site";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const genericMessage = "Jika email terdaftar, tautan untuk mengatur ulang kata sandi akan segera dikirim.";
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
     const allowed = await checkEmailRateLimit(admin, email, ip, 3, 3, 3600);
     if (!allowed || !admin) return NextResponse.json({ ok: true, message: genericMessage });
     try {
-      const redirectTo = new URL("/auth/callback?type=recovery", request.nextUrl.origin).toString();
+      const redirectTo = new URL("/auth/callback?type=recovery", `${getSiteUrl()}/`).toString();
       const { data, error } = await admin.auth.admin.generateLink({ type: "recovery", email, options: { redirectTo } });
       if (!error && data.user && data.properties?.action_link) {
         await sendAppEmail({ to: email, subject: "Atur ulang kata sandi Sapen English", heading: "Atur ulang kata sandi", intro: "Kami menerima permintaan untuk mengatur ulang kata sandi akun Anda.", actionUrl: data.properties.action_link, actionLabel: "Atur kata sandi baru", note: "Tautan ini hanya dapat digunakan sekali dan akan kedaluwarsa." });

@@ -17,7 +17,7 @@ export default async function HostLiveSessionPage({
 
   return (
     <div className="workbook-page min-h-screen w-full text-ink">
-      <div className="w-full max-w-[1200px] min-w-0 px-2 sm:px-4 lg:px-6">
+      <div className="mx-auto w-full max-w-[1600px] min-w-0 px-3 sm:px-6 lg:px-8">
         <HostLiveSessionClient initialPin={pin} templateTitle={session.templateTitle} />
       </div>
     </div>

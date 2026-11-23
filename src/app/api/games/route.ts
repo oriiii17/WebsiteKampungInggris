@@ -70,8 +70,8 @@ export async function GET(request: Request) {
       ? await gamesQuery.eq("status", "published")
       : await gamesQuery.in("status", ["published", "session"]);
     if (error) return NextResponse.json({ error: "Katalog game belum tersedia." }, { status: 503 });
-    return NextResponse.json({ games: (data || []).map(fromRow).filter((game) => game.title?.trim() && game.title.trim().toLocaleLowerCase() !== "game baru" && (allowedGuestGameIds === null || allowedGuestGameIds.includes(game.id)) && (game.status !== "session" || allowedSelectedSessionGameIds.includes(game.id))) });
+    return NextResponse.json({ games: (data || []).map(fromRow).filter((game) => game.title?.trim() && game.title.trim().toLocaleLowerCase() !== "game baru" && (allowedGuestGameIds === null || allowedGuestGameIds.includes(game.id)) && (game.destination !== "session" || (game.status === "session" && allowedSelectedSessionGameIds.includes(game.id)))) });
   }
   const db = await readLocalDb();
-  return NextResponse.json({ games: (db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => (game.status === "published" || (allowedGuestGameIds !== null && game.status === "session")) && game.title?.trim() && game.title.trim().toLocaleLowerCase() !== "game baru" && (allowedGuestGameIds === null || allowedGuestGameIds.includes(game.id)) && (game.status !== "session" || allowedSelectedSessionGameIds.includes(game.id))) });
+  return NextResponse.json({ games: (db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => (game.status === "published" || (allowedGuestGameIds !== null && game.status === "session")) && (allowedGuestGameIds !== null || game.destination !== "session") && game.title?.trim() && game.title.trim().toLocaleLowerCase() !== "game baru" && (allowedGuestGameIds === null || allowedGuestGameIds.includes(game.id)) && (game.destination !== "session" || (game.status === "session" && allowedSelectedSessionGameIds.includes(game.id)))) });
 }

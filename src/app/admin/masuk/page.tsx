@@ -1,7 +1,7 @@
 import AdminLoginForm from "@/components/AdminLoginForm";
 
 function safeAdminDestination(value?: string) {
-  if (!value || (!value.startsWith("/admin") && value !== "/game/host")) return "/admin";
+  if (!value || !value.startsWith("/admin")) return "/admin";
   if (value.startsWith("//") || value.includes("\\")) return "/admin";
   return value;
 }

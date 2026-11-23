@@ -9,13 +9,15 @@ import AppDialogProvider from "@/components/AppDialogProvider";
 import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
 import GuestApprovalGate from "@/components/guest/GuestApprovalGate";
 import { getGuestApprovalStatus } from "@/lib/guest-approval";
+import { getSiteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: `${SITE_CONFIG.name} | ${SITE_CONFIG.tagline}`,
+  title: {
+    default: `${SITE_CONFIG.name} | ${SITE_CONFIG.tagline}`,
+    template: `%s | ${SITE_CONFIG.name}`,
+  },
   description: SITE_CONFIG.shortDesc,
-  metadataBase: process.env.NEXT_PUBLIC_SITE_URL
-    ? new URL(process.env.NEXT_PUBLIC_SITE_URL)
-    : undefined,
+  metadataBase: new URL(getSiteUrl()),
   openGraph: {
     type: "website",
     locale: "id_ID",
@@ -34,20 +36,6 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-};
-
-const organizationSchema = {
-  "@context": "https://schema.org",
-  "@type": "EducationalOrganization",
-  name: "Sapen English Village / Kampung Inggris Sapen",
-  description: "Platform belajar Bahasa Inggris untuk warga RW 06, RW 07, dan RW 08 Kelurahan Demangan serta peserta umum.",
-  address: {
-    "@type": "PostalAddress",
-    addressLocality: "Kelurahan Demangan, Gondokusuman, Yogyakarta",
-    addressRegion: "Daerah Istimewa Yogyakarta",
-    addressCountry: "ID",
-  },
-  areaServed: ["RW 06 Demangan", "RW 07 Demangan", "RW 08 Demangan", "Yogyakarta"],
 };
 
 export default async function RootLayout({
@@ -71,7 +59,6 @@ export default async function RootLayout({
         />
       </head>
       <body className="flex min-h-dvh flex-col font-sans">
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, "\\u003c") }} />
         <ConfirmDialogProvider>
         <AppDialogProvider>
         <a href="#main-content" className="skip-link">Lewati ke konten utama</a>

@@ -2,9 +2,6 @@ import type { GameBlueprint, GameBlueprintItem } from "./game-blueprint";
 
 export interface GameProgress {
   score: number;
-  hearts: number;
-  streak: number;
-  bestStreak: number;
   answered: number;
   correct: number;
 }
@@ -15,11 +12,8 @@ export interface AnswerResult {
   finished: boolean;
 }
 
-export const initialGameProgress = (game: Pick<GameBlueprint, "settings">): GameProgress => ({
+export const initialGameProgress = (_game: Pick<GameBlueprint, "settings">): GameProgress => ({
   score: 0,
-  hearts: game.settings.hearts,
-  streak: 0,
-  bestStreak: 0,
   answered: 0,
   correct: 0,
 });
@@ -52,14 +46,11 @@ export function evaluateBlueprintAnswer(game: GameBlueprint, item: GameBlueprint
   }
 }
 
-export function submitBlueprintAnswer(game: GameBlueprint, progress: GameProgress, correct: boolean): AnswerResult {
+export function submitBlueprintAnswer(game: GameBlueprint, progress: GameProgress, correct: boolean, speedBonus = 0): AnswerResult {
   const next: GameProgress = {
-    score: progress.score + (correct ? 100 + Math.min(progress.streak, 10) * 10 : 0),
-    hearts: Math.max(0, progress.hearts - (correct ? 0 : 1)),
-    streak: correct ? progress.streak + 1 : 0,
-    bestStreak: correct ? Math.max(progress.bestStreak, progress.streak + 1) : progress.bestStreak,
+    score: progress.score + (correct ? 100 + Math.max(0, Math.min(100, Math.floor(speedBonus))) : 0),
     answered: progress.answered + 1,
     correct: progress.correct + (correct ? 1 : 0),
   };
-  return { correct, progress: next, finished: next.hearts === 0 || next.answered >= game.items.length };
+  return { correct, progress: next, finished: next.answered >= game.items.length };
 }

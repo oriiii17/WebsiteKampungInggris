@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Heart, Loader2, RotateCcw, Trophy, Volume2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, Trophy, Volume2, X } from "lucide-react";
 import { GAME_TEMPLATES, type GameBlueprint, type GameBlueprintItem } from "@/lib/game-blueprint";
 import { evaluateBlueprintAnswer, initialGameProgress, submitBlueprintAnswer, type GameProgress } from "@/lib/game-engine";
 import TagInput from "@/components/ui/TagInput";
@@ -10,7 +10,7 @@ import { markGuestGameCompleted } from "@/lib/guest-game-progress";
 
 function shuffled<T>(values: T[]): T[] { return [...values].sort(() => Math.random() - 0.5); }
 
-export default function BlueprintGameClient({ gameId, classId, guestParticipantId, saveHistory = false }: { gameId: string; classId?: string; guestParticipantId?: string; saveHistory?: boolean }) {
+export default function BlueprintGameClient({ gameId, classId, guestParticipantId, playerName = "Tamu", saveHistory = false }: { gameId: string; classId?: string; guestParticipantId?: string; playerName?: string; saveHistory?: boolean }) {
   const [game, setGame] = useState<GameBlueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -92,10 +92,13 @@ export default function BlueprintGameClient({ gameId, classId, guestParticipantI
     if (game.template === "word-search") normalizedAnswer = wordGuess;
     const correct = evaluateBlueprintAnswer(game, item, normalizedAnswer);
     setOutcome(correct);
-    const result = submitBlueprintAnswer(game, progress, correct);
+    const speedBonus = timeLeft !== null && game.settings.timeLimitSec > 0
+      ? Math.floor((Math.max(0, timeLeft) / game.settings.timeLimitSec) * 100)
+      : 0;
+    const result = submitBlueprintAnswer(game, progress, correct, speedBonus);
     setProgress(result.progress);
     setFinished(result.finished);
-  }, [answer, game, item, progress, sentenceWords, wordGuess]);
+  }, [answer, game, item, progress, sentenceWords, timeLeft, wordGuess]);
 
   useEffect(() => {
     if (!game || game.template !== "multiple-choice-quiz" && game.template !== "listen-and-choose" || outcome !== null) return;
@@ -112,12 +115,6 @@ export default function BlueprintGameClient({ gameId, classId, guestParticipantI
     if (finished || !game || itemIndex >= game.items.length - 1) { setFinished(true); setOutcome(null); return; }
     setItemIndex((index) => index + 1); setAnswer(null); setOutcome(null); setSentenceWords([]); setWordGuess([]); setBankIndex(0); setTimeLeft(game.settings.timeLimitSec || null);
   }
-  function startAgain() {
-    if (!game) return;
-    scoreSavedForGame.current = null;
-    setScoreSaveStatus("idle"); setScoreSaveAttempt(0);
-    setItemIndex(0); setProgress(initialGameProgress(game)); setAnswer(null); setOutcome(null); setFinished(false); setSentenceWords([]); setWordGuess([]); setBankIndex(0); setTimeLeft(game.settings.timeLimitSec || null);
-  }
   function chooseOption(index: number) { setAnswer(index); }
 
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#f3e9d5] text-[#244b3a]"><p className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin" />memuat kuis…</p></main>;
@@ -133,11 +130,11 @@ export default function BlueprintGameClient({ gameId, classId, guestParticipantI
     || entry.options?.map((option) => option.text)
     || [entry.prompt];
 
-  if (finished && outcome === null) return <main className="min-h-screen bg-[#f3e9d5] px-4 py-12 text-[#20251f] sm:px-8"><div className="mx-auto max-w-3xl"><Link href="/games" className="inline-flex min-h-10 items-center gap-2 text-sm font-bold text-[#244b3a] underline"><ArrowLeft className="h-4 w-4" />Kembali ke Kuis</Link><div className="mt-6 border-y border-[#d2c5ad] py-8"><h1 className="font-display text-4xl font-bold text-[#183b2d]">Bagus, kamu sudah berlatih!</h1><p className="mt-3 text-[#3d4038]">{game.title} · {progress.correct} dari {progress.answered} jawaban benar</p><div className="mt-5 flex flex-wrap gap-5 text-sm font-bold"><span>Skor {progress.score}</span><span>Streak terbaik {progress.bestStreak}</span><span>Sisa nyawa {progress.hearts}</span></div></div><section className="mt-8"><h2 className="text-xl font-bold text-[#183b2d]">Kata yang dilatih</h2><ul className="mt-3 divide-y divide-[#d2c5ad]">{game.items.map((entry, index) => <li key={entry.id} className="py-3"><p className="text-sm font-bold text-[#244b3a]">{index + 1}. {entry.prompt}</p><p className="mt-1 text-sm text-[#3d4038]">{practicedWords(entry).filter(Boolean).join(" · ")}</p></li>)}</ul></section><div className="mt-7 flex flex-wrap gap-3"><button type="button" onClick={startAgain} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#ba472f] px-5 text-sm font-bold text-white"><RotateCcw className="h-4 w-4" />Main lagi</button><Link href="/games" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#b8aa8e] px-5 text-sm font-bold text-[#244b3a]">Kembali ke menu</Link></div></div></main>;
+  if (finished && outcome === null) return <main className="min-h-dvh bg-[#f3e9d5] px-4 py-8 text-[#20251f] sm:px-8 sm:py-12"><div className="mx-auto max-w-3xl"><div className="border-y border-[#d2c5ad] py-7 sm:py-8"><p className="text-sm font-semibold text-[#625f54]">Hasil Kuis · {playerName}</p><h1 className="mt-2 font-display text-3xl font-bold text-[#183b2d] sm:text-4xl">Bagus, kamu sudah berlatih!</h1><p className="mt-3 text-[#3d4038]">{game.title} · {progress.correct} dari {progress.answered} jawaban benar</p><div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm font-bold"><span>Skor {progress.score}</span><span>Akurasi {progress.answered ? Math.round((progress.correct / progress.answered) * 100) : 0}%</span></div></div><section className="mt-7"><h2 className="text-xl font-bold text-[#183b2d]">Kata yang dilatih</h2><ul className="mt-3 divide-y divide-[#d2c5ad]">{game.items.map((entry, index) => <li key={entry.id} className="py-3"><p className="text-sm font-bold text-[#244b3a]">{index + 1}. {entry.prompt}</p><p className="mt-1 text-sm text-[#3d4038]">{practicedWords(entry).filter(Boolean).join(" · ")}</p></li>)}</ul></section><Link href="/games" className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-lg bg-[#244b3a] px-6 text-sm font-bold text-white transition hover:bg-[#183b2d] active:scale-[.98]"><ArrowLeft className="h-4 w-4" />Kembali ke Gabung Kuis</Link></div></main>;
 
   return <main className="min-h-screen bg-[#f3e9d5] px-4 py-6 text-[#20251f] sm:px-8 sm:py-10"><div className="mx-auto max-w-4xl">
-    <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d2c5ad] pb-4"><Link href="/games" className="inline-flex min-h-10 items-center gap-2 text-sm font-bold text-[#244b3a]"><ArrowLeft className="h-4 w-4" />Keluar</Link><div className="text-center"><h1 className="font-bold text-[#183b2d]">{game.title}</h1><p className="text-xs text-[#625f54]">{templateTitle} · {game.level}</p></div><div className="flex items-center gap-1" aria-label={`${progress.hearts} nyawa tersisa`}>{Array.from({ length: game.settings.hearts }, (_, index) => <Heart key={index} aria-hidden="true" className={`h-5 w-5 ${index < progress.hearts ? "fill-[#ba472f] text-[#ba472f]" : "text-[#b8aa8e]"}`} />)}</div></header>
-    <section aria-label="Kemajuan game" className="flex items-center justify-between gap-3 border-b border-[#d2c5ad] py-3 text-sm"><span>Soal {itemIndex + 1} dari {game.items.length}</span><span>Skor <strong className="tabular-nums">{progress.score}</strong></span><span>Streak <strong className="tabular-nums">{progress.streak}</strong></span>{timeLeft !== null && <span aria-live="polite">Sisa {timeLeft} dtk</span>}<span className="hidden sm:inline">Tekan 1–5 untuk memilih</span></section>
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d2c5ad] pb-4"><Link href="/games" className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#244b3a]"><ArrowLeft className="h-4 w-4" />Keluar</Link><div className="min-w-0 flex-1 text-center sm:flex-none"><h1 className="truncate font-bold text-[#183b2d]">{game.title}</h1><p className="text-xs text-[#625f54]">{templateTitle} · {game.level}</p></div><span className="min-w-[4.5rem] text-right text-sm font-bold tabular-nums text-[#244b3a]">{progress.score} pt</span></header>
+    <section aria-label="Kemajuan kuis" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#d2c5ad] py-3 text-sm"><span>Soal {itemIndex + 1} dari {game.items.length}</span>{timeLeft !== null && <span aria-live="polite">Waktu {timeLeft} dtk</span>}<span className="font-semibold">{progress.correct} benar</span></section>
     <div className="mx-auto mt-8 max-w-3xl rounded-xl border border-[#d2c5ad] bg-[#fdf9f0] p-5 sm:p-8"><div className="flex flex-wrap items-start justify-between gap-3"><div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-wide text-[#625f54]">{game.topic}</p><h2 className="mt-3 text-2xl font-bold leading-snug text-[#183b2d] sm:text-3xl">{item.prompt}</h2></div>{(game.template === "listen-and-choose" || game.template === "word-bank") && <button type="button" aria-label="Dengarkan pengucapan" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a]" onClick={() => speak(item.audioText || item.vocabulary?.[bankIndex % (item.vocabulary.length || 1)]?.term || item.prompt)}><Volume2 className="h-4 w-4" />Dengarkan</button>}</div>
 
       {(game.template === "multiple-choice-quiz" || game.template === "listen-and-choose") && <div className="mt-7 grid gap-3 sm:grid-cols-2">{options.map((option, index) => { const originalIndex = item.options?.findIndex((entry) => entry.id === option.id) ?? index; return <button key={option.id} type="button" disabled={outcome !== null} onClick={() => chooseOption(originalIndex)} className={`min-h-16 rounded-lg border px-4 py-3 text-left text-base font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ba472f] ${answer === originalIndex ? "border-[#244b3a] bg-[#e6eadf] text-[#183b2d]" : "border-[#d2c5ad] bg-white text-[#20251f] hover:bg-[#e6eadf]"}`}><span className="mr-3 text-sm text-[#625f54]">{index + 1}</span>{option.text}</button>; })}</div>}

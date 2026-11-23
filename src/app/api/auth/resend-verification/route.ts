@@ -4,6 +4,7 @@ import { getSupabaseProjectUrl } from "@/lib/supabase";
 import { sendAppEmail } from "@/lib/email";
 import { getRequestIp } from "@/lib/api-rate-limit";
 import { checkEmailRateLimit } from "@/lib/email-rate-limit";
+import { getSiteUrl } from "@/lib/site";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const message = "Jika akun belum terverifikasi, tautan verifikasi akan dikirim ke email tersebut.";
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
         page += 1;
       }
       if (!pendingUser) return NextResponse.json({ ok: true, message });
-      const redirectTo = new URL("/auth/callback?type=signup", request.nextUrl.origin).toString();
+      const redirectTo = new URL("/auth/callback?type=signup", `${getSiteUrl()}/`).toString();
       // A magic link for the existing unverified user also confirms the email; signup links require a password.
       const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email, options: { redirectTo } });
       if (!error && data.user && data.properties?.action_link) await sendAppEmail({ to: email, subject: "Verifikasi email akun Sapen English", heading: "Verifikasi email Anda", intro: "Selesaikan verifikasi akun Kampung Inggris Sapen melalui tombol berikut.", actionUrl: data.properties.action_link, actionLabel: "Verifikasi email" });

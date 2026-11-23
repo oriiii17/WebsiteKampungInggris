@@ -9,7 +9,7 @@ export async function GET() {
 
   const supabase = await getSupabaseServerClient();
   if (supabase) {
-    let sessionsQuery = supabase.from("class_sessions").select("id,title,code,class_id,teacher_id,starts_at,status,closed_at");
+    let sessionsQuery = supabase.from("class_sessions").select("id,title,code,class_id,teacher_id,starts_at,created_at,status,closed_at");
     if (user?.role === "tutor") sessionsQuery = sessionsQuery.eq("teacher_id", user.id);
     const { data: sessions, error: sessionsError } = await sessionsQuery;
     if (sessionsError) return NextResponse.json({ error: "Daftar sesi peserta belum dapat dimuat." }, { status: 503 });
@@ -24,7 +24,7 @@ export async function GET() {
     return NextResponse.json({ guests: (guests || []).map((guest) => {
       const session = sessionById.get(guest.session_id);
       const deletableAfter = session?.status === "closed" && session.closed_at ? new Date(new Date(session.closed_at).getTime() + 3 * 60 * 60 * 1000).toISOString() : null;
-      return { id: guest.id, name: guest.full_name, whatsapp: guest.whatsapp, status: guest.status, registeredAt: guest.registered_at, sessionDate: session?.starts_at || "", sessionTitle: session?.title || "Sesi tanpa judul", sessionCode: session?.code || "—", classTitle: classById.get(session?.class_id) || "Kelas belum dipetakan", deletableAfter, canDelete: Boolean(deletableAfter && Date.now() >= Date.parse(deletableAfter)), deleteBlockedReason: session?.status !== "closed" ? "Sesi masih terbuka" : !deletableAfter ? "Waktu tutup sesi belum tercatat" : Date.now() < Date.parse(deletableAfter) ? `Terkunci sampai ${new Date(deletableAfter).toLocaleString("id-ID")}` : "" };
+      return { id: guest.id, name: guest.full_name, whatsapp: guest.whatsapp, status: guest.status, registeredAt: guest.registered_at, sessionDate: session?.starts_at || session?.created_at || guest.registered_at, sessionTitle: session?.title || "Sesi tanpa judul", sessionCode: session?.code || "—", classTitle: classById.get(session?.class_id) || "Kelas belum dipetakan", deletableAfter, canDelete: Boolean(deletableAfter && Date.now() >= Date.parse(deletableAfter)), deleteBlockedReason: session?.status !== "closed" ? "Sesi masih terbuka" : !deletableAfter ? "Waktu tutup sesi belum tercatat" : Date.now() < Date.parse(deletableAfter) ? `Terkunci sampai ${new Date(deletableAfter).toLocaleString("id-ID")}` : "" };
     }) });
   }
 
@@ -35,7 +35,7 @@ export async function GET() {
   const guests = (db.classSessionGuests || []).filter((guest) => sessionById.has(guest.sessionId)).map((guest) => {
     const session = sessionById.get(guest.sessionId)!;
     const deletableAfter = session.status === "closed" && session.closedAt ? new Date(new Date(session.closedAt).getTime() + 3 * 60 * 60 * 1000).toISOString() : null;
-    return { id: guest.id, name: guest.name, whatsapp: guest.whatsapp, status: guest.status, registeredAt: guest.registeredAt, sessionDate: session.startsAt || "", sessionTitle: session.title, sessionCode: session.code, classTitle: classById.get(session.classId) || "Kelas belum dipetakan", deletableAfter, canDelete: Boolean(deletableAfter && Date.now() >= Date.parse(deletableAfter)), deleteBlockedReason: session.status !== "closed" ? "Sesi masih terbuka" : !deletableAfter ? "Waktu tutup sesi belum tercatat" : Date.now() < Date.parse(deletableAfter) ? `Terkunci sampai ${new Date(deletableAfter).toLocaleString("id-ID")}` : "" };
+    return { id: guest.id, name: guest.name, whatsapp: guest.whatsapp, status: guest.status, registeredAt: guest.registeredAt, sessionDate: session.startsAt || session.createdAt || guest.registeredAt, sessionTitle: session.title, sessionCode: session.code, classTitle: classById.get(session.classId) || "Kelas belum dipetakan", deletableAfter, canDelete: Boolean(deletableAfter && Date.now() >= Date.parse(deletableAfter)), deleteBlockedReason: session.status !== "closed" ? "Sesi masih terbuka" : !deletableAfter ? "Waktu tutup sesi belum tercatat" : Date.now() < Date.parse(deletableAfter) ? `Terkunci sampai ${new Date(deletableAfter).toLocaleString("id-ID")}` : "" };
   }).sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
   return NextResponse.json({ guests });
 }

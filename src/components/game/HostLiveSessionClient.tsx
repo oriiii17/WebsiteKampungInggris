@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { Users, Play, ArrowRight, Trophy, XCircle, Copy, Check, Sparkles, Award, Crown, Leaf, Sun, BookOpen } from "lucide-react";
+import { Users, Play, ArrowRight, Trophy, XCircle, Copy, Check, Sparkles, Award, Crown } from "lucide-react";
 import confetti from "canvas-confetti";
 import QRCode from "qrcode";
 
 interface SessionState {
   pin: string; templateTitle: string; hostName: string; status: "lobby" | "question" | "reveal" | "podium" | "closed";
   currentQuestionIndex: number; totalQuestions: number; questionStartedAt: number; timeLimitSec: number;
-  currentQuestion: any; playersList: any[]; answersDetail?: any[]; answerDistribution?: number[]; teamScores?: { team: string; score: number; players: number }[];
+  currentQuestion: any; playersList: any[]; answersDetail?: any[]; answerDistribution?: number[];
 }
 const SHAPES = [
   { symbol: "○", label: "A", color: "bg-red-500" },
@@ -130,17 +130,16 @@ export default function HostLiveSessionClient({ initialPin, templateTitle }: { i
 
       {(hostError || closeFallback) && <div className="mx-auto mt-3 w-full max-w-6xl space-y-2 px-4 sm:px-8">{hostError && <p role="status" className="rounded-lg border border-amber-300/40 bg-amber-950/70 px-4 py-3 text-sm text-amber-100">{hostError}</p>}{closeFallback && <p role="status" className="rounded-lg border border-amber-300/40 bg-amber-950/70 px-4 py-3 text-sm text-amber-100">Browser tidak mengizinkan tab ini ditutup otomatis. Tutup tab proyektor ini secara manual.</p>}</div>}
 
-      <main className="flex-1 p-4 sm:p-8 max-w-6xl mx-auto w-full">
-        {!!state.teamScores?.length && <section aria-label="Papan skor tim" className="mb-6 grid gap-3 sm:grid-cols-2">{state.teamScores.map((team) => <div key={team.team} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${team.team === "forest" ? "border-emerald-800 bg-emerald-950/60 text-emerald-100" : "border-amber-800 bg-amber-950/50 text-amber-100"}`}><div className="flex items-center gap-3">{team.team === "forest" ? <Leaf className="h-5 w-5" /> : <Sun className="h-5 w-5" />}<span className="font-bold">Tim {team.team === "forest" ? "Daun" : "Mentari"}<span className="ml-2 text-xs font-normal opacity-75">{team.players} peserta</span></span></div><span className="font-mono text-xl font-black tabular-nums">{team.score} pt</span></div>)}</section>}
+      <main className="mx-auto flex-1 w-full max-w-screen-2xl p-4 sm:p-8">
         {state.status === "lobby" && (
           <div className="space-y-8 py-4">
-            <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
               <div className="space-y-3 text-center animate-[fadeIn_.5s_ease] lg:text-left"><span className="inline-block rounded-full border border-slate-700 bg-slate-800/80 px-4 py-1 text-xs font-bold uppercase tracking-widest text-slate-300">Ruang Tunggu</span><h2 className="text-3xl font-black text-white sm:text-5xl">Pindai QR untuk bergabung</h2><p className="text-slate-300">Arahkan kamera ponsel ke QR atau masukkan PIN di halaman game.</p><p className="text-slate-300 text-lg">PIN: <span className="font-mono text-3xl font-black tracking-[0.2em] text-amber-400">{state.pin}</span></p></div>
-              {joinQr && <aside className="mx-auto w-full max-w-[280px] rounded-2xl border border-slate-700 bg-white p-4 text-center shadow-xl shadow-black/20"><Image src={joinQr} alt={`QR untuk bergabung ke kuis dengan PIN ${state.pin}`} width={480} height={480} unoptimized className="mx-auto aspect-square w-full max-w-[240px] rounded-lg" /><p className="mt-3 text-sm font-bold text-[#10251c]">Pindai untuk ikut bermain</p><p className="mt-1 break-all text-xs text-[#3e5047]">{window.location.origin}/game/join</p></aside>}
+              {joinQr && <aside className="mx-auto w-full max-w-[360px] rounded-2xl border border-slate-700 bg-white p-5 text-center shadow-xl shadow-black/20"><Image src={joinQr} alt={`QR untuk bergabung ke kuis dengan PIN ${state.pin}`} width={600} height={600} unoptimized className="mx-auto aspect-square w-full max-w-[320px] rounded-lg" /><p className="mt-4 text-base font-bold text-[#10251c]">Pindai untuk ikut bermain</p><p className="mt-2 break-all text-sm text-[#3e5047]">{window.location.origin}/game/join</p></aside>}
             </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6 backdrop-blur">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800"><div className="flex items-center gap-2 text-slate-200 font-bold"><Users className="h-5 w-5 text-emerald-400" /><span>Peserta Bergabung ({totalPlayers})</span></div>{totalPlayers === 0 && <span className="text-xs text-slate-500 animate-pulse">Menunggu peserta...</span>}</div>
-              {totalPlayers === 0 ? (<div className="text-center py-10 text-slate-500"><p>Belum ada peserta. Tampilkan PIN di layar!</p></div>) : (<div className="flex flex-wrap gap-2.5 max-h-[320px] overflow-y-auto pr-1">{state.playersList.map((player:any) => (<div key={player.id} className="group flex items-center gap-2 rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2 text-sm font-bold text-white shadow-sm hover:border-emerald-500/50 transition"><span className={`h-7 w-7 rounded-full flex items-center justify-center ${player.team === "forest" ? "bg-emerald-600/30 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>{player.avatarId === "sun" ? <Sun className="h-4 w-4" /> : player.avatarId === "bird" ? <Sparkles className="h-4 w-4" /> : player.avatarId === "book" ? <BookOpen className="h-4 w-4" /> : <Leaf className="h-4 w-4" />}</span><span>{player.name}<small className="ml-2 text-[10px] font-semibold text-slate-400">{player.team === "forest" ? "Daun" : "Mentari"}</small></span><button onClick={() => sendAction("kick", player.id)} title="Keluarkan" aria-label={`Keluarkan ${player.name}`} className="min-h-11 min-w-11 text-red-400 hover:text-red-300 ml-1">×</button></div>))}</div>)}
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800"><div className="flex items-center gap-2 text-lg text-slate-100 font-bold"><Users className="h-6 w-6 text-emerald-400" /><span>Peserta Bergabung ({totalPlayers})</span></div>{totalPlayers === 0 && <span className="text-sm text-slate-400 animate-pulse">Menunggu peserta...</span>}</div>
+              {totalPlayers === 0 ? (<div className="text-center py-10 text-slate-500"><p>Belum ada peserta. Tampilkan PIN di layar!</p></div>) : (<div className="flex flex-wrap gap-2.5 max-h-[320px] overflow-y-auto pr-1">{state.playersList.map((player:any) => (<div key={player.id} className="group flex items-center gap-2 rounded-xl bg-slate-800 border border-slate-700 px-3.5 py-2 text-sm font-bold text-white shadow-sm hover:border-emerald-500/50 transition"><span className="grid h-7 w-7 place-items-center rounded-full bg-emerald-600/30 text-emerald-200">{player.name?.slice(0, 1)?.toLocaleUpperCase() || "?"}</span><span>{player.name}</span><button onClick={() => sendAction("kick", player.id)} title="Keluarkan" aria-label={`Keluarkan ${player.name}`} className="ml-1 min-h-11 min-w-11 text-red-400 hover:text-red-300">×</button></div>))}</div>)}
             </div>
             <div className="text-center pt-2"><button onClick={() => sendAction("start")} disabled={totalPlayers === 0 || actionLoading} className="inline-flex min-h-[56px] items-center gap-3 rounded-md bg-earth px-10 py-5 text-xl font-black text-white shadow-card transition hover:bg-earth-dark active:scale-95 disabled:cursor-not-allowed disabled:bg-paper-deep disabled:text-muted"><Play className="h-6 w-6 fill-white" /><span>Mulai ({totalPlayers} Peserta)</span></button></div>
           </div>

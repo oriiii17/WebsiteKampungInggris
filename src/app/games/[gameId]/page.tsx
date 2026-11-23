@@ -28,5 +28,5 @@ export default async function BlueprintGamePage({ params, searchParams }: { para
     }
     if (!allowed) notFound();
   }
-  return <BlueprintGameClient gameId={gameId} classId={classId || undefined} guestParticipantId={session?.role === "guest" ? session.guestRegistrationId : undefined} saveHistory={canSavePersonalGameHistory(session)} />;
+  return <BlueprintGameClient gameId={gameId} classId={classId || undefined} guestParticipantId={session?.role === "guest" ? session.guestRegistrationId : undefined} playerName={session?.authUserId && session.name ? session.name : "Tamu"} saveHistory={canSavePersonalGameHistory(session)} />;
 }

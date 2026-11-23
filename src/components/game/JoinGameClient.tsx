@@ -3,15 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Bird, BookOpen, Gamepad2, Leaf, Sun, User, Loader2 } from "lucide-react";
+import { ArrowLeft, Gamepad2, User, Loader2 } from "lucide-react";
 import PinCodeInput from "@/components/game/PinCodeInput";
-
-const AVATARS = [
-  { id: "leaf", label: "Daun", Icon: Leaf },
-  { id: "book", label: "Buku", Icon: BookOpen },
-  { id: "sun", label: "Mentari", Icon: Sun },
-  { id: "bird", label: "Burung", Icon: Bird },
-] as const;
 
 export default function JoinGameClient({ defaultName = "", isGuest = false }: { defaultName?: string; isGuest?: boolean }) {
   const router = useRouter();
@@ -19,7 +12,6 @@ export default function JoinGameClient({ defaultName = "", isGuest = false }: { 
 
   const [pin, setPin] = useState("");
   const [name, setName] = useState(defaultName);
-  const [avatarId, setAvatarId] = useState<(typeof AVATARS)[number]["id"]>("leaf");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -78,7 +70,6 @@ export default function JoinGameClient({ defaultName = "", isGuest = false }: { 
         body: JSON.stringify({
           playerName: cleanName,
           playerId,
-          avatarId,
         }),
       });
 
@@ -96,8 +87,6 @@ export default function JoinGameClient({ defaultName = "", isGuest = false }: { 
       sessionStorage.setItem(`sapen_game_${cleanPin}`, JSON.stringify({
         playerId: data.playerId,
         playerName: data.playerName,
-        avatarId: data.avatarId,
-        team: data.team,
         entry: searchParams.get("entry") === "scan" ? "scan" : null,
         guestMode: isGuest,
       }));
@@ -136,11 +125,6 @@ export default function JoinGameClient({ defaultName = "", isGuest = false }: { 
           <label htmlFor="join-game-pin" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-700">Kode PIN Sesi</label>
           <PinCodeInput id="join-game-pin" label="PIN sesi, 6 angka" value={pin} onChange={setPin} invalid={Boolean(error && pin.length !== 6)} describedBy={error ? "join-game-error" : undefined} />
         </div>
-
-        <fieldset>
-          <legend className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-700">Pilih avatar</legend>
-          <div className="grid grid-cols-4 gap-2">{AVATARS.map(({ id, label, Icon }) => <button key={id} type="button" aria-pressed={avatarId === id} onClick={() => setAvatarId(id)} className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-earth ${avatarId === id ? "border-leaf bg-leaf text-white" : "border-rule-strong bg-white text-leaf hover:bg-paper"}`}><Icon className="h-5 w-5" />{label}</button>)}</div>
-        </fieldset>
 
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
@@ -183,11 +167,11 @@ export default function JoinGameClient({ defaultName = "", isGuest = false }: { 
 
       <div className="mt-6 pt-5 border-t border-gray-100 text-center">
         <Link
-          href={isGuest ? "/games" : "/game"}
+          href={isGuest ? "/games" : "/"}
           className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-muted hover:text-ink"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>{isGuest ? "Kembali ke beranda" : "Kembali ke Informasi Kuis"}</span>
+          <span>Kembali ke beranda</span>
         </Link>
       </div>
     </div>

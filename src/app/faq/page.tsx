@@ -2,14 +2,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import FaqAccordion from "@/components/FaqAccordion";
-import { canonicalUrl } from "@/lib/seo";
+import { publicPageMetadata } from "@/lib/site";
 
-export const metadata = {
-  title: "FAQ | Kampung Inggris Sapen",
-  description: "Jawaban tentang pendaftaran, kelas, kode akses, dan penggunaan platform Kampung Inggris Sapen di Demangan, Yogyakarta.",
-  alternates: canonicalUrl("/faq") ? { canonical: canonicalUrl("/faq") } : undefined,
-  openGraph: { title: "FAQ | Kampung Inggris Sapen", description: "Jawaban tentang pendaftaran, kelas, kode akses, dan penggunaan platform Kampung Inggris Sapen di Demangan, Yogyakarta." },
-};
+export const metadata = publicPageMetadata({
+  title: "Pertanyaan Umum tentang Kelas dan Akses",
+  description: "Temukan panduan pendaftaran, kelas, kode akses, dan penggunaan Kampung Inggris Sapen di Demangan, Yogyakarta. Hubungi tim jika jawaban yang Anda cari belum tersedia.",
+  pathname: "/faq",
+});
 
 export default function FaqPage() {
   return (

@@ -75,6 +75,16 @@ export default function AdminWargaManager({
   const [codePrefix, setCodePrefix] = useState("SAP");
   const [savingPrefix, setSavingPrefix] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [registeredWarga, setRegisteredWarga] = useState<Array<{ id: string; name: string; rw: string; createdAt: string }>>([]);
+  const [exportFormat, setExportFormat] = useState<"excel" | "pdf" | "csv">("excel");
+
+  useEffect(() => { fetch("/api/admin/registered-warga", { cache: "no-store" }).then(async (response) => { const result = await response.json().catch(() => ({})); if (!response.ok) throw new Error(result.error || "Daftar warga terdaftar belum dapat dimuat."); setRegisteredWarga(Array.isArray(result.warga) ? result.warga : []); }).catch((error) => notify(error instanceof Error ? error.message : "Daftar warga terdaftar belum dapat dimuat.")); }, [notify]);
+
+  async function exportRegisteredWarga() {
+    const response = await fetch(`/api/admin/export?type=registered-warga&format=${exportFormat}`);
+    if (!response.ok) { notify("Ekspor daftar warga belum dapat disiapkan."); return; }
+    const url = URL.createObjectURL(await response.blob()); const link = document.createElement("a"); link.href = url; link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `daftar-warga.${exportFormat === "excel" ? "xlsx" : exportFormat}`; link.click(); URL.revokeObjectURL(url);
+  }
 
   useEffect(() => {
     let active = true;
@@ -314,43 +324,30 @@ export default function AdminWargaManager({
       </section>
 
       {/* Daftar Warga */}
-      <section className="rounded-xl border border-[#E5E7EB] bg-white p-6">
+      <section className="rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-6">
         <AdminSectionHeader
-          title={<h3 className="flex items-center gap-2 text-lg font-extrabold text-gray-900"><Users className="h-5 w-5 text-[#14532D]" /> Daftar Warga Terdaftar ({filteredWarga.length})</h3>}
-          description="Kelola nama panggilan warga, reset skor, atau blokir akun yang melanggar aturan."
-          actions={<button type="button" onClick={() => setShowReport(true)} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#F59E0B] px-4 py-2.5 text-xs font-extrabold text-gray-950 transition hover:bg-[#D97706] sm:w-auto"><Download className="h-4 w-4" /> Download</button>}
+          title={<h3 className="flex items-center gap-2 text-lg font-extrabold text-gray-900"><Users className="h-5 w-5 text-[#14532D]" /> Daftar Warga Terdaftar ({registeredWarga.length})</h3>}
+          description="Akun permanen yang dibuat menggunakan Kode Akses warga."
+          actions={<AdminToolbar className="w-full sm:w-auto"><select aria-label="Format ekspor warga" value={exportFormat} onChange={(event) => setExportFormat(event.target.value as typeof exportFormat)} className="min-h-11 min-w-0 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs"><option value="excel">Ekspor Excel (.xlsx)</option><option value="pdf">Ekspor PDF</option><option value="csv">Ekspor CSV</option></select><button type="button" onClick={() => void exportRegisteredWarga()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#14532D] px-4 text-xs font-extrabold text-white hover:bg-[#0f3d21]"><Download className="h-4 w-4" />Unduh</button></AdminToolbar>}
           className="mb-5"
         />
 
         <AdminToolbar className="mb-5 sm:justify-start">
-          <div className="relative col-span-2 min-w-0 sm:col-span-1 sm:min-w-[220px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Cari nama panggilan..." className="min-h-11 w-full rounded-lg border border-[#E5E7EB] py-2 pl-9 pr-3 text-xs focus:border-[#14532D] focus:outline-none" /></div>
+          <div className="relative col-span-2 min-w-0 sm:col-span-1 sm:min-w-[220px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Cari nama warga..." className="min-h-11 w-full rounded-lg border border-[#E5E7EB] py-2 pl-9 pr-3 text-xs focus:border-[#14532D] focus:outline-none" /></div>
           <select aria-label="Filter berdasarkan RW" value={filterRw} onChange={(e) => { setFilterRw(e.target.value); setPage(1); }} className="min-h-11 w-full min-w-0 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs font-semibold"><option value="ALL">Semua RW</option><option value="RW 06">RW 06</option><option value="RW 07">RW 07</option><option value="RW 08">RW 08</option></select>
-          <select aria-label="Urutkan warga" value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="min-h-11 w-full min-w-0 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs font-semibold"><option value="newest">Terbaru Terdaftar</option><option value="name">Nama Panggilan</option><option value="score">Skor Tertinggi</option><option value="games">Paling Banyak Main</option></select>
         </AdminToolbar>
 
         <ResponsiveTable
-          rows={paginatedWarga}
+          rows={registeredWarga.filter((w) => (filterRw === "ALL" || w.rw === filterRw) && (!search.trim() || w.name.toLocaleLowerCase("id-ID").includes(search.trim().toLocaleLowerCase("id-ID")))).sort((a,b) => b.createdAt.localeCompare(a.createdAt))}
           getRowKey={(w) => w.id}
           ariaLabel="Daftar warga terdaftar"
           emptyMessage="Tidak ada warga yang sesuai dengan kriteria pencarian."
-          tableMinWidthClassName="min-w-[900px]"
+          tableMinWidthClassName="min-w-[560px]"
           tableClassName="text-xs text-gray-700"
           columns={[
-            { id: "name", label: "Nama Panggilan", cellClassName: "font-extrabold text-gray-900", render: (w) => w.namaPanggilan },
+            { id: "name", label: "Nama", cellClassName: "font-extrabold text-gray-900", render: (w) => w.name },
             { id: "area", label: "Wilayah", render: (w) => <span className="inline-flex rounded border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-bold text-[#14532D]">{w.rw}</span> },
-            { id: "created", label: "Tgl Daftar", cellClassName: "text-[11px] text-gray-500", render: (w) => new Date(w.createdAt).toLocaleDateString("id-ID") },
-            { id: "last-login", label: "Login Terakhir", cellClassName: "text-[11px] text-gray-500", render: (w) => new Date(w.lastLoginAt).toLocaleDateString("id-ID") },
-            { id: "games", label: "Kuis Dimainkan", cellClassName: "text-center font-bold text-gray-700", headerClassName: "text-center", render: (w) => w.totalGamesPlayed || 0 },
-            { id: "score", label: "Skor Tertinggi", cellClassName: "text-center font-bold text-[#F59E0B]", headerClassName: "text-center", render: (w) => w.highScore || 0 },
-            { id: "status", label: "Status", render: (w) => w.isBlocked ? <span className="inline-flex rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">Diblokir</span> : <span className="inline-flex rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Aktif</span> },
-            { id: "actions", label: "Aksi", action: true, cellClassName: "text-right", headerClassName: "text-right", render: (w) => (
-              <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                <button type="button" onClick={() => { setEditingWarga(w); setEditedName(w.namaPanggilan); }} title={`Ubah nama ${w.namaPanggilan}`} aria-label={`Ubah nama ${w.namaPanggilan}`} className="grid min-h-11 min-w-11 place-items-center rounded-lg text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"><Edit2 className="h-3.5 w-3.5" /></button>
-                <button type="button" onClick={() => handleResetStats(w)} title={`Reset skor ${w.namaPanggilan}`} aria-label={`Reset skor ${w.namaPanggilan}`} className="grid min-h-11 min-w-11 place-items-center rounded-lg text-amber-700 transition hover:bg-amber-50"><RotateCcw className="h-3.5 w-3.5" /></button>
-                <button type="button" onClick={() => handleToggleBlock(w)} title={w.isBlocked ? "Buka blokir akun" : "Blokir akun"} aria-label={`${w.isBlocked ? "Buka blokir" : "Blokir akun"} ${w.namaPanggilan}`} className={`grid min-h-11 min-w-11 place-items-center rounded-lg transition ${w.isBlocked ? "text-emerald-700 hover:bg-emerald-50" : "text-red-700 hover:bg-red-50"}`}><Ban className="h-3.5 w-3.5" /></button>
-                <button type="button" onClick={() => handleDelete(w)} title={`Hapus akun ${w.namaPanggilan}`} aria-label={`Hapus akun ${w.namaPanggilan}`} className="grid min-h-11 min-w-11 place-items-center rounded-lg bg-[#fff2ec] text-[#a23b27] transition hover:bg-[#f9e1d8]"><Trash2 className="h-3.5 w-3.5" /></button>
-              </div>
-            ) },
+            { id: "created", label: "Tanggal Daftar", cellClassName: "text-[11px] text-gray-500", render: (w) => w.createdAt ? new Date(w.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "—" },
           ]}
         />
 

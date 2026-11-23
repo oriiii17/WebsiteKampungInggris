@@ -3,6 +3,8 @@ import { getServerSession, isAdminSession } from "@/lib/auth";
 import { readLocalDb } from "@/lib/db";
 import * as XLSX from "xlsx";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getRegisteredWargaAccounts } from "@/lib/admin-registered-warga";
+import { createAdminPdf } from "@/lib/admin-pdf";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
@@ -19,6 +21,12 @@ export async function GET(req: NextRequest) {
   let filename = "sapen-english-export";
 
   switch (type) {
+    case "registered-warga": {
+      const warga = await getRegisteredWargaAccounts();
+      exportData = { "Daftar Warga Terdaftar": warga.map((row) => ({ Nama: row.name, Wilayah: row.rw, "Tanggal Daftar": row.createdAt ? new Date(row.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "—" })) };
+      filename = "daftar-warga-terdaftar-sapen";
+      break;
+    }
     case "classes": {
       exportData = { "Daftar Kelas": (data.classes || []).map((kelas) => ({
         ID: kelas.id,
@@ -267,27 +275,13 @@ export async function GET(req: NextRequest) {
   const finalFilename = `${filename}-${timestamp}`;
 
   if (format === "pdf") {
-    const lines = Object.entries(exportData).flatMap(([sheetName, rows]) => [sheetName, ...rows.map((row) => Object.values(row).map((value) => String(value ?? "").replace(/\s+/g, " ")).join(" | ")), ""]);
-    const escapePdf = (value: string) => value.normalize("NFKD").replace(/[^\x20-\x7E]/g, "?").replace(/([\\()])/g, "\\$1");
-    const pages: string[][] = [];
-    for (let index = 0; index < lines.length || index === 0; index += 46) pages.push(lines.slice(index, index + 46));
-    const objects: string[] = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [" + pages.map((_, index) => `${3 + index * 2} 0 R`).join(" ") + `] /Count ${pages.length} >>`];
-    pages.forEach((page, index) => {
-      const pageId = 3 + index * 2;
-      const contentId = pageId + 1;
-      const stream = ["BT", "/F1 9 Tf", "48 790 Td", ...page.flatMap((line, lineIndex) => [`(${escapePdf(line).slice(0, 110)}) Tj`, lineIndex < page.length - 1 ? "0 -16 Td" : ""]), "ET"].join("\n");
-      objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents ${contentId} 0 R >>`);
-      objects.push(`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`);
-    });
-    const chunks = ["%PDF-1.4\n"];
-    const offsets = [0];
-    let offset = new TextEncoder().encode(chunks[0]).length;
-    objects.forEach((object, index) => { offsets.push(offset); const chunk = `${index + 1} 0 obj\n${object}\nendobj\n`; chunks.push(chunk); offset += new TextEncoder().encode(chunk).length; });
-    const xrefOffset = offset;
-    chunks.push(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map((entry) => `${String(entry).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
-    return new NextResponse(new TextEncoder().encode(chunks.join("")), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${finalFilename}.pdf"` } });
+    const sections = Object.entries(exportData).map(([sectionTitle, rows]) => ({
+      title: sectionTitle,
+      headers: rows[0] ? Object.keys(rows[0]) : [],
+      rows: rows.map((row) => Object.values(row)),
+    }));
+    return new NextResponse(createAdminPdf(`Kampung Inggris Sapen · ${filename}`, sections), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${finalFilename}.pdf"` } });
   }
-
   if (format === "csv") {
     const csvParts: string[] = [];
     for (const [sheetName, rows] of Object.entries(exportData)) {

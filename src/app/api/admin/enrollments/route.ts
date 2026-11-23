@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
-import { activateClassesForUser, getClassByIdOrSlug, getEnrollments, revokeClassAccessForUser } from "@/lib/db";
+import { activateClassesForUser, expireClassAccessForUser, getClassByIdOrSlug, getEnrollments, revokeClassAccessForUser } from "@/lib/db";
 
 export async function GET() {
   const session = await getServerSession();
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const cls = await getClassByIdOrSlug(classId);
     if (!cls) return NextResponse.json({ ok: false, error: "Kelas tidak ditemukan." }, { status: 404 });
 
-    const result = await activateClassesForUser({ classIds: [classId], userEmail: email, userName: name, source: "admin" });
+    const result = await activateClassesForUser({ classIds: [classId], userEmail: email, userName: name, source: "admin", paidAmountIdr: cls.priceIdr });
     return NextResponse.json({ ok: true, enrollment: result.activated[0] || null, alreadyOwned: result.alreadyOwned.length > 0, verified: true });
   } catch (e: any) {
     console.error("[admin/enrollments POST]", e);
@@ -47,4 +47,14 @@ export async function DELETE(req: NextRequest) {
     console.error("[admin/enrollments DELETE]", e);
     return NextResponse.json({ ok: false, error: e?.message || "Gagal mencabut akses." }, { status: 500 });
   }
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession();
+  if (!isAdminSession(session)) return NextResponse.json({ ok: false, error: "Akses ditolak." }, { status: 403 });
+  const body = await req.json().catch(() => ({}));
+  if (body.action !== "revoke" || typeof body.id !== "string") return NextResponse.json({ ok: false, error: "Aksi pencabutan tidak valid." }, { status: 400 });
+  const revoked = await expireClassAccessForUser(body.id);
+  if (!revoked) return NextResponse.json({ ok: false, error: "Akses kelas tidak ditemukan." }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }

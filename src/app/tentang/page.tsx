@@ -2,9 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BookOpen, Gamepad2, GraduationCap } from "lucide-react";
 
-import { canonicalUrl } from "@/lib/seo";
+import { publicPageMetadata } from "@/lib/site";
 
-export const metadata = { title: "Tentang Kampung Inggris Sapen | Program Belajar di Demangan", description: "Profil, arah belajar, dan layanan Bahasa Inggris Kampung Sapen untuk warga RW 06, 07, 08 dan peserta umum.", alternates: canonicalUrl("/tentang") ? { canonical: canonicalUrl("/tentang") } : undefined, openGraph: { title: "Tentang Kampung Inggris Sapen", description: "Profil program belajar Bahasa Inggris Kampung Sapen di Demangan, Yogyakarta." } };
+export const metadata = publicPageMetadata({
+  title: "Tentang Program Belajar di Demangan",
+  description: "Kenali Kampung Inggris Sapen, program belajar Bahasa Inggris yang tumbuh dari komunitas Demangan. Kegiatan dan materi terbuka bagi warga serta peserta umum.",
+  pathname: "/tentang",
+});
 
 export default function TentangPage() {
   return (

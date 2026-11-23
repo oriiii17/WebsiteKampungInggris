@@ -4,6 +4,7 @@ import { checkApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseProjectUrl } from "@/lib/supabase";
 import { sendAppEmail } from "@/lib/email";
+import { getSiteUrl } from "@/lib/site";
 
 export async function POST(request: NextRequest) {
   const limit = checkApiRateLimit(`register:${getRequestIp(request)}`, 5, 10 * 60 * 1000);
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
     const db = await readLocalDb();
-    const callbackUrl = new URL("/auth/callback?type=signup", request.nextUrl.origin).toString();
+    const callbackUrl = new URL("/auth/callback?type=signup", `${getSiteUrl()}/`).toString();
     const { data, error } = await supabase.auth.admin.generateLink({
       type: "signup",
       email,

@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Gamepad2, CheckCircle2, XCircle, Clock, Trophy, Loader2, ArrowRight, Send, Leaf, Sun, BookOpen, Sparkles, Volume2, Crown, Medal } from "lucide-react";
+import { Gamepad2, CheckCircle2, XCircle, Clock, Trophy, Loader2, ArrowRight, Send, Volume2, Crown, Medal } from "lucide-react";
 import confetti from "canvas-confetti";
 import { markGuestGameCompleted } from "@/lib/guest-game-progress";
 
 type Q = any;
-interface PlayerInfo { id: string; name: string; score: number; avatarId?: string; team?: string; }
-interface SessionState { pin: string; gameId?: string; templateTitle: string; status: "lobby" | "question" | "reveal" | "podium" | "closed"; currentQuestionIndex: number; totalQuestions: number; questionStartedAt: number; timeLimitSec: number; currentQuestion: Q | null; playersList: PlayerInfo[]; teamScores?: { team: string; score: number; players: number }[]; }
+interface PlayerInfo { id: string; name: string; score: number; }
+interface SessionState { pin: string; gameId?: string; templateTitle: string; status: "lobby" | "question" | "reveal" | "podium" | "closed"; currentQuestionIndex: number; totalQuestions: number; questionStartedAt: number; timeLimitSec: number; currentQuestion: Q | null; playersList: PlayerInfo[]; }
 
 const SHAPES = [
   { symbol: "○", bg: "bg-red-500 hover:bg-red-600" },
@@ -19,12 +19,10 @@ const SHAPES = [
 
 function shuffle<T>(arr: T[]): T[] { const a = [...arr]; for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
-export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode = false, sessionMode = false, guestParticipantId, saveHistory = false }: { pin: string; guestMode?: boolean; sessionMode?: boolean; guestParticipantId?: string; saveHistory?: boolean }) {
+export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode = false, guestParticipantId, saveHistory = false }: { pin: string; guestMode?: boolean; sessionMode?: boolean; guestParticipantId?: string; saveHistory?: boolean }) {
   const router = useRouter();
   const [playerId, setPlayerId] = useState("");
   const [playerName, setPlayerName] = useState("");
-  const [playerAvatarId, setPlayerAvatarId] = useState("leaf");
-  const [playerTeam, setPlayerTeam] = useState("forest");
   const [guestMode, setGuestMode] = useState(initialGuestMode);
   const [scanEntry, setScanEntry] = useState(false);
   const [closeFallback, setCloseFallback] = useState(false);
@@ -68,7 +66,7 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
   useEffect(() => {
     const raw = sessionStorage.getItem(`sapen_game_${pin}`);
     if (!raw) { router.push(`/game/join?pin=${pin}`); return; }
-    try { const p = JSON.parse(raw); setPlayerId(p.playerId); setPlayerName(p.playerName); setPlayerAvatarId(p.avatarId || "leaf"); setPlayerTeam(p.team || "forest"); setGuestMode(initialGuestMode || p.guestMode === true); setScanEntry(p.entry === "scan"); } catch { router.push(`/game/join?pin=${pin}`); }
+    try { const p = JSON.parse(raw); setPlayerId(p.playerId); setPlayerName(p.playerName); setGuestMode(initialGuestMode || p.guestMode === true); setScanEntry(p.entry === "scan"); } catch { router.push(`/game/join?pin=${pin}`); }
   }, [initialGuestMode, pin, router]);
 
   useEffect(() => {
@@ -145,7 +143,7 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
   const myRank = rankedPlayers.findIndex((p) => p.id === playerId) + 1;
 
   const returnFromGame = () => {
-    if (!scanEntry) { router.push(sessionMode ? "/games" : "/game"); return; }
+    if (!scanEntry) { router.push("/"); return; }
     window.close();
     window.setTimeout(() => { if (!window.closed) setCloseFallback(true); }, 250);
   };
@@ -171,11 +169,10 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
     <div className={`workbook-live flex min-h-screen w-full max-w-[1200px] select-none flex-col bg-paper transition-all ${flash === "correct" ? "bg-emerald-900/40 ring-4 ring-emerald-400/60" : ""} ${flash === "wrong" ? "animate-[shake_.35s_ease]" : ""}`}>
       <header className="bg-slate-950/80 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${playerTeam === "forest" ? "bg-emerald-600 text-white" : "bg-amber-400 text-amber-950"}`}>{playerAvatarId === "sun" ? <Sun className="h-4 w-4" /> : playerAvatarId === "bird" ? <Sparkles className="h-4 w-4" /> : playerAvatarId === "book" ? <BookOpen className="h-4 w-4" /> : <Leaf className="h-4 w-4" />}</div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white"><Gamepad2 className="h-4 w-4" /></div>
           <div>
             <p className="text-xs font-bold text-white leading-tight truncate max-w-[180px]">{playerName}</p>
             <p className="text-[10px] text-slate-400">PIN: {state.pin}</p>
-            <p className="text-[10px] font-bold text-emerald-300">Tim {playerTeam === "forest" ? "Daun" : "Mentari"}</p>
           </div>
         </div>
         {myPlayerInfo && (<div className="flex items-center gap-2"><span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs font-mono font-bold text-amber-400 border border-slate-700">{myPlayerInfo.score} pt</span>{myRank > 0 && <span className="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold text-slate-300">#{myRank}</span>}</div>)}
@@ -186,7 +183,7 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-5 animate-[fadeIn_.4s_ease] min-h-[60vh]">
             <div className="h-24 w-24 rounded-3xl bg-emerald-600/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-300 animate-pulse shadow-[0_0_40px_rgba(16,185,129,.25)]"><Gamepad2 className="h-12 w-12" /></div>
             <div><h1 className="text-3xl font-black text-white">Kamu Sudah Masuk!</h1><p className="text-sm text-slate-300 mt-2 leading-relaxed">Tunggu sebentar ya, <strong className="text-white">{playerName}</strong>. Host akan segera memulai.</p></div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4 w-full max-w-xl text-xs text-slate-300">Kuis: <span className="font-bold text-emerald-400">{state.templateTitle}</span><br/>Peserta: <span className="font-bold text-white">{state.playersList.length} orang</span><br/>Tim kamu: <span className="font-bold text-white">{playerTeam === "forest" ? "Daun" : "Mentari"}</span></div>
+            <div className="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900/70 p-4 text-xs text-slate-300">Kuis: <span className="font-bold text-emerald-400">{state.templateTitle}</span><br/>Peserta: <span className="font-bold text-white">{state.playersList.length} orang</span></div>
           </div>
         )}
 
@@ -279,18 +276,18 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-amber-200/30 bg-amber-300/15 text-amber-200 shadow-lg sm:h-20 sm:w-20"><Trophy className="h-9 w-9 sm:h-11 sm:w-11" /></div>
               <div><p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">Kuis selesai</p><h2 className="mt-2 font-display text-3xl font-bold sm:text-4xl">Kerja bagus, {playerName}!</h2><p className="mt-2 text-sm text-white/75">Inilah peringkat akhir untuk {state.templateTitle}.</p></div>
               <div className="grid gap-3 text-left sm:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]">
-                <section className="rounded-2xl border border-white/10 bg-white/[.07] p-5 sm:p-6"><div className="flex items-center gap-2 text-sm font-bold text-amber-100"><Crown className="h-4 w-4" />Pencapaianmu</div><p className="mt-4 font-display text-4xl font-bold text-amber-200">#{myRank || "—"}</p><p className="mt-1 text-sm text-white/75">{myPlayerInfo?.score || 0} poin · Tim {playerTeam === "forest" ? "Daun" : "Mentari"}</p><div className="mt-4 h-px bg-white/10" /><p className="mt-3 text-xs leading-5 text-white/70">Skor dihitung dari ketepatan dan kecepatan jawaban.</p></section>
+                <section className="rounded-2xl border border-white/10 bg-white/[.07] p-5 sm:p-6"><div className="flex items-center gap-2 text-sm font-bold text-amber-100"><Crown className="h-4 w-4" />Pencapaianmu</div><p className="mt-4 font-display text-4xl font-bold text-amber-200">#{myRank || "—"}</p><p className="mt-1 text-sm text-white/75">{myPlayerInfo?.score || 0} poin</p><div className="mt-4 h-px bg-white/10" /><p className="mt-3 text-xs leading-5 text-white/70">Skor dihitung dari ketepatan dan kecepatan jawaban.</p></section>
                 <section aria-label="Leaderboard akhir" className="rounded-2xl border border-white/10 bg-[#0d1d17]/55 p-4 sm:p-5"><h3 className="flex items-center gap-2 text-sm font-bold text-white"><Medal className="h-4 w-4 text-amber-200" />Peringkat peserta</h3>{rankedPlayers.length ? <ol className="mt-3 space-y-2">{rankedPlayers.slice(0, 5).map((player, index) => <li key={player.id} className={`flex min-h-12 items-center gap-3 rounded-xl px-3 py-2 ${player.id === playerId ? "bg-amber-200/15 ring-1 ring-amber-200/35" : "bg-white/[.05]"}`}><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-black ${index === 0 ? "bg-amber-300 text-[#38260a]" : index === 1 ? "bg-slate-200 text-slate-800" : index === 2 ? "bg-orange-300 text-orange-950" : "bg-white/10 text-white/75"}`}>{index + 1}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold">{player.name}{player.id === playerId && <span className="ml-1 text-xs text-amber-200">(kamu)</span>}</span><span className="shrink-0 text-sm font-bold tabular-nums text-amber-100">{player.score} pt</span></li>)}</ol> : <p className="mt-3 text-sm text-white/70">Belum ada skor peserta.</p>}</section>
               </div>
               {saveHistory && scoreHistoryStatus !== "idle" && <div><p role="status" className={`text-sm font-semibold ${scoreHistoryStatus === "error" ? "text-amber-100" : "text-emerald-100"}`}>{scoreHistoryStatus === "saving" ? "Menyimpan skor ke Riwayat Kuis…" : scoreHistoryStatus === "saved" ? "Skor tersimpan di Riwayat Kuis akun Anda." : "Skor belum tersimpan. Periksa koneksi lalu coba lagi."}</p>{scoreHistoryStatus === "error" && <button type="button" onClick={() => { savedLiveScoreRef.current = null; setScoreHistoryAttempt((attempt) => attempt + 1); }} className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-white/40 px-4 text-sm font-bold text-white hover:bg-white/10">Coba simpan lagi</button>}</div>}
               {closeFallback && <p role="status" className="rounded-xl border border-amber-200/25 bg-amber-100/10 px-4 py-3 text-sm text-amber-50">Browser tidak mengizinkan halaman ini menutup tab. Silakan tutup tab secara manual.</p>}
-              <button type="button" onClick={returnFromGame} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#c24a31] px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#a83d2a] active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100">{scanEntry ? "Selesai · tutup halaman" : sessionMode ? "Kembali ke Kuis" : "Kembali ke menu kuis"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button>
+              <button type="button" onClick={returnFromGame} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#c24a31] px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#a83d2a] active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100">{scanEntry ? "Selesai · tutup halaman" : "Kembali ke beranda"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button>
             </div>
           </div>
         )}
 
         {state.status === "closed" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4"><h2 className="text-xl font-bold text-white">Sesi Kuis Ditutup</h2><p className="text-sm text-slate-300">Pengajar telah menutup sesi ini.</p>{closeFallback && <p role="status" className="text-sm text-amber-100">Browser tidak mengizinkan halaman ini menutup tab. Silakan tutup tab secara manual.</p>}<button type="button" onClick={returnFromGame} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-500">{scanEntry ? "Tutup halaman" : guestMode ? "Kembali ke Kuis" : "Kembali ke menu game"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button></div>
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4"><h2 className="text-xl font-bold text-white">Sesi Kuis Ditutup</h2><p className="text-sm text-slate-300">Pengajar telah menutup sesi ini.</p>{closeFallback && <p role="status" className="text-sm text-amber-100">Browser tidak mengizinkan halaman ini menutup tab. Silakan tutup tab secara manual.</p>}<button type="button" onClick={returnFromGame} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-500">{scanEntry ? "Tutup halaman" : "Kembali ke beranda"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button></div>
         )}
       </main>
 

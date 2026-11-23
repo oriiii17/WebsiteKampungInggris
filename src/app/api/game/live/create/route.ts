@@ -58,7 +58,7 @@ export async function POST(req: Request) {
           console.error("[game/live/create] Blueprint lookup failed", { code: error.code, message: error.message });
           return NextResponse.json({ ok: false, error: "Game belum dapat diverifikasi. Pastikan game sudah tersimpan dan migrasi game_blueprints sudah diterapkan." }, { status: 503 });
         }
-        if (data) blueprint = { id: data.id, title: data.title, template: data.template, level: data.level, topic: data.topic, language: data.language, status: data.status, plays: data.play_count || 0, settings: data.settings, items: data.items, createdAt: data.created_at, updatedAt: data.updated_at };
+        if (data) blueprint = { id: data.id, title: data.title, cardInitials: String(data.card_initials || data.title || "Kuis").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toLocaleUpperCase("id-ID") || "KU", template: data.template, level: data.level, topic: data.topic, language: data.language, status: data.status, plays: data.play_count || 0, settings: data.settings, items: data.items, createdAt: data.created_at, updatedAt: data.updated_at };
       } else {
         blueprint = (await readLocalDb()).gameBlueprints?.find((entry) => entry.id === gameId && (entry.status === "published" || entry.status === "session")) || null;
       }
@@ -92,20 +92,18 @@ export async function POST(req: Request) {
       }
       const selectedLink = linkedGame;
       if (!selectedLink) return NextResponse.json({ ok: false, error: "Game ini belum ditautkan ke sesi tatap muka." }, { status: 404 });
-      if (selectedLink.liveStatus === "closed") return NextResponse.json({ ok: false, error: "Game ini sudah ditutup oleh pengurus." }, { status: 409 });
       if (selectedLink.livePin) {
         const existing = getLiveSession(selectedLink.livePin);
-        if (existing && existing.status !== "closed") {
+        if (existing && ["lobby", "question", "reveal"].includes(existing.status)) {
           if (body.mode === "host" && existing.hostId !== session?.id) return NextResponse.json({ ok: false, error: "Mode Host hanya dapat dibuka oleh pengurus yang membuat sesi game ini." }, { status: 403 });
           return NextResponse.json({ ok: true, pin: existing.pin, hostId: existing.hostId, templateTitle: existing.templateTitle, gameId: game.id, gameKind: game.kind });
         }
-        if (supabase) await supabase.from("class_session_games").update({ live_status: "closed" }).eq("session_id", classSessionId).eq("game_id", gameId);
+        if (supabase) await supabase.from("class_session_games").update({ live_pin: null, live_status: null }).eq("session_id", classSessionId).eq("game_id", gameId);
         else {
           const db = await readLocalDb();
           const relation = db.classSessionGames?.find((entry) => entry.sessionId === classSessionId && entry.gameId === gameId);
-          if (relation) { relation.liveStatus = "closed"; await writeLocalDb(db); }
+          if (relation) { relation.livePin = null; relation.liveStatus = null; await writeLocalDb(db); }
         }
-        return NextResponse.json({ ok: false, error: "Sesi game sebelumnya sudah berakhir. Game ini kini terkunci." }, { status: 409 });
       }
     }
 

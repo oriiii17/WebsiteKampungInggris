@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
 import { getSystemDiagnostics, readLocalDb, resetLocalDbToSeed } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   const session = await getServerSession();
@@ -46,6 +47,31 @@ export async function GET() {
     };
   }
 
+  const recentActivity = [
+    ...(db.classSessionGuests || []).map((guest) => ({ id: `guest-${guest.id}`, name: guest.name, kind: "Pendaftaran sesi", createdAt: guest.registeredAt })),
+    ...(db.externalUsers || []).map((user) => ({ id: `user-${user.id}`, name: user.name, kind: "Akun peserta", createdAt: user.createdAt })),
+  ].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 8);
+  let dashboardSessions = (db.classSessions || []).map((item) => ({ id: item.id, title: item.title, startsAt: item.startsAt, status: item.status })).filter((item) => item.status !== "closed").sort((a, b) => String(a.startsAt || "").localeCompare(String(b.startsAt || ""))).slice(0, 5);
+  if (supabase) {
+    const { data: sessionRows } = await supabase.from("class_sessions").select("id,title,starts_at,status").neq("status", "closed").order("starts_at", { ascending: true }).limit(5);
+    if (sessionRows) dashboardSessions = sessionRows.map((item) => ({ id: item.id, title: item.title, startsAt: item.starts_at, status: item.status }));
+  }
+  let externalUsers = (db.externalUsers || []).map((u: any) => ({ id: u.id, name: u.name, email: u.email, createdAt: u.createdAt }));
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+    const admin = createSupabaseAdminClient();
+    const [{ data: profiles }, { data: authUsers }] = await Promise.all([
+      admin.from("profiles").select("id,email,full_name,origin_type").eq("origin_type", "luar"),
+      admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    ]);
+    const authById = new Map((authUsers?.users || []).map((user) => [user.id, user]));
+    const merged = new Map(externalUsers.map((user) => [user.id, user]));
+    for (const profile of profiles || []) {
+      const authUser = authById.get(profile.id);
+      if (!merged.has(profile.id)) merged.set(profile.id, { id: profile.id, name: profile.full_name || authUser?.user_metadata?.full_name || "Peserta", email: profile.email || authUser?.email || "", createdAt: authUser?.created_at || "" });
+    }
+    externalUsers = [...merged.values()];
+  }
+
   return NextResponse.json({
     session,
     diagnostics,
@@ -81,13 +107,10 @@ export async function GET() {
     })),
     testimoni: db.testimoni || [],
     classes: db.classes || [],
+    dashboardSessions,
+    recentActivity,
     enrollments: db.enrollments || [],
-    externalUsers: (db.externalUsers || []).map((u: any) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      createdAt: u.createdAt,
-    })),
+    externalUsers,
   });
 }
 

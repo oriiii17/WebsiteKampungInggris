@@ -2,17 +2,17 @@ import Ajv, { ErrorObject } from "ajv";
 import schema from "./game.schema.json";
 
 export const GAME_TEMPLATES = [
-  { id: "multiple-choice-quiz", title: "Kuis Pilihan Ganda", description: "Pilih jawaban yang paling tepat.", image: "/images/game-quiz.svg" },
-  { id: "drag-and-sort", title: "Kelompokkan Kata", description: "Pindahkan kata ke kategori yang sesuai.", image: "/images/game-match.svg" },
-  { id: "listen-and-choose", title: "Dengar dan Pilih", description: "Dengarkan pengucapan, lalu pilih jawabannya.", image: "/images/game-time.svg" },
-  { id: "sentence-builder", title: "Susun Kalimat", description: "Susun kata menjadi kalimat yang benar.", image: "/images/game-builder.svg" },
-  { id: "matching", title: "Pasangkan Kata", description: "Temukan pasangan istilah dan artinya.", image: "/images/game-match.svg" },
-  { id: "word-bank", title: "Kartu Kosakata", description: "Pelajari kosakata, arti, dan pengucapannya.", image: "/images/game-story.svg" },
-  { id: "word-search", title: "Cari Kata", description: "Temukan kosakata di dalam kotak huruf.", image: "/images/game-quiz.svg" },
+  { id: "multiple-choice-quiz", title: "Kuis Pilihan Ganda", description: "Pilih jawaban yang paling tepat." },
+  { id: "drag-and-sort", title: "Kelompokkan Kata", description: "Pindahkan kata ke kategori yang sesuai." },
+  { id: "listen-and-choose", title: "Dengar dan Pilih", description: "Dengarkan pengucapan, lalu pilih jawabannya." },
+  { id: "sentence-builder", title: "Susun Kalimat", description: "Susun kata menjadi kalimat yang benar." },
+  { id: "matching", title: "Pasangkan Kata", description: "Temukan pasangan istilah dan artinya." },
+  { id: "word-bank", title: "Kartu Kosakata", description: "Pelajari kosakata, arti, dan pengucapannya." },
+  { id: "word-search", title: "Cari Kata", description: "Temukan kosakata di dalam kotak huruf." },
 ] as const;
 
 export type GameTemplateId = (typeof GAME_TEMPLATES)[number]["id"];
-export type GameLevel = "A1" | "A2" | "B1" | "B2";
+export type GameLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 export type GameBlueprintStatus = "draft" | "published" | "session" | "independent";
 export type GameBlueprintDestination = "public" | "session" | "independent";
 
@@ -35,6 +35,7 @@ export interface GameBlueprintItem {
 export interface GameBlueprint {
   id: string;
   title: string;
+  cardInitials: string;
   template: GameTemplateId;
   level: GameLevel;
   topic: string;
@@ -103,7 +104,10 @@ export function normalizeGameBlueprint(value: unknown): GameBlueprint {
     ? game.destination as GameBlueprintDestination
     : status === "session" ? "session" : status === "independent" ? "independent" : "public";
   const gameWithoutCover = Object.fromEntries(Object.entries(game).filter(([key]) => key !== "coverImage"));
-  return { ...gameWithoutCover, status, destination, items } as GameBlueprint;
+  const initialsSource = String(game.cardInitials || game.card_initials || "").replace(/[^\p{L}\p{N}]/gu, "");
+  const titleInitials = String(game.title || "Kuis").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2);
+  const cardInitials = (initialsSource || titleInitials || "KU").slice(0, 4).toLocaleUpperCase("id-ID");
+  return { ...gameWithoutCover, cardInitials, status, destination, items } as GameBlueprint;
 }
 
 const validator = new Ajv({ allErrors: true, jsonPointers: true }).compile(schema);
@@ -116,6 +120,7 @@ export function validateGameBlueprint(value: unknown): { valid: boolean; errors:
   });
   if (value && typeof value === "object" && Array.isArray((value as GameBlueprint).items)) {
     const game = value as GameBlueprint;
+    if (game.cardInitials.length < 2 || game.cardInitials.length > 4) errors.push("Kuis.inisial: isi 2–4 karakter.");
     game.items.forEach((item, index) => {
       if ((game.template === "multiple-choice-quiz" || game.template === "listen-and-choose") && (item.correctIndex === undefined || item.correctIndex >= (item.options?.length || 0))) {
         errors.push(`item ${index + 1}: tandai satu pilihan sebagai jawaban benar.`);
@@ -204,6 +209,7 @@ export function createEmptyBlueprint(template: GameTemplateId, now = new Date().
   return {
     id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     title: "",
+    cardInitials: "KU",
     template,
     level: "A1",
     topic: "Kosakata sehari-hari",

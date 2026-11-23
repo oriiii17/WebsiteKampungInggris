@@ -4,18 +4,17 @@ import { ArrowRight, BookOpen, Clock, Gamepad2, Info } from "lucide-react";
 import { getClasses, getModules, getPublishedIndependentGameCounts, getUserEnrollments } from "@/lib/db";
 import ClassAccessAction from "@/components/ClassAccessAction";
 import type { Metadata } from "next";
-import { canonicalUrl } from "@/lib/seo";
+import { publicPageMetadata } from "@/lib/site";
 import { formatIDR } from "@/lib/currency";
 import { getSessionWithGuestContext } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getGuestSessionDestination } from "@/lib/guest-session-destination";
 
-export const metadata: Metadata = {
-  title: "Daftar Kelas Bahasa Inggris | Kampung Inggris Sapen",
-  description: "Jelajahi kelas Bahasa Inggris, materi, latihan, dan game edukatif di Kampung Inggris Sapen, Demangan, Yogyakarta.",
-  alternates: canonicalUrl("/kelas") ? { canonical: canonicalUrl("/kelas") } : undefined,
-  openGraph: { title: "Daftar Kelas Bahasa Inggris | Kampung Inggris Sapen", description: "Jelajahi kelas Bahasa Inggris, materi, latihan, dan game edukatif di Kampung Inggris Sapen, Demangan, Yogyakarta." },
-};
+export const metadata: Metadata = publicPageMetadata({
+  title: "Kelas Bahasa Inggris untuk Semua Tingkat",
+  description: "Temukan kelas, materi, dan latihan Bahasa Inggris di Kampung Inggris Sapen, Demangan, Yogyakarta. Pilih program belajar yang sesuai dan mulai berlatih bersama.",
+  pathname: "/kelas",
+});
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

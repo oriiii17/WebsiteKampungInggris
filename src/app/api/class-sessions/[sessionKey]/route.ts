@@ -141,7 +141,7 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
     let title = "";
     let registrationStatus: "pending" | "approved" = "pending";
     if (supabase) {
-      const { data: target, error: targetError } = await supabase.from("class_sessions").select("id,title,status,starts_at,class_id").eq("code", code).maybeSingle();
+      const { data: target, error: targetError } = await supabase.from("class_sessions").select("id,title,status,starts_at,class_id,require_approval").eq("code", code).maybeSingle();
       if (targetError || !target || target.status !== "open") return NextResponse.json({ error: "Sesi tidak terbuka atau kode tidak sesuai." }, { status: 410 });
       if (target.starts_at && new Date(target.starts_at).getTime() > Date.now()) return NextResponse.json({ error: "Sesi belum dibuka sesuai jadwal." }, { status: 425 });
       sessionId = target.id; title = target.title;
@@ -150,11 +150,20 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
         : { data: null };
       if (existing.data) {
         registrationId = existing.data.id;
-        registrationStatus = existing.data.status === "approved" ? "approved" : "pending";
+        registrationStatus = !target.require_approval || existing.data.status === "approved" ? "approved" : "pending";
+        if (!target.require_approval && existing.data.status !== "approved") {
+          const { error: approvalError } = await supabase.from("class_session_guests").update({ status: "approved" }).eq("id", existing.data.id);
+          if (approvalError) return NextResponse.json({ error: "Sesi tidak memerlukan persetujuan, tetapi status peserta belum dapat diperbarui. Coba lagi." }, { status: 503 });
+        }
       } else {
-        const { data: created, error: createError } = await supabase.from("class_session_guests").insert({ session_id: sessionId, full_name: guest.name, whatsapp: guest.whatsapp || null, status: "pending" }).select("id,status").single();
+        const status = target.require_approval ? "pending" : "approved";
+        const { data: created, error: createError } = await supabase.from("class_session_guests").insert({ session_id: sessionId, full_name: guest.name, whatsapp: guest.whatsapp || null, status }).select("id,status").single();
         if (createError || !created) return NextResponse.json({ error: createError?.code === "23505" ? "Nomor ini sudah terdaftar pada sesi. Muat ulang untuk melihat statusnya." : "Permintaan bergabung belum tersimpan. Coba lagi." }, { status: 409 });
-        registrationId = created.id; registrationStatus = "pending";
+        registrationId = created.id; registrationStatus = status;
+      }
+      if (registrationStatus === "approved") {
+        const { error: attendanceError } = await supabase.from("class_session_attendance").upsert({ session_id: sessionId, participant_key: `guest:${registrationId}`, participant_name: guest.name, participant_type: "guest", guest_registration_id: registrationId, whatsapp: guest.whatsapp || null }, { onConflict: "session_id,participant_key" });
+        if (attendanceError) return NextResponse.json({ error: "Akses sesi aktif, tetapi presensi belum tercatat. Muat ulang halaman untuk menyinkronkan presensi." }, { status: 503 });
       }
     } else {
       const db = await readLocalDb();
@@ -164,10 +173,14 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
       sessionId = target.id; title = target.title;
       const guests = db.classSessionGuests ||= [];
       const existing = current.guestSessionId === sessionId && current.guestRegistrationId ? guests.find((item) => item.id === current.guestRegistrationId && item.sessionId === sessionId) : undefined;
-      if (existing) { registrationId = existing.id; registrationStatus = existing.status === "approved" ? "approved" : "pending"; }
+      if (existing) { registrationId = existing.id; registrationStatus = !target.requireApproval || existing.status === "approved" ? "approved" : "pending"; if (!target.requireApproval) existing.status = "approved"; }
       else {
-        const created = { id: crypto.randomUUID(), sessionId, name: guest.name, whatsapp: guest.whatsapp, status: "pending" as const, registeredAt: new Date().toISOString() };
-        guests.push(created); registrationId = created.id;
+        const created = { id: crypto.randomUUID(), sessionId, name: guest.name, whatsapp: guest.whatsapp, status: (target.requireApproval ? "pending" : "approved") as "pending" | "approved", registeredAt: new Date().toISOString() };
+        guests.push(created); registrationId = created.id; registrationStatus = created.status;
+      }
+      if (registrationStatus === "approved") {
+        const attendance = db.classSessionAttendance ||= [];
+        if (!attendance.some((row) => row.sessionId === sessionId && row.participantKey === `guest:${registrationId}`)) attendance.push({ id: crypto.randomUUID(), sessionId, participantKey: `guest:${registrationId}`, participantName: guest.name, participantType: "guest", guestRegistrationId: registrationId, whatsapp: guest.whatsapp || undefined, attendedAt: new Date().toISOString() });
       }
       const { writeLocalDb } = await import("@/lib/db"); await writeLocalDb(db);
     }

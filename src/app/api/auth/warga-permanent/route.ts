@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getServerSession } from "@/lib/auth";
 import { getSupabaseProjectUrl } from "@/lib/supabase";
 import { sendAppEmail } from "@/lib/email";
+import { getSiteUrl } from "@/lib/site";
 
 export async function POST(request: NextRequest) {
   const wargaSession = await getServerSession();
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createSupabaseAdminClient();
-    const callbackUrl = new URL("/auth/callback?type=signup", request.nextUrl.origin).toString();
+    const callbackUrl = new URL("/auth/callback?type=signup", `${getSiteUrl()}/`).toString();
     const { data, error } = await admin.auth.admin.generateLink({
       type: "signup",
       email,

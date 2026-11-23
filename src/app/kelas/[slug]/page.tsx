@@ -4,20 +4,18 @@ import { getSessionWithGuestContext } from "@/lib/auth";
 import { getClassByIdOrSlug, getModules, getPublishedIndependentGameCounts, getUserEnrollments } from "@/lib/db";
 import ClassDetailClient from "./ClassDetailClient";
 import type { Metadata } from "next";
-import { canonicalUrl } from "@/lib/seo";
+import { publicPageMetadata } from "@/lib/site";
 import { getApprovedActiveClassSession } from "@/lib/active-class-session";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const classItem = await getClassByIdOrSlug(slug);
   if (!classItem || !classItem.isPublished) return { title: "Kelas | Kampung Inggris Sapen", robots: { index: false, follow: false } };
-  return {
-    title: `${classItem.title} | Kelas Kampung Inggris Sapen`,
-    description: `Lihat materi, latihan, dan informasi kelas ${classItem.title} di Kampung Inggris Sapen, Yogyakarta.`,
-    alternates: canonicalUrl(`/kelas/${encodeURIComponent(classItem.slug || classItem.id)}`)
-      ? { canonical: canonicalUrl(`/kelas/${encodeURIComponent(classItem.slug || classItem.id)}`) }
-      : undefined,
-  };
+  return publicPageMetadata({
+    title: `${classItem.title} · Kelas Bahasa Inggris`,
+    description: `Pelajari materi, latihan, dan informasi kelas ${classItem.title} di Kampung Inggris Sapen, Yogyakarta. Kenali pilihan belajar dan akses kelas yang tersedia.`,
+    pathname: `/kelas/${encodeURIComponent(classItem.slug || classItem.id)}`,
+  });
 }
 
 export default async function ClassDetailPage({

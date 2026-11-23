@@ -59,9 +59,12 @@ export default function AdminClassesManager({ notify }: Props) {
   const [priceInputValid, setPriceInputValid] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formStep, setFormStep] = useState(0);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [classView, setClassView] = useState<"active" | "drafts">("active");
-  const [exportFormat, setExportFormat] = useState<"excel" | "csv">("excel");
+  const [exportFormat, setExportFormat] = useState<"excel" | "csv" | "pdf">("excel");
+  const [classQuery, setClassQuery] = useState("");
+  const [classLevel, setClassLevel] = useState("all");
 
   async function loadClasses() {
     setLoading(true);
@@ -74,7 +77,7 @@ export default function AdminClassesManager({ notify }: Props) {
       const gameResponse = await fetch("/api/admin/game-builder", { cache: "no-store" });
       if (gameResponse.ok) {
         const availableGames = (await gameResponse.json()).games || [];
-        setPublishedGames(availableGames.filter((game: GameBlueprint) => ["published", "independent"].includes(game.status) && game.destination === "independent"));
+        setPublishedGames(availableGames.filter((game: GameBlueprint) => game.status === "published" && game.destination === "independent"));
       }
     } catch {}
     finally { setLoading(false); }
@@ -87,7 +90,7 @@ export default function AdminClassesManager({ notify }: Props) {
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `daftar-kelas.${exportFormat === "excel" ? "xlsx" : "csv"}`;
+      link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `daftar-kelas.${exportFormat === "excel" ? "xlsx" : exportFormat}`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) { notify(error instanceof Error ? error.message : "Ekspor kelas gagal."); }
@@ -95,6 +98,7 @@ export default function AdminClassesManager({ notify }: Props) {
   useEffect(() => { loadClasses(); }, []);
 
   function startEdit(c: ClassItem) {
+    setEditorOpen(true);
     setEditingId(c.id);
     setFormStep(0);
     setForm({ ...c, modules: [...(c.modules || [])].sort((a,b)=>a.urutan-b.urutan) });
@@ -102,6 +106,7 @@ export default function AdminClassesManager({ notify }: Props) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function resetForm() {
+    setEditorOpen(false);
     setEditingId(null);
     setFormStep(0);
     setForm(emptyClass());
@@ -252,15 +257,17 @@ export default function AdminClassesManager({ notify }: Props) {
     }
   }
 
-  const visibleClasses = classes.filter((item) => classView === "drafts" ? (!item.isPublished || item.status === "draft") : (item.isPublished && item.status !== "draft"));
+  const visibleClasses = classes.filter((item) => (classView === "drafts" ? (!item.isPublished || item.status === "draft") : (item.isPublished && item.status !== "draft")) && (!classQuery.trim() || `${item.title} ${item.description}`.toLocaleLowerCase("id-ID").includes(classQuery.trim().toLocaleLowerCase("id-ID"))) && (classLevel === "all" || item.tingkat === classLevel));
 
   return (
     <div className="mt-6 space-y-6 text-[#1A2E1A]">
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
-        <form onSubmit={(event) => { event.preventDefault(); handleSave(false); }} className="space-y-5 rounded-xl border border-[#E5E7EB] bg-white p-5 pb-28 sm:p-6 sm:pb-28 md:pb-6 xl:col-span-7">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-extrabold text-[#183b2d]">Kelola kelas</h2><p className="mt-1 text-sm text-muted">Atur kelas, bab, materi, dan latihan mandiri.</p></div><button type="button" onClick={() => { resetForm(); setEditorOpen(true); }} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d]"><Plus className="h-4 w-4" />Buat Kelas Baru</button></div>
+      <div className="grid grid-cols-1 items-start gap-6">
+        {editorOpen && <form onSubmit={(event) => { event.preventDefault(); handleSave(false); }} className="mx-auto w-full max-w-3xl space-y-5 rounded-xl border border-[#E5E7EB] bg-white p-5 pb-28 sm:p-6 sm:pb-28 md:pb-6">
           <div className="flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 text-base font-extrabold text-[#1A2E1A]"><Plus className="h-4 w-4 text-[#14532D]" /> {editingId ? "Edit Kelas" : "Buat Kelas Baru"}</h3>
             {editingId && <button type="button" onClick={resetForm} className="text-xs font-bold text-[#14532D] hover:underline">Buat Baru</button>}
+            <button type="button" onClick={resetForm} className="ml-auto min-h-11 px-3 text-sm font-bold text-[#244b3a] underline">Kembali ke Daftar Kelas</button>
           </div>
 
           <ol className="grid grid-cols-3 overflow-hidden rounded-lg border border-rule bg-paper-light text-xs font-bold">
@@ -324,7 +331,7 @@ export default function AdminClassesManager({ notify }: Props) {
 
           <div className="fixed inset-x-0 bottom-0 z-30 flex flex-wrap justify-between gap-2 border-t border-[#d8d0c2] bg-[#fffdf8] px-4 pt-3 pb-[calc(.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(26,46,26,.12)] md:static md:z-auto md:border-t md:bg-transparent md:px-0 md:py-0 md:pt-4 md:shadow-none">
             <p className="w-full text-center text-xs font-bold text-[#514b3e] md:hidden" aria-live="polite">Langkah {formStep + 1} dari 3</p>
-            <button type="button" onClick={() => setFormStep((s) => Math.max(0,s-1))} disabled={formStep===0} className="min-h-11 rounded-md border border-rule px-4 text-sm font-bold disabled:opacity-40">Sebelumnya</button>
+            {formStep > 0 && <button type="button" onClick={() => setFormStep((s) => Math.max(0,s-1))} className="min-h-11 rounded-md border border-rule px-4 text-sm font-bold">Sebelumnya</button>}
             {formStep < 2 ? <button type="button" onClick={() => { if(formStep===0 && !form.title.trim()){notify("Isi nama kelas sebelum lanjut.");return;} setFormStep((s)=>Math.min(2,s+1)); }} className="min-h-11 rounded-md bg-leaf px-5 text-sm font-extrabold text-white">Lanjut</button> : <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => handleSave(false)} disabled={saving} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border border-rule-strong bg-paper-light px-4 py-2.5 text-sm font-extrabold text-leaf disabled:opacity-60">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Simpan ke Draft
@@ -335,38 +342,39 @@ export default function AdminClassesManager({ notify }: Props) {
             {editingId && <button type="button" onClick={resetForm} className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-4 py-2.5 text-sm font-bold hover:bg-[#FDFBF7]">Batal Edit</button>}
             </div>}
           </div>
-        </form>
+        </form>}
 
-        <div className="space-y-4 xl:col-span-5">
+        <div className="space-y-4">
           <AdminSectionHeader
             title={<><h3 className="flex items-center gap-2 text-base font-extrabold text-[#1A2E1A]"><BookOpen className="h-4 w-4 text-[#14532D]" /> {classView === "active" ? "Kelas Aktif" : "Draft Kelas"} ({visibleClasses.length})</h3><div role="group" aria-label="Filter status kelas" className="mt-2 grid w-full grid-cols-2 rounded-lg border border-rule bg-paper-light p-1 sm:inline-grid sm:w-auto"><button type="button" aria-pressed={classView === "active"} onClick={() => setClassView("active")} className={`min-h-11 rounded-md px-3 text-xs font-bold ${classView === "active" ? "bg-leaf text-white" : "text-muted"}`}>Aktif</button><button type="button" aria-pressed={classView === "drafts"} onClick={() => setClassView("drafts")} className={`min-h-11 rounded-md px-3 text-xs font-bold ${classView === "drafts" ? "bg-leaf text-white" : "text-muted"}`}>Draft</button></div></>}
-            actions={<AdminToolbar className="w-full sm:w-auto"><select aria-label="Format ekspor kelas" value={exportFormat} onChange={(event) => setExportFormat(event.target.value as "excel" | "csv")} className="min-h-11 min-w-0 rounded-md border border-rule bg-white px-2 text-xs"><option value="excel">Excel (.xlsx)</option><option value="csv">CSV (.csv)</option></select><button type="button" onClick={exportClasses} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md border border-rule px-2.5 text-xs font-bold text-[#14532D] hover:bg-paper-light"><FileDown className="h-3.5 w-3.5"/>Ekspor</button><button type="button" onClick={loadClasses} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md px-2 text-xs font-bold text-[#14532D] hover:underline"><RefreshCw className="h-3.5 w-3.5" /> Segarkan</button></AdminToolbar>}
+            actions={<AdminToolbar className="w-full sm:w-auto"><select aria-label="Format ekspor kelas" value={exportFormat} onChange={(event) => setExportFormat(event.target.value as "excel" | "csv" | "pdf")} className="min-h-11 min-w-0 rounded-md border border-rule bg-white px-2 text-xs"><option value="excel">Ekspor Excel (.xlsx)</option><option value="pdf">Ekspor PDF</option><option value="csv">Ekspor CSV</option></select><button type="button" onClick={exportClasses} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md border border-rule px-2.5 text-xs font-bold text-[#14532D] hover:bg-paper-light"><FileDown className="h-3.5 w-3.5"/>Unduh</button><button type="button" onClick={loadClasses} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md px-2 text-xs font-bold text-[#14532D] hover:underline"><RefreshCw className="h-3.5 w-3.5" /> Segarkan</button></AdminToolbar>}
             className="items-stretch"
           />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_13rem]"><label className="block text-xs font-bold text-[#514b3e]">Cari kelas<input value={classQuery} onChange={(event) => setClassQuery(event.target.value)} placeholder="Cari judul kelas" className="mt-1 min-h-11 w-full rounded-lg border border-rule bg-white px-3 text-sm" /></label><label className="block text-xs font-bold text-[#514b3e]">Tingkat<select value={classLevel} onChange={(event) => setClassLevel(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-rule bg-white px-3 text-sm"><option value="all">Semua tingkat</option><option>Pemula</option><option>Menengah</option><option value="Lanjutan">Mahir</option></select></label></div>
           {loading ? (
             <div className="rounded-xl border border-[#E5E7EB] bg-white p-8 text-center text-sm text-[#1A2E1A]/60">Memuat data kelas...</div>
           ) : visibleClasses.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-8 text-center text-sm text-[#1A2E1A]/60">{classView === "active" ? "Belum ada kelas yang dipublikasikan." : "Draft kelas masih kosong."}</div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleClasses.map((cls) => (
-                <div key={cls.id} className={`rounded-xl border bg-white p-4 ${editingId===cls.id?"border-[#14532D]":"border-[#E5E7EB]"}`}>
+                <div key={cls.id} className={`flex min-w-0 flex-col rounded-xl border bg-white p-4 ${editingId===cls.id?"border-[#14532D]":"border-[#E5E7EB]"}`}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
                         <span className="rounded-md border border-[#E5E7EB] bg-[#FDFBF7] px-2 py-0.5 text-[11px] font-bold text-[#14532D]">{cls.status || "berjalan"}</span>
-                        <span className="rounded-md border border-[#E5E7EB] bg-white px-2 py-0.5 text-[11px] font-bold text-[#1A2E1A]">{formatIDR(cls.priceIdr)}</span>
-                        <span className="text-[11px] font-bold text-[#1A2E1A]/60">{cls.isPublished ? "Tayang di katalog" : "Belum dipublikasikan"}</span>
+                        <span className="rounded-md border border-[#E5E7EB] bg-white px-2 py-0.5 text-[11px] font-bold text-[#1A2E1A]">{cls.priceIdr ? formatIDR(cls.priceIdr) : "Gratis"}</span>
+                        <span className="rounded-full bg-[#e6eadf] px-2 py-1 text-[11px] font-bold text-[#244b3a]">{cls.isPublished ? "Terbit" : "Draft"}</span>
                       </div>
                       <h4 className="text-base font-extrabold text-[#1A2E1A]">{cls.title}</h4>
                       {cls.tingkat && <p className="text-xs font-semibold text-[#14532D]">Tingkat {cls.tingkat}</p>}
                       <p className="mt-1 text-xs text-[#1A2E1A]/70 line-clamp-2">{cls.description}</p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                      {cls.isPublished && <Link href={`/sesi/kelola?classId=${encodeURIComponent(cls.id)}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[#244b3a] px-3 text-xs font-bold text-white hover:bg-[#183b2d]"><Plus className="h-3.5 w-3.5" />Buat sesi</Link>}
-                      <button type="button" onClick={()=>startEdit(cls)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] text-[#14532D] hover:bg-[#FDFBF7]" title="Edit"><Pencil className="h-4 w-4" /></button>
-                      <Link href={`/kelas/${cls.slug}`} target="_blank" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] text-[#1A2E1A] hover:bg-[#FDFBF7]" title="Lihat Publik"><ExternalLink className="h-4 w-4" /></Link>
-                      <button type="button" onClick={()=>handleDelete(cls.id)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E5E7EB] text-[#7A1F1F] hover:bg-[#FDFBF7]" title="Hapus"><Trash2 className="h-4 w-4" /></button>
+                    <div className="mt-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-3">
+                      {cls.isPublished && <Link href={`/sesi/kelola?classId=${encodeURIComponent(cls.id)}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-[#244b3a] px-3 text-xs font-bold text-white hover:bg-[#183b2d]"><Plus className="h-3.5 w-3.5" />Buat sesi</Link>}
+                      <button type="button" onClick={()=>startEdit(cls)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#E5E7EB] text-[#14532D] hover:bg-[#FDFBF7]" title="Edit" aria-label={`Edit ${cls.title}`}><Pencil className="h-4 w-4" /></button>
+                      <Link href={`/kelas/${cls.slug}`} target="_blank" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#E5E7EB] text-[#1A2E1A] hover:bg-[#FDFBF7]" title="Lihat kelas" aria-label={`Lihat ${cls.title}`}><ExternalLink className="h-4 w-4" /></Link>
+                      <button type="button" onClick={()=>handleDelete(cls.id)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#fff2ec] text-[#7A1F1F] hover:bg-[#f9e1d8]" title="Hapus" aria-label={`Hapus ${cls.title}`}><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-[#E5E7EB] pt-3 text-xs text-[#1A2E1A]/70">
