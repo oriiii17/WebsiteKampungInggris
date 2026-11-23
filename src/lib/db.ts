@@ -1418,7 +1418,9 @@ export async function getUserEnrollments(userEmail: string): Promise<ClassEnroll
   const db = await readLocalDb();
   const list = db.enrollments || [];
   const now = new Date().getTime();
-  return list.filter((e) => e.userEmail.toLowerCase() === userEmail.toLowerCase() && (!e.expiresAt || new Date(e.expiresAt).getTime() > now) && e.status === "active");
+  const email = userEmail.trim().toLowerCase();
+  if (!email) return [];
+  return list.filter((e) => e.userEmail.trim().toLowerCase() === email && (!e.expiresAt || new Date(e.expiresAt).getTime() > now) && e.status === "active");
 }
 
 export async function enrollUserInClass(opts: {
@@ -1461,7 +1463,8 @@ export async function activateClassesForUser(opts: {
 }): Promise<{ activated: ClassEnrollment[]; alreadyOwned: string[] }> {
   const email = opts.userEmail.trim().toLowerCase();
   const classIds = [...new Set(opts.classIds.map((id) => String(id).trim()).filter(Boolean))];
-  if (!email || !classIds.length) throw new Error("Pilih setidaknya satu kelas untuk diaktifkan.");
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Email akun tidak tersedia. Keluar lalu masuk kembali sebelum mengambil kelas.");
+  if (!classIds.length) throw new Error("Pilih setidaknya satu kelas untuk diaktifkan.");
 
   const db = await readLocalDb();
   const allClasses = db.classes || [];

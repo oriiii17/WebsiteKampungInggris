@@ -6,25 +6,25 @@ import { useEffect, useState } from "react";
 import { ArrowRight, ArrowUpRight, ShoppingBag, Trash2 } from "lucide-react";
 import type { ClassItem } from "@/lib/types";
 import { formatIDR } from "@/lib/currency";
-
-const KEY = "sapen_class_cart";
-function readCartIds(): string[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(KEY) || "[]");
-    return Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === "string"))] : [];
-  } catch { return []; }
-}
+import { getCartIdentity, readClassCart, writeClassCart, type CartIdentity } from "@/lib/class-cart-client";
 
 export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
   const [ids, setIds] = useState<string[]>([]);
+  const [identity, setIdentity] = useState<CartIdentity>({ kind: "guest" });
   const [ready, setReady] = useState(false);
-  useEffect(() => { setIds(readCartIds()); setReady(true); }, []);
+  useEffect(() => {
+    let active = true;
+    const sync = async () => { const next = await getCartIdentity(); if (!active) return; setIdentity(next); setIds(readClassCart(next)); setReady(true); };
+    void sync();
+    window.addEventListener("sapen:session-changed", sync);
+    window.addEventListener("storage", sync);
+    return () => { active = false; window.removeEventListener("sapen:session-changed", sync); window.removeEventListener("storage", sync); };
+  }, []);
   const items = classes.filter((item) => ids.includes(item.id));
   const total = items.reduce((sum, item) => sum + item.priceIdr, 0);
   function remove(id: string) {
     const next = ids.filter((value) => value !== id);
-    localStorage.setItem(KEY, JSON.stringify(next));
-    window.dispatchEvent(new Event("sapen:cart-updated"));
+    writeClassCart(identity, next);
     setIds(next);
   }
 

@@ -152,7 +152,7 @@ export default function JoinGameClient({ defaultName = "", isGuest = false }: { 
         <button
           type="submit"
           disabled={!canSubmit}
-          className="mt-6 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-md bg-earth px-4 py-3.5 text-base font-bold text-white transition hover:bg-earth-dark active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+          className="mt-6 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-md bg-earth px-4 py-3.5 text-base font-bold text-white transition hover:bg-earth-dark  disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
         >
           {loading ? (
             <>

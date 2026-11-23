@@ -22,7 +22,7 @@
 
 .admin-theme :where(h1) {
   color: var(--admin-text) !important;
-  font-family: "Fraunces", Georgia, serif;
+  font-family: var(--font-fraunces), Georgia, serif;
   font-size: 28px !important;
   font-weight: 750 !important;
   line-height: 1.25 !important;

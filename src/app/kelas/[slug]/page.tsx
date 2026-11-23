@@ -66,6 +66,7 @@ export default async function ClassDetailPage({
           isEnrolled={isEnrolled}
           sessionUser={session}
           independentGameCount={independentGameCount}
+          watchRevocation={Boolean(session?.email && !session.guestSessionId && !session.role?.includes("guest") && session.origin !== "warga_kode" && isEnrolled)}
         />
       </div>
     </div>

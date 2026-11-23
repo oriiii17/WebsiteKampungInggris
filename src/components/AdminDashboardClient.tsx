@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -39,13 +40,16 @@ import {
 import AdminWargaManager from "@/components/admin/AdminWargaManager";
 import AdminTestimoniManager from "@/components/admin/AdminTestimoniManager";
 import AdminClassesManager from "@/components/admin/AdminClassesManager";
-import GameBuilderClient from "@/components/admin/GameBuilderClient";
 import ClassSessionManager from "@/components/admin/ClassSessionManager";
 import AdminCodesManager from "@/components/admin/AdminCodesManager";
 import ResponsiveTable from "@/components/admin/ResponsiveTable";
 import { AdminSectionHeader } from "@/components/admin/AdminSectionHeader";
 import "@/components/admin/AdminTheme.css";
 import { useAppDialog } from "@/components/AppDialogProvider";
+
+const GameBuilderClient = dynamic(() => import("@/components/admin/GameBuilderClient"), {
+  loading: () => <div className="rounded-xl border border-rule bg-white p-6 text-sm text-muted">Memuat editor kuis…</div>,
+});
 
 interface AdminOverviewData {
   session: SessionPayload;
@@ -305,9 +309,6 @@ export default function AdminDashboardClient() {
       <div className="flex items-center justify-between gap-2 border-b border-[#E5E7EB] px-4 py-4">
         <Link href="/admin" className="flex items-center gap-2.5">
           <Image src="/sapen-english-village-logo.jpg" alt="Sapen English Village" width={651} height={453} priority className="h-auto w-[104px] shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-[#1A2E1A]/60">Panel Pengurus</p>
-          </div>
         </Link>
         <button type="button" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu" title="Tutup menu" className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg border border-[#E5E7EB] text-[#1A2E1A] transition hover:bg-[#FDFBF7] md:hidden"><X className="h-5 w-5" /></button>
       </div>

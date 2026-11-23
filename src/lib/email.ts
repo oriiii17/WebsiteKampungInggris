@@ -8,12 +8,11 @@ function smtpConfig() {
   const port = Number(process.env.SMTP_PORT?.trim());
   const user = process.env.SMTP_USER?.trim();
   const pass = process.env.SMTP_PASS?.trim();
-  const fromName = process.env.SMTP_FROM_NAME?.trim() || "Kampung Inggris Sapen";
   const fromEmail = process.env.SMTP_FROM_EMAIL?.trim();
   if (!host || !/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(host) || !Number.isInteger(port) || port < 1 || port > 65535 || !user || !pass || !fromEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) {
     throw new Error("Layanan email belum siap");
   }
-  return { host, port, user, pass, fromName, fromEmail };
+  return { host, port, user, pass, fromEmail };
 }
 
 function escapeHtml(value: string) {
@@ -30,12 +29,17 @@ export async function sendAppEmail(options: EmailOptions) {
     const label = escapeHtml(options.actionLabel);
     const note = options.note ? `<p style="margin:24px 0 0;color:#685f54;font-size:14px;line-height:1.6">${escapeHtml(options.note)}</p>` : "";
     const safeUrl = escapeHtml(options.actionUrl);
+    const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim();
+    const safeContact = contactEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail) ? escapeHtml(contactEmail) : "";
+    const contactFooter = safeContact ? `<p style="margin:20px 0 0;color:#595f5a;font-size:12px;line-height:1.6">Butuh bantuan? <a href="mailto:${safeContact}" style="color:#1f4d3a">${safeContact}</a></p>` : "";
+    const plainText = `${options.heading}\n\n${options.intro}\n\n${options.actionLabel}: ${options.actionUrl}\n\nJika tombol tidak bisa dibuka, salin tautan di atas ke browser.${options.note ? `\n\n${options.note}` : ""}${safeContact ? `\n\nButuh bantuan? Hubungi ${contactEmail}` : ""}\n\nJika Anda tidak meminta email ini, abaikan pesan ini.`;
     await transporter.sendMail({
-      from: `"${config.fromName.replace(/[\r\n"\\]/g, "")}" <${config.fromEmail}>`,
+      from: `"Kampung Inggris Sapen" <${config.fromEmail}>`,
+      replyTo: safeContact || config.fromEmail,
       to: options.to,
       subject: options.subject,
-      text: `${options.heading}\n\n${options.intro}\n\n${options.actionLabel}: ${options.actionUrl}${options.note ? `\n\n${options.note}` : ""}`,
-      html: `<!doctype html><html lang="id"><body style="margin:0;background:#f3ead8;font-family:Arial,sans-serif;color:#173c2e"><main style="max-width:560px;margin:32px auto;padding:32px 24px;background:#fffdf8;border:1px solid #dfd2bb;border-radius:18px"><p role="img" aria-label="Kampung Inggris Sapen" style="margin:0 0 24px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:#173c2e">Kampung Inggris Sapen</p><h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:28px;line-height:1.2">${heading}</h1><p style="margin:0;color:#514b42;font-size:16px;line-height:1.7">${intro}</p><p style="margin:28px 0"><a href="${safeUrl}" aria-label="${label} — Kampung Inggris Sapen" style="display:inline-block;padding:15px 24px;border-radius:10px;background:#b9442d;color:#fff;font-weight:bold;text-decoration:none">${label}</a></p>${note}<p style="margin:28px 0 0;color:#766e62;font-size:12px;line-height:1.6">Jika tombol tidak bisa dibuka, salin tautan di atas ke browser. Jika Anda tidak meminta email ini, abaikan pesan ini.</p></main></body></html>`,
+      text: plainText,
+      html: `<!doctype html><html lang="id"><body style="margin:0;padding:24px 12px;background:#ffffff;font-family:Arial,sans-serif;color:#343b36"><main style="box-sizing:border-box;width:100%;max-width:560px;margin:0 auto;padding:32px 24px;background:#ffffff;border:1px solid #e2e7e3;border-radius:16px"><p style="margin:0 0 24px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:#1f4d3a">Kampung Inggris Sapen</p><h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:26px;line-height:1.25;color:#26312a">${heading}</h1><p style="margin:0;color:#454c47;font-size:16px;line-height:1.7">${intro}</p><p style="margin:28px 0 20px"><a href="${safeUrl}" aria-label="${label} — Kampung Inggris Sapen" style="display:inline-block;padding:16px 26px;border-radius:10px;background:#1f4d3a;color:#ffffff;font-weight:bold;text-decoration:none">${label}</a></p><p style="margin:0;color:#555d57;font-size:14px;line-height:1.6">Jika tombol tidak bisa dibuka, salin tautan ini ke browser:<br><a href="${safeUrl}" style="color:#1f4d3a;word-break:break-word">${safeUrl}</a></p>${note}${contactFooter}<p style="margin:24px 0 0;color:#68716b;font-size:12px;line-height:1.6">Jika Anda tidak meminta email ini, abaikan pesan ini.</p></main></body></html>`,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "Layanan email belum siap") throw error;

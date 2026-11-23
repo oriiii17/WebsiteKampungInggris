@@ -15,9 +15,10 @@ interface Props {
   isEnrolled: boolean;
   sessionUser: SessionPayload | null;
   independentGameCount: number;
+  watchRevocation: boolean;
 }
 
-export default function ClassDetailClient({ classItem, includedModules, isEnrolled, sessionUser, independentGameCount }: Props) {
+export default function ClassDetailClient({ classItem, includedModules, isEnrolled, sessionUser, independentGameCount, watchRevocation }: Props) {
   const router = useRouter();
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceGames, setPracticeGames] = useState<GameBlueprint[]>([]);
@@ -25,9 +26,31 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
   const [practiceError, setPracticeError] = useState("");
   const [leavingAsGuest, setLeavingAsGuest] = useState(false);
   const [leaveGuestError, setLeaveGuestError] = useState("");
+  const [accessRevoked, setAccessRevoked] = useState(false);
   const isGuest = sessionUser?.role === "guest" || sessionUser?.origin === "guest";
   const isWarga = sessionUser?.origin === "warga_kode";
   const inClassSession = Boolean(sessionUser?.guestSessionId);
+  useEffect(() => {
+    if (!watchRevocation) return;
+    let active = true;
+    let pending = false;
+    const checkAccess = async () => {
+      if (pending || document.visibilityState !== "visible") return;
+      pending = true;
+      try {
+        const response = await fetch(`/api/auth/session?scope=class-access&classId=${encodeURIComponent(classItem.id)}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (active && data.hasAccess === false) setAccessRevoked(true);
+      } catch { /* A temporary failure must not remove access locally. */ }
+      finally { pending = false; }
+    };
+    void checkAccess();
+    const timer = window.setInterval(() => void checkAccess(), 45000);
+    window.addEventListener("focus", checkAccess);
+    document.addEventListener("visibilitychange", checkAccess);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", checkAccess); document.removeEventListener("visibilitychange", checkAccess); };
+  }, [classItem.id, watchRevocation]);
   useEffect(() => {
     if (!practiceOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setPracticeOpen(false); };
@@ -82,6 +105,8 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
     <div className="space-y-8">
       {inClassSession ? <div className="space-y-2"><button type="button" onClick={() => void leaveClassSession()} disabled={leavingAsGuest} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rule bg-white px-4 py-2 text-sm font-bold text-leaf transition hover:bg-leaf-soft disabled:opacity-60"><ArrowLeft className="h-4 w-4" />{leavingAsGuest ? "Kembali…" : "Kembali ke Beranda"}</button>{leaveGuestError && <p role="alert" className="text-sm font-semibold text-[#943520]">{leaveGuestError}</p>}</div> : !isGuest && <Link href={isWarga ? "/" : "/kelas"} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rule bg-white px-4 py-2 text-sm font-bold text-leaf transition hover:bg-leaf-soft"><ArrowLeft className="h-4 w-4" />{isWarga ? "Kembali ke beranda" : "Kembali ke Katalog Kelas"}</Link>}
 
+      {accessRevoked && <div className="fixed inset-0 z-[1200] grid place-items-center bg-[#14271e]/65 p-4"><section role="alertdialog" aria-modal="true" aria-labelledby="access-revoked-title" className="w-full max-w-md rounded-2xl border border-[#d2c5ad] bg-white p-6 shadow-2xl"><h2 id="access-revoked-title" className="font-display text-2xl font-bold text-[#183b2d]">Akses kelas dicabut</h2><p className="mt-3 text-sm leading-6 text-[#3d4038]">Akses kelas {classItem.title} telah dicabut.</p><button type="button" autoFocus onClick={() => { setAccessRevoked(false); router.refresh(); }} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#244b3a] px-5 text-sm font-bold text-white">Oke</button></section></div>}
+
       <section className={`class-detail-hero${inClassSession ? " class-detail-hero-guest" : ""}`}>
         <div className="class-detail-copy">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -97,11 +122,11 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
           </div>
         </div>
       {!inClassSession && !isWarga && <div className="class-detail-enrollment">
-          <div>
+          {!isEnrolled && <div>
             <p className="workbook-print-note">{classItem.priceIdr === 0 ? "Kelas gratis" : "Biaya akses kelas"}</p>
             <p className="mt-1 font-display text-3xl">{classItem.priceIdr === 0 ? "Gratis" : formatIDR(classItem.priceIdr)}</p>
             <p className="mt-1 max-w-sm text-xs leading-5 text-muted">{classItem.priceIdr === 0 ? "Ambil kelas untuk menyimpan aksesnya di Kelas Saya." : "Selesaikan pesanan untuk membuka akses di Kelas Saya."}</p>
-          </div>
+          </div>}
           <ClassAccessAction classId={classItem.id} classSlug={classItem.slug} priceIdr={classItem.priceIdr} isEnrolled={isEnrolled} canEnroll={Boolean(sessionUser?.email && sessionUser.emailVerified && sessionUser.authUserId && ["peserta", "umum", "member"].includes(sessionUser.role))} />
         </div>}
       </section>
@@ -111,7 +136,7 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
         {isEnrolled ? <button type="button" onClick={() => void openIndependentPractice()} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-5 text-sm font-bold text-white transition hover:bg-[#183b2d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ba472f]"><Gamepad2 className="h-4 w-4" />Pilih latihan</button> : <button type="button" disabled aria-label="Latihan Mandiri terkunci sampai Anda memiliki akses ke kelas" title="Latihan Mandiri tersedia setelah Anda memiliki akses ke kelas" className="inline-flex min-h-11 shrink-0 cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-[#52685d] px-5 text-sm font-bold text-white opacity-80"><Lock aria-hidden="true" className="h-4 w-4" />Terkunci</button>}
       </section>
 
-      <section className="class-detail-section">
+      <section id="bab-pelajaran" className="class-detail-section">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-rule pb-4">
           <div><h2 className="text-2xl sm:text-3xl">Bab pelajaran</h2></div>
           <span className="text-sm font-semibold text-muted">{publishedModules.length} Bab</span>

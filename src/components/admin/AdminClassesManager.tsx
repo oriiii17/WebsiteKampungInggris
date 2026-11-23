@@ -344,7 +344,7 @@ export default function AdminClassesManager({ notify }: Props) {
           </div>
         </form>}
 
-        <div className="space-y-4">
+        {!editorOpen && <div className="space-y-4">
           <AdminSectionHeader
             title={<><h3 className="flex items-center gap-2 text-base font-extrabold text-[#1A2E1A]"><BookOpen className="h-4 w-4 text-[#14532D]" /> {classView === "active" ? "Kelas Aktif" : "Draft Kelas"} ({visibleClasses.length})</h3><div role="group" aria-label="Filter status kelas" className="mt-2 grid w-full grid-cols-2 rounded-lg border border-rule bg-paper-light p-1 sm:inline-grid sm:w-auto"><button type="button" aria-pressed={classView === "active"} onClick={() => setClassView("active")} className={`min-h-11 rounded-md px-3 text-xs font-bold ${classView === "active" ? "bg-leaf text-white" : "text-muted"}`}>Aktif</button><button type="button" aria-pressed={classView === "drafts"} onClick={() => setClassView("drafts")} className={`min-h-11 rounded-md px-3 text-xs font-bold ${classView === "drafts" ? "bg-leaf text-white" : "text-muted"}`}>Draft</button></div></>}
             actions={<AdminToolbar className="w-full sm:w-auto"><select aria-label="Format ekspor kelas" value={exportFormat} onChange={(event) => setExportFormat(event.target.value as "excel" | "csv" | "pdf")} className="min-h-11 min-w-0 rounded-md border border-rule bg-white px-2 text-xs"><option value="excel">Ekspor Excel (.xlsx)</option><option value="pdf">Ekspor PDF</option><option value="csv">Ekspor CSV</option></select><button type="button" onClick={exportClasses} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md border border-rule px-2.5 text-xs font-bold text-[#14532D] hover:bg-paper-light"><FileDown className="h-3.5 w-3.5"/>Unduh</button><button type="button" onClick={loadClasses} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md px-2 text-xs font-bold text-[#14532D] hover:underline"><RefreshCw className="h-3.5 w-3.5" /> Segarkan</button></AdminToolbar>}
@@ -385,7 +385,7 @@ export default function AdminClassesManager({ notify }: Props) {
               ))}
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );

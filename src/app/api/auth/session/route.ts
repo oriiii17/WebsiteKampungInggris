@@ -22,6 +22,14 @@ function canEditAccount(session: SessionPayload) {
 
 export async function GET(req: Request) {
   const scope = new URL(req.url).searchParams.get("scope");
+  if (scope === "class-access") {
+    const session = await getServerSession();
+    const classId = new URL(req.url).searchParams.get("classId") || "";
+    if (!session?.email || !classId) return NextResponse.json({ error: "Sesi akun tidak tersedia." }, { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } });
+    const enrollments = await import("@/lib/db").then(({ getUserEnrollments }) => getUserEnrollments(session.email!));
+    const hasAccess = enrollments.some((entry) => entry.classId === classId && entry.status === "active" && (!entry.expiresAt || Date.parse(entry.expiresAt) > Date.now()));
+    return NextResponse.json({ hasAccess }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  }
   if (scope === "attendance") {
     const session = (await getServerSession()) || await getGuestServerSession();
     const approvalStatus = session?.guestSessionId

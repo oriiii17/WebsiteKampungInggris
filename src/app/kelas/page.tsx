@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight, BookOpen, Clock, Gamepad2, Info } from "lucide-react";
-import { getClasses, getModules, getPublishedIndependentGameCounts, getUserEnrollments } from "@/lib/db";
+import { getUserEnrollments } from "@/lib/db";
+import { getPublicClasses, getPublicModules, getPublicPracticeCounts } from "@/lib/public-data-cache";
 import ClassAccessAction from "@/components/ClassAccessAction";
 import type { Metadata } from "next";
 import { publicPageMetadata } from "@/lib/site";
@@ -16,8 +17,7 @@ export const metadata: Metadata = publicPageMetadata({
   pathname: "/kelas",
 });
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
 
 async function KelasIndexContent({
   searchParams,
@@ -28,19 +28,21 @@ async function KelasIndexContent({
   const session = await getSessionWithGuestContext();
   if (session?.guestSessionId) redirect(await getGuestSessionDestination(session));
   const isWarga = session?.origin === "warga_kode";
-  const [classesUnsorted, modules] = await Promise.all([getClasses(false), getModules(false)]);
+  const [classesUnsorted, modules] = await Promise.all([getPublicClasses(), getPublicModules()]);
   const classes = [...classesUnsorted].sort((a, b) => {
     const createdA = Date.parse(a.createdAt || "");
     const createdB = Date.parse(b.createdAt || "");
     return (Number.isFinite(createdB) ? createdB : 0) - (Number.isFinite(createdA) ? createdA : 0);
   });
   const moduleMap = new Map(modules.map((m) => [m.id, m]));
-  const independentGameCounts = await getPublishedIndependentGameCounts(classes.map((item) => item.id));
-  const enrollments = session?.email ? await getUserEnrollments(session.email) : [];
-  const ownedClassIds = new Set(enrollments.map((enrollment) => enrollment.classId));
+  const [independentGameCounts, enrollments] = await Promise.all([
+    getPublicPracticeCounts(classes.map((item) => item.id)),
+    session?.email ? getUserEnrollments(session.email) : Promise.resolve([]),
+  ]);
+  const ownedClassIds = new Set(isWarga ? classes.map((item) => item.id) : enrollments.map((enrollment) => enrollment.classId));
   const canEnroll = Boolean(session?.email && session.emailVerified && session.authUserId && ["peserta", "umum", "member"].includes(session.role));
   const isMyClassesTab = sp.tab === "mine";
-  const visibleClasses = isMyClassesTab ? classes.filter((cls) => isWarga || ownedClassIds.has(cls.id)) : classes;
+  const visibleClasses = isMyClassesTab ? classes.filter((cls) => isWarga || ownedClassIds.has(cls.id)) : classes.filter((cls) => isWarga || !ownedClassIds.has(cls.id));
 
   return (
     <div className="workbook-page">
@@ -91,10 +93,10 @@ async function KelasIndexContent({
                       <span className="flex items-center gap-2"><Gamepad2 className="h-4 w-4 shrink-0 text-earth" />{practiceCount} Latihan Mandiri</span>
                     </div>
                     <div className="grid gap-3 border-t border-rule pt-4">
-                      {!isWarga && <div><span className="block text-xs font-semibold text-muted">{cls.priceIdr === 0 ? "Biaya kelas" : "Investasi belajar"}</span><strong className="font-display text-2xl">{cls.priceIdr === 0 ? "Gratis" : formatIDR(cls.priceIdr)}</strong></div>}
+                      {!isWarga && !enrolled && <div><span className="block text-xs font-semibold text-muted">{cls.priceIdr === 0 ? "Biaya kelas" : "Investasi belajar"}</span><strong className="font-display text-2xl">{cls.priceIdr === 0 ? "Gratis" : formatIDR(cls.priceIdr)}</strong></div>}
                       <div className="flex min-w-0 flex-col items-stretch gap-3">
-                        <Link href={`/kelas/${cls.slug}`} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-earth px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-earth-dark">Detail kelas <ArrowRight className="h-4 w-4" /></Link>
-                        {!isWarga && <ClassAccessAction classId={cls.id} classSlug={cls.slug} priceIdr={cls.priceIdr} isEnrolled={enrolled} canEnroll={canEnroll} />}
+                        {enrolled ? <Link href={`/kelas/${cls.slug}`} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[#244b3a] px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#183b2d]">Lanjut belajar <ArrowRight className="h-4 w-4" /></Link> : <Link href={`/kelas/${cls.slug}`} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-earth px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-earth-dark">Detail kelas <ArrowRight className="h-4 w-4" /></Link>}
+                        {!isWarga && !enrolled && <ClassAccessAction classId={cls.id} classSlug={cls.slug} priceIdr={cls.priceIdr} isEnrolled={enrolled} canEnroll={canEnroll} />}
                       </div>
                     </div>
                   </div>

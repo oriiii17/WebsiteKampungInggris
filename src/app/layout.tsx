@@ -1,5 +1,6 @@
 import React, { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
+import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import PublicChrome from "@/components/PublicChrome";
 import PublicFooter from "@/components/PublicFooter";
@@ -10,6 +11,9 @@ import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
 import GuestApprovalGate from "@/components/guest/GuestApprovalGate";
 import { getGuestApprovalStatus } from "@/lib/guest-approval";
 import { getSiteUrl } from "@/lib/site";
+
+const dmSans = DM_Sans({ subsets: ["latin"], display: "swap", variable: "--font-dm-sans" });
+const fraunces = Fraunces({ subsets: ["latin"], display: "swap", variable: "--font-fraunces" });
 
 export const metadata: Metadata = {
   title: {
@@ -50,15 +54,7 @@ export default async function RootLayout({
 
   return (
     <html lang="id">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght,SOFT,WONK@9..144,400,20,1;9..144,500,20,1;9..144,600,20,1;9..144,700,20,1&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="flex min-h-dvh flex-col font-sans">
+      <body className={`${dmSans.variable} ${fraunces.variable} flex min-h-dvh flex-col font-sans`}>
         <ConfirmDialogProvider>
         <AppDialogProvider>
         <a href="#main-content" className="skip-link">Lewati ke konten utama</a>

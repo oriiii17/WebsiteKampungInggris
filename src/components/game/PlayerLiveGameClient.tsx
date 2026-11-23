@@ -201,7 +201,7 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
                       const btn = SHAPES[idx];
                       const active = isMulti ? selectedOptions.includes(idx) : selectedOption===idx;
                       return (
-                        <button key={idx} type="button" onClick={() => { if(isMulti){ setSelectedOptions(s=> s.includes(idx)? s.filter(x=>x!==idx): [...s,idx]); } else { setSelectedOption(idx); } }} className={`${btn.bg} ${active?"ring-4 ring-white/70":""} flex min-h-[120px] flex-col items-center justify-center rounded-2xl p-2 text-white shadow-lg transition active:scale-95`}>
+                        <button key={idx} type="button" onClick={() => { if(isMulti){ setSelectedOptions(s=> s.includes(idx)? s.filter(x=>x!==idx): [...s,idx]); } else { setSelectedOption(idx); } }} className={`${btn.bg} ${active?"ring-4 ring-white/70":""} flex min-h-[120px] flex-col items-center justify-center rounded-2xl p-2 text-white shadow-lg transition`}>
                           <span className="text-4xl font-black mb-1 drop-shadow-md">{btn.symbol}</span>
                           <span className="text-[11px] font-bold text-center leading-snug line-clamp-3">{opt || `Opsi ${idx+1}`}</span>
                         </button>
@@ -281,7 +281,7 @@ export default function PlayerLiveGameClient({ pin, guestMode: initialGuestMode 
               </div>
               {saveHistory && scoreHistoryStatus !== "idle" && <div><p role="status" className={`text-sm font-semibold ${scoreHistoryStatus === "error" ? "text-amber-100" : "text-emerald-100"}`}>{scoreHistoryStatus === "saving" ? "Menyimpan skor ke Riwayat Kuis…" : scoreHistoryStatus === "saved" ? "Skor tersimpan di Riwayat Kuis akun Anda." : "Skor belum tersimpan. Periksa koneksi lalu coba lagi."}</p>{scoreHistoryStatus === "error" && <button type="button" onClick={() => { savedLiveScoreRef.current = null; setScoreHistoryAttempt((attempt) => attempt + 1); }} className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-white/40 px-4 text-sm font-bold text-white hover:bg-white/10">Coba simpan lagi</button>}</div>}
               {closeFallback && <p role="status" className="rounded-xl border border-amber-200/25 bg-amber-100/10 px-4 py-3 text-sm text-amber-50">Browser tidak mengizinkan halaman ini menutup tab. Silakan tutup tab secara manual.</p>}
-              <button type="button" onClick={returnFromGame} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#c24a31] px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#a83d2a] active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100">{scanEntry ? "Selesai · tutup halaman" : "Kembali ke beranda"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button>
+              <button type="button" onClick={returnFromGame} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#c24a31] px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#a83d2a]  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-100">{scanEntry ? "Selesai · tutup halaman" : "Kembali ke beranda"}{!scanEntry && <ArrowRight className="h-4 w-4" />}</button>
             </div>
           </div>
         )}

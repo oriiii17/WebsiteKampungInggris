@@ -6,22 +6,23 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import type { ClassItem } from "@/lib/types";
 import { formatIDR } from "@/lib/currency";
-
-const KEY = "sapen_class_cart";
-function readCartIds(): string[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(KEY) || "[]");
-    return Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === "string"))] : [];
-  } catch { return []; }
-}
+import { clearClassCart, getCartIdentity, readClassCart, type CartIdentity } from "@/lib/class-cart-client";
 
 export default function ClassCheckoutClient({ classes, isSignedIn }: { classes: ClassItem[]; isSignedIn: boolean }) {
   const router = useRouter();
   const [ids, setIds] = useState<string[]>([]);
+  const [identity, setIdentity] = useState<CartIdentity>({ kind: "guest" });
   const [ready, setReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => { setIds(readCartIds()); setReady(true); }, []);
+  useEffect(() => {
+    let active = true;
+    const sync = async () => { const next = await getCartIdentity(); if (!active) return; setIdentity(next); setIds(readClassCart(next)); setReady(true); };
+    void sync();
+    window.addEventListener("sapen:session-changed", sync);
+    window.addEventListener("storage", sync);
+    return () => { active = false; window.removeEventListener("sapen:session-changed", sync); window.removeEventListener("storage", sync); };
+  }, []);
   const items = classes.filter((item) => ids.includes(item.id));
   const total = items.reduce((sum, item) => sum + item.priceIdr, 0);
 
@@ -37,8 +38,12 @@ export default function ClassCheckoutClient({ classes, isSignedIn }: { classes: 
         window.location.assign(result.redirectUrl);
         return;
       }
-      localStorage.removeItem(KEY);
-      window.dispatchEvent(new Event("sapen:cart-updated"));
+      if (identity.kind === "account") {
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
+        const current = await response.json();
+        if (current.session?.email?.trim().toLowerCase() !== identity.email) throw new Error("Akun berubah. Muat ulang halaman sebelum melanjutkan.");
+      }
+      clearClassCart();
       router.replace(result.redirectTo || "/kelas-saya");
       router.refresh();
     } catch (reason) {

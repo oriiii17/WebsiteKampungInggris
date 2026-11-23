@@ -4,14 +4,14 @@ import Image from "next/image";
 import { ArrowDownRight, ArrowRight, BookOpen, MapPin, MessageCircle, MoveUpRight, Sparkles } from "lucide-react";
 import FaqAccordion, { HOME_FAQ_LIST } from "@/components/FaqAccordion";
 import TestimoniSection from "@/components/TestimoniSection";
-import { getApprovedTestimoni, getClasses } from "@/lib/db";
+import { getPublicClasses, getPublicTestimonials } from "@/lib/public-data-cache";
 import { getServerSession } from "@/lib/auth";
 import type { ClassItem } from "@/lib/types";
 import type { Metadata } from "next";
 import { getSiteUrl, publicPageMetadata } from "@/lib/site";
 import { formatIDR } from "@/lib/currency";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export const metadata: Metadata = publicPageMetadata({
   title: "Belajar Bahasa Inggris di Demangan, Yogyakarta",
@@ -65,7 +65,7 @@ function LocalPhoto({
 }
 
 async function HomeTestimonials() {
-  const [session, testimonials] = await Promise.all([getServerSession(), getApprovedTestimoni()]);
+  const [session, testimonials] = await Promise.all([getServerSession(), getPublicTestimonials()]);
   const isEligible = Boolean(session?.email && session.emailVerified === true && session.authUserId && ["peserta", "umum", "member"].includes(session.role));
   return <TestimoniSection initialTestimoni={testimonials} isEligible={isEligible} isLoggedIn={Boolean(session)} userId={session?.authUserId} />;
 }
@@ -94,7 +94,7 @@ const learningRoutes = [
 ];
 
 export default async function HomePage() {
-  const availableClasses = await getClasses(false);
+  const availableClasses = await getPublicClasses();
   const featuredClasses: ClassItem[] = availableClasses
     .filter((item) => item.isPublished)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

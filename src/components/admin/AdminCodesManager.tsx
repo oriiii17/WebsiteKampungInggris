@@ -156,11 +156,7 @@ export default function AdminCodesManager(props: Props) {
     });
   };
   const selectVisibleGuests = (checked: boolean) => {
-    setSelectedGuests((current) => {
-      const next = new Set(current);
-      filteredGuests.filter((guest) => guest.canDelete).forEach((guest) => checked ? next.add(guest.id) : next.delete(guest.id));
-      return next;
-    });
+    setSelectedGuests(checked ? new Set(filteredGuests.filter((guest) => guest.canDelete).map((guest) => guest.id)) : new Set());
   };
 
   async function deleteSelectedGuests() {

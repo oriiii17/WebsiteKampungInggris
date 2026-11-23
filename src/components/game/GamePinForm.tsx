@@ -27,7 +27,7 @@ export default function GamePinForm({ initialName }: { initialName?: string }) {
           <PinCodeInput id="games-join-pin" label="PIN kuis, 6 angka" value={pin} onChange={(value) => { setPin(value); if (error) setError(""); }} invalid={Boolean(error)} describedBy={error ? "game-pin-error" : undefined} className="sm:flex-1 sm:max-w-[22rem]" />
           <button
             type="submit"
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#ba472f] px-6 py-3.5 text-base font-bold text-white transition duration-150 hover:bg-[#943520] active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#244b3a] sm:w-auto"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#ba472f] px-6 py-3.5 text-base font-bold text-white transition duration-150 hover:bg-[#943520]  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#244b3a] sm:w-auto"
           >
             <span>Gabung</span>
             <ArrowRight className="h-5 w-5" />

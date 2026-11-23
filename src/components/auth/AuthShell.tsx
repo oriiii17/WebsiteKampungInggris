@@ -13,6 +13,7 @@ type AuthShellProps = {
 
 export default function AuthShell({ children, image, imageAlt, imageTitle, imageDescription, admin = false }: AuthShellProps) {
   return <main className="workbook-auth auth-shell-main">
+    {admin && <div className="site-background" aria-hidden="true" />}
     {admin && <header className="auth-admin-header"><Link href="/" aria-label="Sapen English Village, kembali ke beranda"><Image src="/sapen-english-village-logo.jpg" alt="Sapen English Village" width={651} height={453} priority /></Link><Link href="/" className="auth-back-link">← Kembali ke beranda</Link></header>}
     <div className="auth-shell-grid">
       <section className="auth-shell-form">{children}</section>

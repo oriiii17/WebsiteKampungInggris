@@ -10,6 +10,7 @@ export default function Footer() {
           <Link href="/" className="site-footer-name">{SITE_CONFIG.name}</Link>
           <p>Ruang belajar Bahasa Inggris yang tumbuh bersama warga Kampung Sapen dan terbuka untuk semua.</p>
           <span><MapPin aria-hidden="true" className="h-4 w-4" /> Demangan, Gondokusuman, Yogyakarta</span>
+          {process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() && <a href={`mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL.trim()}`} className="mt-2 inline-flex min-h-11 break-all items-center text-sm font-semibold text-white underline decoration-[#e5bf4f] underline-offset-4">{process.env.NEXT_PUBLIC_CONTACT_EMAIL.trim()}</a>}
         </div>
 
         <nav aria-label="Jelajahi website" className="site-footer-nav">

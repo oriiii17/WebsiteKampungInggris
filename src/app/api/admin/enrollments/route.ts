@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const classId = String(body.classId || "");
-    const email = String(body.email || "").toLowerCase().trim();
+    const email = String(body.email || "").trim().toLowerCase();
     const name = String(body.name || email).trim();
-    if (!classId || !email) return NextResponse.json({ ok: false, error: "classId dan email wajib diisi." }, { status: 400 });
+    if (!classId || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ ok: false, error: "Pilih kelas dan masukkan email akun yang valid." }, { status: 400 });
     const cls = await getClassByIdOrSlug(classId);
     if (!cls) return NextResponse.json({ ok: false, error: "Kelas tidak ditemukan." }, { status: 404 });
 

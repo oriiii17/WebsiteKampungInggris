@@ -59,6 +59,7 @@ export default function AccountClient({ initialSession, wargaDeferred = false }:
       const data = await res.json();
       if (!res.ok || !data?.ok) throw new Error(data?.error || "Gagal menyimpan profil.");
       if (data.session) setSession(data.session);
+      if (hasNewPhoto && avatarDataUrl) window.dispatchEvent(new CustomEvent("sapen:profile-avatar-updated", { detail: { avatarDataUrl } }));
       setHasNewPhoto(false);
       setMsg("Profil berhasil diperbarui.");
       router.refresh();

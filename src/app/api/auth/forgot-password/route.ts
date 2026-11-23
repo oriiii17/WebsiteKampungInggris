@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       const redirectTo = new URL("/auth/callback?type=recovery", `${getSiteUrl()}/`).toString();
       const { data, error } = await admin.auth.admin.generateLink({ type: "recovery", email, options: { redirectTo } });
       if (!error && data.user && data.properties?.action_link) {
-        await sendAppEmail({ to: email, subject: "Atur ulang kata sandi Sapen English", heading: "Atur ulang kata sandi", intro: "Kami menerima permintaan untuk mengatur ulang kata sandi akun Anda.", actionUrl: data.properties.action_link, actionLabel: "Atur kata sandi baru", note: "Tautan ini hanya dapat digunakan sekali dan akan kedaluwarsa." });
+        await sendAppEmail({ to: email, subject: "Atur ulang kata sandi", heading: "Atur ulang kata sandi", intro: "Kami menerima permintaan untuk mengatur ulang kata sandi akun Anda.", actionUrl: data.properties.action_link, actionLabel: "Atur ulang kata sandi", note: "Tautan ini hanya dapat digunakan sekali dan akan kedaluwarsa." });
       }
     } catch { /* Keep the response identical so email existence is never disclosed. */ }
     return NextResponse.json({ ok: true, message: genericMessage });

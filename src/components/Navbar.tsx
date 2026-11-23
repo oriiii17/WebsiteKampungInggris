@@ -4,11 +4,12 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, ShoppingCart, ChevronDown, Gamepad2, GraduationCap, KeyRound, LogOut, Settings, User, CalendarDays, Menu, X } from "lucide-react";
+import { BookOpen, ShoppingCart, Gamepad2, GraduationCap, KeyRound, LogOut, Settings, User, CalendarDays, Menu, X } from "lucide-react";
 import { SessionPayload } from "@/lib/types";
 import { SITE_CONFIG } from "@/config/site";
 import styles from "./Navbar.module.css";
 import { publishSessionChanged } from "@/lib/session-sync";
+import { clearClassCart, getCartIdentity, readClassCart } from "@/lib/class-cart-client";
 
 interface NavbarProps {
   session: SessionPayload | null;
@@ -25,6 +26,7 @@ export default function Navbar({ session }: NavbarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [scrolled, setScrolled] = useState(false);
+  const [avatarDataUrl, setAvatarDataUrl] = useState(session?.avatarDataUrl);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -45,16 +47,26 @@ export default function Navbar({ session }: NavbarProps) {
   useEffect(() => { setOpen(false); setDrawerOpen(false); }, [pathname, session?.id, session?.role]);
 
   useEffect(() => {
-    const updateCart = () => {
-      try {
-        const parsed: unknown = JSON.parse(localStorage.getItem("sapen_class_cart") || "[]");
-        setCartCount(Array.isArray(parsed) ? parsed.length : 0);
-      } catch { setCartCount(0); }
+    setAvatarDataUrl(session?.avatarDataUrl);
+    const onProfileUpdated = (event: Event) => {
+      const updated = (event as CustomEvent<{ avatarDataUrl?: string }>).detail?.avatarDataUrl;
+      setAvatarDataUrl(updated);
     };
-    updateCart();
+    window.addEventListener("sapen:profile-avatar-updated", onProfileUpdated);
+    return () => window.removeEventListener("sapen:profile-avatar-updated", onProfileUpdated);
+  }, [session?.id, session?.avatarDataUrl]);
+
+  useEffect(() => {
+    let active = true;
+    const updateCart = async () => {
+      const identity = await getCartIdentity();
+      if (active) setCartCount(readClassCart(identity).length);
+    };
+    void updateCart();
     window.addEventListener("storage", updateCart);
     window.addEventListener("sapen:cart-updated", updateCart);
-    return () => { window.removeEventListener("storage", updateCart); window.removeEventListener("sapen:cart-updated", updateCart); };
+    window.addEventListener("sapen:session-changed", updateCart);
+    return () => { active = false; window.removeEventListener("storage", updateCart); window.removeEventListener("sapen:cart-updated", updateCart); window.removeEventListener("sapen:session-changed", updateCart); };
   }, []);
 
   useEffect(() => {
@@ -91,6 +103,7 @@ export default function Navbar({ session }: NavbarProps) {
   ];
 
   async function handleLogout() {
+    clearClassCart();
     if (isAdmin) {
       try {
         const { createBrowserSupabaseClient } = await import("@/lib/supabase");
@@ -108,6 +121,7 @@ export default function Navbar({ session }: NavbarProps) {
 
   const displayName = session?.name || "Pengguna";
   const initial = (displayName.trim()[0] || "U").toUpperCase();
+  const hasPermanentAccount = Boolean(session && (isAdmin || (session.email && session.role !== "guest" && session.origin !== "guest")));
 
   return (
     <header className={`${styles.navbar} ${scrolled ? styles.navbarScrolled : ""}`}>
@@ -138,8 +152,6 @@ export default function Navbar({ session }: NavbarProps) {
             <div className={styles.accountWrap} ref={menuRef}>
               <button type="button" onClick={() => setOpen((v) => !v)} className={styles.accountButton} aria-expanded={open}>
                 <span className={styles.avatar}>{initial}</span>
-                <span className={styles.accountName}>{displayName}</span>
-                <ChevronDown className={styles.chevron} />
               </button>
               {open && (
                 <div className={styles.accountMenu}>
@@ -172,7 +184,7 @@ export default function Navbar({ session }: NavbarProps) {
             {!session && <Link href="/daftar" onClick={() => setDrawerOpen(false)}>Daftar</Link>}
             {!session && <Link href="/masuk" onClick={() => setDrawerOpen(false)}>Masuk</Link>}
             {!session && <Link href="/masuk?mode=warga" onClick={() => setDrawerOpen(false)}>Masuk dengan Kode Akses</Link>}
-            {session && <><Link href="/akun" onClick={() => setDrawerOpen(false)}>Akun Saya</Link>{isAdmin && <Link href="/admin" onClick={() => setDrawerOpen(false)}>Panel Pengurus</Link>}<button type="button" onClick={() => { setDrawerOpen(false); void handleLogout(); }}><LogOut aria-hidden="true" />Logout</button></>}
+            {session && <>{isAdmin && <Link href="/admin" onClick={() => setDrawerOpen(false)}>Panel Pengurus</Link>}<button type="button" onClick={() => { setDrawerOpen(false); void handleLogout(); }}><LogOut aria-hidden="true" />Logout</button></>}
           </nav>
         </aside>
       </div>}
@@ -193,7 +205,9 @@ export default function Navbar({ session }: NavbarProps) {
         <Link href="/kelas" aria-current={pathname.startsWith("/kelas") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen aria-hidden="true" />Kelas</Link>
         <Link href="/sesi" aria-current={pathname === "/sesi" ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname === "/sesi" || pathname.startsWith("/sesi/") ? styles.bottomLinkActive : ""}`}><CalendarDays aria-hidden="true" />Sesi Kelas</Link>
         <Link href="/games" aria-current={pathname.startsWith("/games") || pathname.startsWith("/game") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 aria-hidden="true" />Kuis</Link>
-        <Link href="/masuk" aria-current={pathname.startsWith("/masuk") ? "page" : undefined} className={`${styles.bottomLink} ${pathname.startsWith("/masuk") ? styles.bottomLinkActive : ""}`}><KeyRound aria-hidden="true" />Masuk</Link>
+        {hasPermanentAccount ? <Link href="/akun" aria-label="Akun saya" title="Akun saya" aria-current={pathname.startsWith("/akun") ? "page" : undefined} className={`${styles.bottomLink} ${styles.bottomAccountLink} ${pathname.startsWith("/akun") ? styles.bottomLinkActive : ""}`}>
+          {avatarDataUrl ? <Image src={avatarDataUrl} alt="" width={32} height={32} unoptimized className={styles.bottomAvatar} /> : <span className={styles.bottomAvatarInitial}>{initial}</span>}
+        </Link> : <Link href="/masuk" aria-current={pathname.startsWith("/masuk") ? "page" : undefined} className={`${styles.bottomLink} ${pathname.startsWith("/masuk") ? styles.bottomLinkActive : ""}`}><KeyRound aria-hidden="true" />Masuk</Link>}
       </nav>
     </header>
   );

@@ -11,6 +11,7 @@ export const metadata = publicPageMetadata({
 });
 
 export default function TentangPage() {
+  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim();
   return (
     <main className="workbook-page">
       <section className="workbook-wrap pb-12 pt-10 sm:pb-16 sm:pt-16">
@@ -55,6 +56,7 @@ export default function TentangPage() {
           </div>
         </div>
       </section>
+      {contactEmail && <p className="workbook-wrap py-8 text-sm font-semibold text-body">Butuh bantuan? Hubungi <a className="font-bold text-leaf underline underline-offset-4" href={`mailto:${contactEmail}`}>{contactEmail}</a>.</p>}
     </main>
   );
 }
