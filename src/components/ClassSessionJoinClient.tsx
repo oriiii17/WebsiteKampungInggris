@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import { clearAuthBrowserStorage } from "@/lib/session-sync";
 
 type PublicSession = { id: string; code: string; title: string; status: string; requireApproval?: boolean; canAttendAsMember?: boolean; canEditSessionName?: boolean; registrationStatus?: string; viewerType?: "guest" | "regular" | "visitor"; classId?: string; classTitle?: string; classSlug?: string; startsAt?: string; activeGamePin?: string | null; participantName?: string };
 const inputClass = "mt-1.5 min-h-12 w-full rounded-lg border border-[#b8aa8e] bg-[#fdf9f0] px-3 py-2 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20";
@@ -86,6 +87,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       if (session.viewerType === "guest") {
         const response = await fetch("/api/auth/session?scope=guest", { method: "DELETE" });
         if (!response.ok) throw new Error("Sesi tamu belum berhasil dibersihkan. Coba tekan OK lagi.");
+        clearAuthBrowserStorage();
       } else if (session.viewerType === "regular") {
         const response = await fetch("/api/auth/session", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear_class_session" }) });
         if (!response.ok) throw new Error("Konteks sesi belum berhasil dibersihkan. Coba tekan OK lagi.");
@@ -106,6 +108,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       if (session?.viewerType === "guest") {
         const response = await fetch("/api/auth/session?scope=guest", { method: "DELETE", cache: "no-store" });
         if (!response.ok) throw new Error("Sesi Guest belum berhasil dibersihkan. Coba lagi.");
+        clearAuthBrowserStorage();
       } else if (session?.viewerType === "regular") {
         const response = await fetch("/api/auth/session", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear_class_session" }) });
         if (!response.ok) throw new Error("Konteks sesi belum berhasil dibersihkan. Coba lagi.");

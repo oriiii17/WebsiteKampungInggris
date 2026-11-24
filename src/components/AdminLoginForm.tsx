@@ -6,13 +6,13 @@ import { Mail } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import AuthShell from "@/components/auth/AuthShell";
 import PasswordInput from "@/components/auth/PasswordInput";
-import { publishSessionChanged } from "@/lib/session-sync";
+import { clearAuthBrowserStorage, getStoredSupabaseAccessToken, publishSessionChanged } from "@/lib/session-sync";
 
-export default function AdminLoginForm({ nextUrl = "/admin" }: { nextUrl?: string }) {
+export default function AdminLoginForm({ nextUrl = "/admin", expired = false }: { nextUrl?: string; expired?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(expired ? "Sesi berakhir, silakan masuk lagi." : null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -46,7 +46,7 @@ export default function AdminLoginForm({ nextUrl = "/admin" }: { nextUrl?: strin
           "Content-Type": "application/json",
           Authorization: `Bearer ${authData.session.access_token}`,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ refreshToken: authData.session.refresh_token, previousAccessToken: getStoredSupabaseAccessToken() }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -55,6 +55,7 @@ export default function AdminLoginForm({ nextUrl = "/admin" }: { nextUrl?: strin
         setLoading(false);
         return;
       }
+      clearAuthBrowserStorage();
       publishSessionChanged(data.session?.authUserId || data.session?.id || authData.user.id);
       router.push(nextUrl);
       router.refresh();

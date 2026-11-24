@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   const rt = String(body.rt || "").trim();
   const typedCode = String(body.typedCode || "").trim().toUpperCase();
   if (fullName.length < 2 || fullName.length > 80 || !/^[\p{L}\p{M} .'-]+$/u.test(fullName)) return NextResponse.json({ error: "Nama lengkap harus 2–80 karakter dan hanya berisi huruf, spasi, titik, apostrof, atau tanda hubung." }, { status: 400 });
-  if (!/^[A-Z0-9]{3}$/.test(requestedPrefix) || !validRtByRw[rw]?.includes(rt) || typedCode !== `${requestedPrefix}${rw}${rt}`) return NextResponse.json({ error: "Kode yang diketik harus cocok dengan awalan, RW, dan RT pilihanmu." }, { status: 400 });
+  if (!/^[A-Z0-9]{3}$/.test(requestedPrefix) || !/^[A-Z0-9]{6}$/.test(typedCode) || typedCode.slice(0, 3) !== requestedPrefix || !validRtByRw[rw]?.includes(rt)) return NextResponse.json({ error: "Masukkan kode akses enam karakter dengan awalan dan wilayah yang sesuai." }, { status: 400 });
 
   try {
     const supabase = createSupabaseAdminClient();

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { encodeSessionToken, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, sessionCookieOptions } from "@/lib/auth";
+import { clearAuthCookies, encodeSessionToken, SESSION_COOKIE_NAME, sessionCookieOptions, supabaseAccessCookieOptions, supabaseRefreshCookieOptions, revokeSupabaseSession } from "@/lib/auth";
 import { createPublicSupabaseClient, getSupabasePublicConfig, isSupabaseConfigured } from "@/lib/supabase";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { SessionPayload, UserRole } from "@/lib/types";
 import { checkApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import { isHttpsRequest } from "@/lib/request-security";
-import { SUPABASE_ACCESS_TOKEN_COOKIE } from "@/lib/supabase-server";
+import { SUPABASE_ACCESS_TOKEN_COOKIE, SUPABASE_REFRESH_TOKEN_COOKIE } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
   const limit = checkApiRateLimit(`admin:${getRequestIp(req)}`, 8, 10 * 60 * 1000);
@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
       );
     }
     const accessToken = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+    const body = await req.json().catch(() => ({}));
+    const refreshToken = typeof body?.refreshToken === "string" ? body.refreshToken : "";
+    const previousAccessToken = typeof body?.previousAccessToken === "string" ? body.previousAccessToken : "";
     if (!accessToken) {
       return NextResponse.json({ error: "Email / kata sandi salah" }, { status: 401 });
     }
@@ -93,15 +96,33 @@ export async function POST(req: NextRequest) {
       watermarkText: `PREVIEW ADMIN • ${adminName.toUpperCase()}`,
     };
 
+    let sessionAccessToken = accessToken;
+    let sessionRefreshToken = "";
+    if (refreshToken && publicConfig) {
+      try {
+        const refreshedResponse = await fetch(publicConfig.url + "/auth/v1/token?grant_type=refresh_token", {
+          method: "POST",
+          headers: { apikey: publicConfig.anonKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(2500),
+        });
+        if (refreshedResponse.ok) {
+          const refreshed = await refreshedResponse.json() as { access_token?: string; refresh_token?: string; user?: { id?: string } };
+          if (refreshed.user?.id === user.id && refreshed.access_token && refreshed.refresh_token) {
+            sessionAccessToken = refreshed.access_token;
+            sessionRefreshToken = refreshed.refresh_token;
+          }
+        }
+      } catch { /* Admin access token remains valid for this browser session. */ }
+    }
+
     const res = NextResponse.json({ ok: true, session });
+    await revokeSupabaseSession(req, sessionAccessToken, previousAccessToken, user.id);
+    clearAuthCookies(res, req);
     res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), sessionCookieOptions(session, isHttpsRequest(req)));
-    res.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
-    res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, accessToken, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      secure: isHttpsRequest(req),
-    });
+    res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, sessionAccessToken, supabaseAccessCookieOptions(session, isHttpsRequest(req)));
+    if (sessionRefreshToken) res.cookies.set(SUPABASE_REFRESH_TOKEN_COOKIE, sessionRefreshToken, supabaseRefreshCookieOptions(session, isHttpsRequest(req)));
     return res;
   } catch {
     return NextResponse.json({ error: "Gagal memproses login admin." }, { status: 500 });

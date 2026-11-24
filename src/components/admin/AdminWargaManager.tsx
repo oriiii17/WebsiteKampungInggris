@@ -76,9 +76,20 @@ export default function AdminWargaManager({
   const [savingPrefix, setSavingPrefix] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [registeredWarga, setRegisteredWarga] = useState<Array<{ id: string; name: string; rw: string; createdAt: string }>>([]);
+  const [registeredTotal, setRegisteredTotal] = useState(0);
+  const [registeredPage, setRegisteredPage] = useState(1);
+  const [registeredPerPage, setRegisteredPerPage] = useState(20);
+  const [registeredSearch, setRegisteredSearch] = useState("");
+  const [registeredRw, setRegisteredRw] = useState("ALL");
+  const [registeredSort, setRegisteredSort] = useState<"newest" | "name">("newest");
   const [exportFormat, setExportFormat] = useState<"excel" | "pdf" | "csv">("excel");
 
-  useEffect(() => { fetch("/api/admin/registered-warga", { cache: "no-store" }).then(async (response) => { const result = await response.json().catch(() => ({})); if (!response.ok) throw new Error(result.error || "Daftar warga terdaftar belum dapat dimuat."); setRegisteredWarga(Array.isArray(result.warga) ? result.warga : []); }).catch((error) => notify(error instanceof Error ? error.message : "Daftar warga terdaftar belum dapat dimuat.")); }, [notify]);
+  useEffect(() => {
+    const params = new URLSearchParams({ page: String(registeredPage), perPage: String(registeredPerPage), search: registeredSearch, rw: registeredRw, sort: registeredSort });
+    let active = true;
+    fetch(`/api/admin/registered-warga?${params}`, { cache: "no-store" }).then(async (response) => { const result = await response.json().catch(() => ({})); if (!response.ok) throw new Error(result.error || "Daftar warga terdaftar belum dapat dimuat."); if (active) { setRegisteredWarga(Array.isArray(result.warga) ? result.warga : []); setRegisteredTotal(Number(result.total) || 0); if (result.page && result.page !== registeredPage) setRegisteredPage(result.page); } }).catch((error) => { if (active) notify(error instanceof Error ? error.message : "Daftar warga terdaftar belum dapat dimuat."); });
+    return () => { active = false; };
+  }, [registeredPage, registeredPerPage, registeredSearch, registeredRw, registeredSort, notify]);
 
   async function exportRegisteredWarga() {
     const response = await fetch(`/api/admin/export?type=registered-warga&format=${exportFormat}`);
@@ -326,19 +337,20 @@ export default function AdminWargaManager({
       {/* Daftar Warga */}
       <section className="rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-6">
         <AdminSectionHeader
-          title={<h3 className="flex items-center gap-2 text-lg font-extrabold text-gray-900"><Users className="h-5 w-5 text-[#14532D]" /> Daftar Warga Terdaftar ({registeredWarga.length})</h3>}
+          title={<h3 className="flex items-center gap-2 text-lg font-extrabold text-gray-900"><Users className="h-5 w-5 text-[#14532D]" /> Daftar Warga Terdaftar ({registeredTotal})</h3>}
           description="Akun permanen yang dibuat menggunakan Kode Akses warga."
           actions={<AdminToolbar className="w-full sm:w-auto"><select aria-label="Format ekspor warga" value={exportFormat} onChange={(event) => setExportFormat(event.target.value as typeof exportFormat)} className="min-h-11 min-w-0 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs"><option value="excel">Ekspor Excel (.xlsx)</option><option value="pdf">Ekspor PDF</option><option value="csv">Ekspor CSV</option></select><button type="button" onClick={() => void exportRegisteredWarga()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#14532D] px-4 text-xs font-extrabold text-white hover:bg-[#0f3d21]"><Download className="h-4 w-4" />Unduh</button></AdminToolbar>}
           className="mb-5"
         />
 
-        <AdminToolbar className="mb-5 sm:justify-start">
-          <div className="relative col-span-2 min-w-0 sm:col-span-1 sm:min-w-[220px]"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Cari nama warga..." className="min-h-11 w-full rounded-lg border border-[#E5E7EB] py-2 pl-9 pr-3 text-xs focus:border-[#14532D] focus:outline-none" /></div>
-          <select aria-label="Filter berdasarkan RW" value={filterRw} onChange={(e) => { setFilterRw(e.target.value); setPage(1); }} className="min-h-11 w-full min-w-0 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs font-semibold"><option value="ALL">Semua RW</option><option value="RW 06">RW 06</option><option value="RW 07">RW 07</option><option value="RW 08">RW 08</option></select>
+        <AdminToolbar className="sticky top-0 z-10 mb-4 grid grid-cols-1 gap-2 rounded-lg border border-[#e5e7eb] bg-white/95 p-2 shadow-sm sm:grid-cols-4 sm:justify-start">
+          <div className="relative min-w-0 sm:col-span-2"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input type="text" value={registeredSearch} onChange={(e) => { setRegisteredSearch(e.target.value); setRegisteredPage(1); }} placeholder="Cari nama warga..." className="min-h-11 w-full rounded-lg border border-[#E5E7EB] py-2 pl-9 pr-3 text-xs focus:border-[#14532D] focus:outline-none" /></div>
+          <select aria-label="Filter berdasarkan RW" value={registeredRw} onChange={(e) => { setRegisteredRw(e.target.value); setRegisteredPage(1); }} className="min-h-11 w-full min-w-0 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs font-semibold"><option value="ALL">Semua RW</option><option value="RW 06">RW 06</option><option value="RW 07">RW 07</option><option value="RW 08">RW 08</option></select>
+          <select aria-label="Urutkan warga" value={registeredSort} onChange={(e) => { setRegisteredSort(e.target.value as "newest" | "name"); setRegisteredPage(1); }} className="min-h-11 w-full min-w-0 rounded-lg border border-[#E5E7EB] bg-white px-3 text-xs font-semibold"><option value="newest">Terbaru</option><option value="name">Nama A–Z</option></select>
         </AdminToolbar>
 
         <ResponsiveTable
-          rows={registeredWarga.filter((w) => (filterRw === "ALL" || w.rw === filterRw) && (!search.trim() || w.name.toLocaleLowerCase("id-ID").includes(search.trim().toLocaleLowerCase("id-ID")))).sort((a,b) => b.createdAt.localeCompare(a.createdAt))}
+          rows={registeredWarga}
           getRowKey={(w) => w.id}
           ariaLabel="Daftar warga terdaftar"
           emptyMessage="Tidak ada warga yang sesuai dengan kriteria pencarian."
@@ -351,7 +363,7 @@ export default function AdminWargaManager({
           ]}
         />
 
-        {totalPages > 1 && (<div className="mt-4 flex items-center justify-between text-xs text-gray-500"><span>Halaman {page} dari {totalPages}</span><div className="flex gap-1"><button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded border border-[#E5E7EB] px-3 py-1 font-bold disabled:opacity-40">Sebelumnya</button><button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="rounded border border-[#E5E7EB] px-3 py-1 font-bold disabled:opacity-40">Berikutnya</button></div></div>)}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-600"><label className="flex items-center gap-2">Baris per halaman<select value={registeredPerPage} onChange={(e) => { setRegisteredPerPage(Number(e.target.value)); setRegisteredPage(1); }} className="min-h-10 rounded-md border border-[#E5E7EB] bg-white px-2"><option>10</option><option>20</option><option>50</option></select></label><span>Menampilkan {registeredTotal ? (registeredPage - 1) * registeredPerPage + 1 : 0}-{Math.min(registeredPage * registeredPerPage, registeredTotal)} dari {registeredTotal}</span><div className="flex items-center gap-1"><button type="button" disabled={registeredPage <= 1} onClick={() => setRegisteredPage((value) => value - 1)} className="min-h-10 rounded border border-[#E5E7EB] px-3 font-bold disabled:opacity-40">‹ Prev</button><span className="px-2">{registeredPage} / {Math.max(1, Math.ceil(registeredTotal / registeredPerPage))}</span><button type="button" disabled={registeredPage >= Math.ceil(registeredTotal / registeredPerPage)} onClick={() => setRegisteredPage((value) => value + 1)} className="min-h-10 rounded border border-[#E5E7EB] px-3 font-bold disabled:opacity-40">Next ›</button></div></div>
       </section>
 
       {editingWarga && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingWarga(null); }}><section role="dialog" aria-modal="true" aria-labelledby="edit-warga-title" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"><h3 id="edit-warga-title" className="text-lg font-extrabold text-gray-900">Ubah nama warga</h3><p className="mt-1 text-sm text-gray-600">Perbarui nama panggilan {editingWarga.namaPanggilan}.</p><label htmlFor="warga-name" className="mt-5 block text-xs font-bold text-gray-700">Nama panggilan baru</label><input id="warga-name" autoFocus value={editedName} onChange={(event) => setEditedName(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-lg border border-[#E5E7EB] px-3 text-sm focus:border-[#14532D] focus:outline-none" /><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setEditingWarga(null)} className="min-h-10 rounded-lg border border-[#E5E7EB] px-4 text-sm font-bold">Batal</button><button type="button" disabled={savingName} onClick={handleRename} className="min-h-10 rounded-lg bg-[#14532D] px-4 text-sm font-bold text-white disabled:opacity-60">{savingName ? "Menyimpan..." : "Konfirmasi"}</button></div></section></div>}

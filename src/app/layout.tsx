@@ -4,7 +4,7 @@ import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import PublicChrome from "@/components/PublicChrome";
 import PublicFooter from "@/components/PublicFooter";
-import { getGuestServerSession, getServerSession } from "@/lib/auth";
+import { getGuestServerSession, getServerSession, getSessionExpiryStatus } from "@/lib/auth";
 import { SITE_CONFIG } from "@/config/site";
 import AppDialogProvider from "@/components/AppDialogProvider";
 import { ConfirmDialogProvider } from "@/components/ui/ConfirmDialog";
@@ -12,6 +12,7 @@ import GuestApprovalGate from "@/components/guest/GuestApprovalGate";
 import { getGuestApprovalStatus } from "@/lib/guest-approval";
 import { getSiteUrl } from "@/lib/site";
 import { readLocalDb } from "@/lib/db";
+import AppToastHost from "@/components/ui/AppToast";
 
 const dmSans = DM_Sans({ subsets: ["latin"], display: "swap", variable: "--font-dm-sans" });
 const fraunces = Fraunces({ subsets: ["latin"], display: "swap", variable: "--font-fraunces" });
@@ -48,7 +49,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [session, guestSession] = await Promise.all([getServerSession(), getGuestServerSession()]);
+  const [session, guestSession, sessionExpiry] = await Promise.all([getServerSession(), getGuestServerSession(), getSessionExpiryStatus()]);
+  const effectiveGuestSession = sessionExpiry.expired ? null : guestSession;
   let chromeSession = session;
   if (session?.email) {
     try {
@@ -57,7 +59,7 @@ export default async function RootLayout({
       if (savedAvatar) chromeSession = { ...session, avatarDataUrl: savedAvatar };
     } catch { /* Keep navigation available if optional profile media is not synchronized yet. */ }
   }
-  const sessionParticipant = session?.guestSessionId ? session : !session && guestSession ? guestSession : null;
+  const sessionParticipant = session?.guestSessionId ? session : !session && effectiveGuestSession ? effectiveGuestSession : null;
   const guestApprovalStatus = sessionParticipant ? await getGuestApprovalStatus(sessionParticipant) : null;
   const participantIsPending = Boolean(sessionParticipant?.guestSessionId && guestApprovalStatus !== "approved");
 
@@ -66,10 +68,11 @@ export default async function RootLayout({
       <body className={`${dmSans.variable} ${fraunces.variable} flex min-h-dvh flex-col font-sans`}>
         <ConfirmDialogProvider>
         <AppDialogProvider>
+        <AppToastHost />
         <a href="#main-content" className="skip-link">Lewati ke konten utama</a>
-        <Suspense fallback={null}><PublicChrome session={chromeSession} guestSession={guestSession} guestClassHref={sessionParticipant?.guestClassHref || guestSession?.guestClassHref} initialParticipantPending={participantIsPending} /></Suspense>
+        <Suspense fallback={null}><PublicChrome session={chromeSession} guestSession={effectiveGuestSession} guestClassHref={sessionParticipant?.guestClassHref || effectiveGuestSession?.guestClassHref} initialParticipantPending={participantIsPending} sessionExpired={sessionExpiry.expired} expiredAdmin={sessionExpiry.admin} /></Suspense>
         <main id="main-content" tabIndex={-1} className="flex-1">{participantIsPending ? <GuestApprovalGate scope="attendance" initialStatus={guestApprovalStatus || "pending"} /> : children}</main>
-        {!participantIsPending && <Suspense fallback={null}><PublicFooter isGuest={Boolean(guestSession && !session)} /></Suspense>}
+        {!participantIsPending && <Suspense fallback={null}><PublicFooter isGuest={Boolean(effectiveGuestSession && !session)} /></Suspense>}
         </AppDialogProvider>
         </ConfirmDialogProvider>
       </body>

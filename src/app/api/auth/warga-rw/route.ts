@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { encodeSessionToken, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, sessionCookieOptions } from "@/lib/auth";
+import { clearAuthCookies, encodeSessionToken, SESSION_COOKIE_NAME, sessionCookieOptions, revokeSupabaseSession } from "@/lib/auth";
 import { createPublicSupabaseClient } from "@/lib/supabase";
 import { checkApiRateLimit, clearApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import { isHttpsRequest } from "@/lib/request-security";
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+    const previousAccessToken = typeof body.previousAccessToken === "string" ? body.previousAccessToken : "";
     const code = normalizeCode(body.code);
     if (!code) return NextResponse.json({ error: "Masukkan kode warga lama enam karakter atau kode baru berformat AWALAN-RW-RT." }, { status: 400 });
 
@@ -71,8 +72,9 @@ export async function POST(req: NextRequest) {
 
     clearApiRateLimit(key);
     const response = NextResponse.json({ ok: true, session });
+    await revokeSupabaseSession(req, undefined, previousAccessToken);
+    clearAuthCookies(response, req);
     response.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), sessionCookieOptions(session, isHttpsRequest(req)));
-    response.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
     response.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
     return response;
   } catch (error) {

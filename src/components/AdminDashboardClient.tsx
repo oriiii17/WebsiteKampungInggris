@@ -5,13 +5,10 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createBrowserSupabaseClient } from "@/lib/supabase";
-import { publishSessionChanged } from "@/lib/session-sync";
+import { clearAuthBrowserStorage, getStoredSupabaseAccessToken, publishSessionChanged } from "@/lib/session-sync";
 import {
   BookOpen,
   CalendarClock,
-  CheckCircle2,
-  AlertCircle,
   CreditCard,
   ExternalLink,
   Gamepad2,
@@ -24,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import { formatIDR } from "@/lib/currency";
+import { showAppToast } from "@/components/ui/AppToast";
 import {
   ModuleItem,
   SubscriptionRecord,
@@ -128,7 +126,6 @@ export default function AdminDashboardClient() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabType>(initialTab);
-  const [toast, setToast] = useState<string | null>(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -175,18 +172,12 @@ export default function AdminDashboardClient() {
   async function handleLogout() {
     setLoggingOut(true);
     try {
-      const supabase = createBrowserSupabaseClient();
-      if (supabase) await supabase.auth.signOut({ scope: "local" });
-    } catch {
-      // Tetap hapus sesi aplikasi lokal jika jaringan Supabase tidak tersedia.
-    }
-    try {
-      const response = await fetch("/api/auth/session", { method: "DELETE", cache: "no-store" });
+      const accessToken = getStoredSupabaseAccessToken();
+      const response = await fetch("/api/auth/session", { method: "DELETE", headers: accessToken ? { Authorization: "Bearer " + accessToken } : undefined, cache: "no-store" });
       if (!response.ok) throw new Error("Permintaan keluar belum berhasil.");
+      clearAuthBrowserStorage();
       publishSessionChanged();
-      try { localStorage.removeItem("sapen_last_quiz_name"); } catch {}
-      router.replace("/");
-      router.refresh();
+      window.location.replace("/");
     } catch {
       notify("Belum berhasil keluar. Periksa koneksi, lalu tekan Keluar lagi.");
     } finally {
@@ -198,8 +189,8 @@ export default function AdminDashboardClient() {
     const safeMessage = msg.includes('Gagal upsert ke tabel "subscription_plans"') || msg.includes("42501")
       ? "Paket belum dapat disimpan karena izin database Supabase. Minta admin teknis memeriksa kebijakan akses paket."
       : msg;
-    setToast(safeMessage);
-    setTimeout(() => setToast((prev) => (prev === safeMessage ? null : prev)), 5000);
+    const isError = /belum|gagal|tidak dapat|error|periksa|izin database/i.test(safeMessage);
+    showAppToast(safeMessage, isError ? "error" : "success");
   }, []);
 
   const fetchOverview = useCallback(async () => {
@@ -395,7 +386,7 @@ export default function AdminDashboardClient() {
           <div className="mx-auto max-w-[1680px] space-y-5">
             <AdminSectionHeader
               title={<h1 className="text-2xl font-extrabold tracking-tight text-[#1A2E1A] sm:text-[30px]">{tab === "dashboard" ? "Dashboard Pengurus" : tabLabels[tab]}</h1>}
-              description={tab === "dashboard" ? `Selamat datang, ${data.session.name}. Berikut ringkasan pengelolaan Sapen English.` : "Kelola data dan aktivitas Kampung Inggris Sapen."}
+              description={tab === "dashboard" ? `Selamat datang, ${data.session.name}. Berikut ringkasan pengelolaan Sapen English.` : tab === "sessions" ? undefined : "Kelola data dan aktivitas Kampung Inggris Sapen."}
               className="max-w-3xl"
             />
 
@@ -431,9 +422,7 @@ export default function AdminDashboardClient() {
                 </div>
                 <div className="grid gap-4 lg:grid-cols-2">
                   <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
-                    <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-leaf">Sesi Tatap Muka Terdekat</h2><p className="mt-1 text-sm text-muted">Jadwal sesi yang masih berlangsung atau akan datang.</p></div><button type="button" onClick={() => handleSelectTab("sessions")} className="min-h-11 shrink-0 rounded-lg border border-rule bg-white px-3 text-sm font-bold text-leaf">Buka sesi</button></div>
-                    <ul className="mt-4 divide-y divide-rule">{(data.dashboardSessions || []).slice(0, 4).map((session: any) => <li key={session.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span className="font-bold text-ink">{session.title}</span><time className="text-muted">{session.startsAt ? new Date(session.startsAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }) : "Dibuka langsung"}</time></li>)}</ul>
-                    {!data.dashboardSessions?.length && <p className="mt-4 rounded-lg bg-white px-3 py-4 text-sm text-muted">Belum ada sesi aktif atau terjadwal.</p>}
+                    {(() => { const now = Date.now(); const sessions = data.dashboardSessions || []; const ongoing = sessions.filter((session: any) => !session.startsAt || new Date(session.startsAt).getTime() <= now); const upcoming = sessions.filter((session: any) => session.startsAt && new Date(session.startsAt).getTime() > now); const renderSessions = (items: any[]) => <ul className="mt-2 divide-y divide-rule">{items.slice(0, 4).map((session: any) => <li key={session.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span className="font-bold text-ink">{session.title}</span><time className="text-muted">{session.startsAt ? new Date(session.startsAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }) : "Dibuka langsung"}</time></li>)}</ul>; return <><div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-leaf">{ongoing.length ? "Sesi Berlangsung" : "Sesi Tatap Muka Terdekat"}</h2><p className="mt-1 text-sm text-muted">{ongoing.length ? "Pertemuan yang sedang berjalan saat ini." : "Jadwal pertemuan yang akan dimulai."}</p></div><button type="button" onClick={() => handleSelectTab("sessions")} className="min-h-11 shrink-0 rounded-lg border border-rule bg-white px-3 text-sm font-bold text-leaf">Buka sesi</button></div>{ongoing.length ? renderSessions(ongoing) : upcoming.length ? renderSessions(upcoming) : <p className="mt-4 rounded-lg bg-white px-3 py-4 text-sm text-muted">Belum ada sesi aktif atau terjadwal.</p>}{ongoing.length > 0 && upcoming.length > 0 && <div className="mt-3 border-t border-rule pt-3"><h3 className="font-bold text-leaf">Sesi Tatap Muka Terdekat</h3><p className="mt-1 text-xs text-muted">Sesi berikutnya belum dimulai.</p>{renderSessions(upcoming)}</div>}</>; })()}
                   </section>
                   <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
                     <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-leaf">Aktivitas &amp; Pendaftaran Terbaru</h2><p className="mt-1 text-sm text-muted">Perubahan terbaru dari peserta dan sesi kelas.</p></div><button type="button" onClick={() => handleSelectTab("codes")} className="min-h-11 shrink-0 rounded-lg border border-rule bg-white px-3 text-sm font-bold text-leaf">Lihat peserta</button></div>
@@ -444,12 +433,6 @@ export default function AdminDashboardClient() {
               </section>
             )}
 
-            {toast && (
-              <div role="status" className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm font-bold ${toast.includes("izin database Supabase") ? "border-amber-300 bg-amber-50 text-amber-950" : "border-[#E5E7EB] bg-white text-[#14532D]"}`}>
-                {toast.includes("izin database Supabase") ? <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-800" /> : <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#14532D]" />}
-                {toast}
-              </div>
-            )}
 
       {tab === "classes" && (
         <AdminClassesManager modules={data.modules || []} notify={notify} />
@@ -543,17 +526,34 @@ function StatCard({ label, value, subValue, icon }: { label: string; value: stri
 function PaymentsTab(props: any) {
   const dialog = useAppDialog();
   const { data, isDev, manualName, setManualName, manualEmail, setManualEmail, manualPlanId, setManualPlanId, manualDurationDays, setManualDurationDays, savingManualGrant, setSavingManualGrant, handleGrantManualAccess, handleSubAction, handleDeleteSub, fetchOverview, notify } = props;
+  const [paymentRows, setPaymentRows] = useState<ClassEnrollment[]>([]);
+  const [paymentTotal, setPaymentTotal] = useState(0);
+  const [paymentPage, setPaymentPage] = useState(1);
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [paymentClass, setPaymentClass] = useState("all");
+  const [paymentType, setPaymentType] = useState("all");
+  const [paymentSort, setPaymentSort] = useState("newest");
+  const [showPaymentNotice, setShowPaymentNotice] = useState(true);
+  const reloadPaymentRows = useCallback(async () => {
+    const params = new URLSearchParams({ page: String(paymentPage), perPage: "20", search: paymentSearch, classId: paymentClass, payment: paymentType, sort: paymentSort });
+    const response = await fetch(`/api/admin/enrollments?${params}`, { cache: "no-store" });
+    const result = await response.json().catch(() => ({}));
+    if (response.ok) { setPaymentRows(result.enrollments || []); setPaymentTotal(Number(result.total) || 0); if (result.page && result.page !== paymentPage) setPaymentPage(result.page); }
+  }, [paymentPage, paymentSearch, paymentClass, paymentType, paymentSort]);
+  useEffect(() => { void reloadPaymentRows(); }, [reloadPaymentRows]);
+  const paymentTotalAmount = (data.enrollments || []).reduce((sum: number, entry: ClassEnrollment) => sum + Number(entry.paidAmountIdr || 0), 0);
   return (
     <div className="mt-6 space-y-6">
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+      {showPaymentNotice && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-amber-100 p-2 text-amber-800"><CreditCard className="h-5 w-5" /></div>
           <div className="flex-1">
             <div className="flex items-center gap-2"><span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">Pembayaran online belum dibuka</span></div>
             <p className="mt-1 text-xs text-amber-800 leading-relaxed">Untuk sementara, pengurus dapat membantu peserta mendapatkan akses materi melalui formulir pemberian akses manual di bawah ini.</p>
           </div>
+          <button type="button" aria-label="Tutup pemberitahuan pembayaran" onClick={() => setShowPaymentNotice(false)} className="min-h-11 min-w-11 rounded-lg text-amber-900 hover:bg-amber-100">×</button>
         </div>
-      </div>
+      </div>}
 
       <div className="rounded-xl border border-[#E5E7EB] bg-white p-6">
         <h2 className="text-base font-extrabold text-slate-900 mb-1">Beri Akses Kelas Manual (Admin Grant)</h2>
@@ -566,11 +566,14 @@ function PaymentsTab(props: any) {
         </form>
       </div>
 
+      <div className="grid grid-cols-3 gap-2 rounded-xl border border-[#E5E7EB] bg-white p-3 text-center sm:p-4"><div><p className="text-[10px] font-bold uppercase text-slate-500">Total Transaksi</p><p className="mt-1 text-base font-extrabold text-[#183b2d]">{(data.enrollments || []).length}</p></div><div><p className="text-[10px] font-bold uppercase text-slate-500">Total Pemasukan</p><p className="mt-1 truncate text-sm font-extrabold text-[#183b2d]">{formatIDR(paymentTotalAmount)}</p></div><div><p className="text-[10px] font-bold uppercase text-slate-500">Total Akses Aktif</p><p className="mt-1 text-base font-extrabold text-[#183b2d]">{(data.enrollments || []).filter((entry: ClassEnrollment) => entry.status === "active").length}</p></div></div>
+
       <div className="rounded-xl border border-[#E5E7EB] bg-white p-6">
-        <h2 className="text-lg font-extrabold text-slate-900">Riwayat Pembayaran & Akses Kelas ({(data.enrollments || []).length})</h2>
+        <h2 className="text-lg font-extrabold text-slate-900">Riwayat Pembayaran & Akses Kelas ({paymentTotal})</h2>
+        <div className="sticky top-16 z-10 mt-3 grid grid-cols-2 gap-2 rounded-lg border border-[#e5e7eb] bg-white/95 p-2 shadow-sm sm:grid-cols-4"><input value={paymentSearch} onChange={(event) => { setPaymentSearch(event.target.value); setPaymentPage(1); }} placeholder="Cari nama atau email" className="col-span-2 min-h-11 min-w-0 rounded-lg border border-slate-200 px-3 text-sm sm:col-span-1" /><select aria-label="Filter kelas" value={paymentClass} onChange={(event) => { setPaymentClass(event.target.value); setPaymentPage(1); }} className="min-h-11 min-w-0 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="all">Semua kelas</option>{(data.classes || []).map((item: ClassItem) => <option key={item.id} value={item.id}>{item.title}</option>)}</select><select aria-label="Filter nominal" value={paymentType} onChange={(event) => { setPaymentType(event.target.value); setPaymentPage(1); }} className="min-h-11 min-w-0 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="all">Berbayar / Gratis</option><option value="paid">Berbayar</option><option value="free">Gratis</option></select><select aria-label="Urutkan transaksi" value={paymentSort} onChange={(event) => { setPaymentSort(event.target.value); setPaymentPage(1); }} className="min-h-11 min-w-0 rounded-lg border border-slate-200 bg-white px-2 text-xs"><option value="newest">Terbaru</option><option value="oldest">Terlama</option></select></div>
         <div className="mt-4">
           <ResponsiveTable
-            rows={data.enrollments || []}
+            rows={paymentRows}
             getRowKey={(enrollment: ClassEnrollment) => enrollment.id}
             ariaLabel="Riwayat pembayaran dan akses kelas"
             emptyMessage="Belum ada akses kelas yang tercatat. Berikan akses permanen melalui formulir di atas."
@@ -581,10 +584,11 @@ function PaymentsTab(props: any) {
               { id: "class", label: "Kelas Dibeli", cellClassName: "font-semibold text-slate-800", render: (enrollment: ClassEnrollment) => (data.classes || []).find((item: ClassItem) => item.id === enrollment.classId)?.title || enrollment.classId },
               { id: "amount", label: "Nominal / Biaya", render: (enrollment: ClassEnrollment) => enrollment.paidAmountIdr ? formatIDR(enrollment.paidAmountIdr) : "Gratis" },
               { id: "date", label: "Tanggal Transaksi", render: (enrollment: ClassEnrollment) => new Date(enrollment.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) },
-              { id: "actions", label: "Aksi", action: true, render: (enrollment: ClassEnrollment) => <div className="flex flex-wrap gap-2 md:justify-end"><button type="button" onClick={async () => { if (!(await dialog.confirm(`Cabut akses ${enrollment.userName} ke kelas ini?`, "Cabut akses kelas?"))) return; const response = await fetch("/api/admin/enrollments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: enrollment.id, action: "revoke" }) }); if (response.ok) { notify("Akses kelas dicabut."); fetchOverview(); } }} className="min-h-11 rounded-lg bg-[#fff2ec] px-3 text-xs font-bold text-[#943520] hover:bg-[#f9e1d8]">Cabut Akses</button><button type="button" onClick={async () => { if (!(await dialog.confirm("Hapus catatan akses ini secara permanen?", "Hapus catatan?"))) return; const response = await fetch(`/api/admin/enrollments?id=${encodeURIComponent(enrollment.id)}`, { method: "DELETE" }); if (response.ok) { notify("Catatan akses dihapus."); fetchOverview(); } }} className="min-h-11 rounded-lg border border-[#c9bda7] px-3 text-xs font-bold text-slate-700 hover:bg-[#f6f1e8]">Hapus</button></div> },
+              { id: "actions", label: "Aksi", action: true, render: (enrollment: ClassEnrollment) => <details className="relative md:text-right"><summary aria-label={`Aksi untuk ${enrollment.userName}`} className="inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-lg border border-[#c9bda7] text-lg font-bold text-[#244b3a]">⋮</summary><div className="absolute right-0 z-20 grid min-w-40 rounded-lg border border-[#c9bda7] bg-white p-1 shadow-lg"><button type="button" onClick={async () => { if (!(await dialog.confirm(`Cabut akses ${enrollment.userName} ke kelas ini?`, "Cabut akses kelas?"))) return; const response = await fetch("/api/admin/enrollments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: enrollment.id, action: "revoke" }) }); if (response.ok) { notify("Akses kelas dicabut."); fetchOverview(); void reloadPaymentRows(); } }} className="min-h-11 rounded-md px-3 text-left text-xs font-bold text-[#943520] hover:bg-[#fff2ec]">Cabut Akses</button><button type="button" onClick={async () => { if (!(await dialog.confirm("Hapus catatan akses ini secara permanen?", "Hapus catatan?"))) return; const response = await fetch(`/api/admin/enrollments?id=${encodeURIComponent(enrollment.id)}`, { method: "DELETE" }); if (response.ok) { notify("Catatan akses dihapus."); fetchOverview(); void reloadPaymentRows(); } }} className="min-h-11 rounded-md px-3 text-left text-xs font-bold text-slate-700 hover:bg-[#f6f1e8]">Hapus</button></div></details> },
             ]}
           />
         </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600"><span>Menampilkan {paymentTotal ? (paymentPage - 1) * 20 + 1 : 0}-{Math.min(paymentPage * 20, paymentTotal)} dari {paymentTotal}</span><div className="flex items-center gap-2"><button type="button" disabled={paymentPage <= 1} onClick={() => setPaymentPage((value) => value - 1)} className="min-h-11 rounded-lg border px-3 font-bold disabled:opacity-40">‹ Prev</button><span>{paymentPage} / {Math.max(1, Math.ceil(paymentTotal / 20))}</span><button type="button" disabled={paymentPage >= Math.ceil(paymentTotal / 20)} onClick={() => setPaymentPage((value) => value + 1)} className="min-h-11 rounded-lg border px-3 font-bold disabled:opacity-40">Next ›</button></div><button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="min-h-11 text-[#244b3a] underline">Kembali ke atas</button></div>
       </div>
 
       {isDev && (

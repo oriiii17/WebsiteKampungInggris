@@ -8,6 +8,7 @@ import { ClassItem, ModuleItem, SessionPayload } from "@/lib/types";
 import type { GameBlueprint } from "@/lib/game-blueprint";
 import ClassAccessAction from "@/components/ClassAccessAction";
 import { formatIDR } from "@/lib/currency";
+import { clearAuthBrowserStorage } from "@/lib/session-sync";
 
 interface Props {
   classItem: ClassItem;
@@ -82,6 +83,7 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
         ? await fetch("/api/auth/session?scope=guest", { method: "DELETE", cache: "no-store" })
         : await fetch("/api/auth/session", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear_class_session" }), cache: "no-store" });
       if (!response.ok) throw new Error("Konteks sesi belum berhasil dibersihkan. Coba lagi.");
+      if (isGuest) clearAuthBrowserStorage();
       window.dispatchEvent(new Event("sapen:guest-session-updated"));
       router.replace("/");
     } catch (error) {

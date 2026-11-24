@@ -171,7 +171,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="home-classes workbook-wrap" aria-labelledby="home-classes-title">
+      <section className="home-classes" aria-labelledby="home-classes-title">
+        <div className="workbook-wrap home-classes-panel">
         <div className="home-classes-intro">
           <h2 id="home-classes-title" className="font-display">Pilih kelas, lalu mulai berlatih.</h2>
           <p>Lihat materi, jadwal, dan pilihan akses di setiap kelas.</p>
@@ -185,7 +186,7 @@ export default async function HomePage() {
                 {item.subtitle && <p>{item.subtitle}</p>}
               </div>
               <div className="home-class-action">
-                <span>{formatPrice(item.priceIdr)}</span>
+                <span className="home-price-badge">{item.priceIdr === 0 ? "Gratis" : formatPrice(item.priceIdr)}</span>
                 <Link href={`/kelas/${encodeURIComponent(item.slug)}`} aria-label={`Lihat detail ${item.title}`}>
                   Detail <ArrowRight aria-hidden="true" className="h-4 w-4" />
                 </Link>
@@ -197,6 +198,7 @@ export default async function HomePage() {
               <Link href="/kelas">Lihat halaman kelas <ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
             </div>
           )}
+        </div>
         </div>
       </section>
 

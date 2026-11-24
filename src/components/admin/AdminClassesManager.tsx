@@ -19,7 +19,6 @@ import {
   Trash2,
   Unlock,
   Upload,
-  FileDown,
   Gamepad2,
   X,
 } from "lucide-react";
@@ -28,7 +27,7 @@ import { useAppDialog } from "@/components/AppDialogProvider";
 import type { GameBlueprint } from "@/lib/game-blueprint";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatIDR, MAX_PRICE_IDR } from "@/lib/currency";
-import { AdminSectionHeader, AdminToolbar } from "@/components/admin/AdminSectionHeader";
+import { AdminToolbar } from "@/components/admin/AdminSectionHeader";
 
 interface Props {
   modules?: any[]; // legacy prop (unused in new flow)
@@ -83,14 +82,14 @@ export default function AdminClassesManager({ notify }: Props) {
     finally { setLoading(false); }
   }
 
-  async function exportClasses() {
+  async function exportClasses(format: "excel" | "csv" | "pdf" = exportFormat) {
     try {
-      const response = await fetch(`/api/admin/export?type=classes&format=${exportFormat}`);
+      const response = await fetch(`/api/admin/export?type=classes&format=${format}`);
       if (!response.ok) throw new Error("Ekspor kelas gagal.");
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `daftar-kelas.${exportFormat === "excel" ? "xlsx" : exportFormat}`;
+      link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `daftar-kelas.${format === "excel" ? "xlsx" : format}`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) { notify(error instanceof Error ? error.message : "Ekspor kelas gagal."); }
@@ -261,7 +260,7 @@ export default function AdminClassesManager({ notify }: Props) {
 
   return (
     <div className="mt-6 space-y-6 text-[#1A2E1A]">
-      <div className="flex flex-wrap items-center justify-between gap-4"><div className="min-w-0"><h2 className="inline-flex max-w-full items-center rounded-full border border-[#d2c5ad] bg-[#e8eee5] px-4 py-2 text-xl font-extrabold text-[#183b2d]">Kelas</h2><p className="mt-2 text-sm text-muted">Atur kelas, bab, materi, dan latihan mandiri.</p></div><button type="button" onClick={() => { resetForm(); setEditorOpen(true); }} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d]"><Plus className="h-4 w-4" />Buat Kelas Baru</button></div>
+      <div className="flex flex-wrap items-center justify-between gap-4"><div className="min-w-0"><h2 className="max-w-full text-xl font-extrabold text-[#183b2d]">Kelas</h2><p className="mt-2 text-sm text-muted">Atur kelas, bab, materi, dan latihan mandiri.</p></div><button type="button" onClick={() => { resetForm(); setEditorOpen(true); }} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d]"><Plus className="h-4 w-4" />Buat Kelas Baru</button></div>
       <div className="grid grid-cols-1 items-start gap-6">
         {editorOpen && <form onSubmit={(event) => { event.preventDefault(); handleSave(false); }} className="mx-auto w-full max-w-3xl space-y-5 rounded-xl border border-[#E5E7EB] bg-white p-5 pb-28 sm:p-6 sm:pb-28 md:pb-6">
           <div className="flex items-center justify-between gap-3">
@@ -345,11 +344,13 @@ export default function AdminClassesManager({ notify }: Props) {
         </form>}
 
         {!editorOpen && <div className="space-y-4">
-          <AdminSectionHeader
-            title={<><h3 className="flex items-center gap-2 text-base font-extrabold text-[#1A2E1A]"><BookOpen className="h-4 w-4 text-[#14532D]" /> {classView === "active" ? "Kelas Aktif" : "Draft Kelas"} ({visibleClasses.length})</h3><div role="group" aria-label="Filter status kelas" className="mt-2 grid w-full grid-cols-2 rounded-lg border border-rule bg-paper-light p-1 sm:inline-grid sm:w-auto"><button type="button" aria-pressed={classView === "active"} onClick={() => setClassView("active")} className={`min-h-11 rounded-md px-3 text-xs font-bold ${classView === "active" ? "bg-leaf text-white" : "text-muted"}`}>Aktif</button><button type="button" aria-pressed={classView === "drafts"} onClick={() => setClassView("drafts")} className={`min-h-11 rounded-md px-3 text-xs font-bold ${classView === "drafts" ? "bg-leaf text-white" : "text-muted"}`}>Draft</button></div></>}
-            actions={<AdminToolbar className="w-full sm:w-auto"><select aria-label="Format ekspor kelas" value={exportFormat} onChange={(event) => setExportFormat(event.target.value as "excel" | "csv" | "pdf")} className="min-h-11 min-w-0 rounded-md border border-rule bg-white px-2 text-xs"><option value="excel">Ekspor Excel (.xlsx)</option><option value="pdf">Ekspor PDF</option><option value="csv">Ekspor CSV</option></select><button type="button" onClick={exportClasses} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md border border-rule px-2.5 text-xs font-bold text-[#14532D] hover:bg-paper-light"><FileDown className="h-3.5 w-3.5"/>Unduh</button><button type="button" onClick={loadClasses} className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md px-2 text-xs font-bold text-[#14532D] hover:underline"><RefreshCw className="h-3.5 w-3.5" /> Segarkan</button></AdminToolbar>}
-            className="items-stretch"
-          />
+          <div className="flex flex-col gap-3">
+            <h2 className="text-base font-extrabold text-[#1A2E1A]">{classView === "active" ? "Kelas Aktif" : "Draft Kelas"} ({visibleClasses.length})</h2>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div role="group" aria-label="Filter status kelas" className="grid w-full grid-cols-2 rounded-lg border border-rule bg-paper-light p-1 sm:w-auto"><button type="button" aria-pressed={classView === "active"} onClick={() => setClassView("active")} className={`min-h-11 rounded-md px-3 text-xs font-bold ${classView === "active" ? "bg-leaf text-white" : "text-muted"}`}>Aktif</button><button type="button" aria-pressed={classView === "drafts"} onClick={() => setClassView("drafts")} className={`min-h-11 rounded-md px-3 text-xs font-bold ${classView === "drafts" ? "bg-leaf text-white" : "text-muted"}`}>Draft</button></div>
+              <AdminToolbar className="w-full sm:w-auto"><details className="relative col-span-2 sm:col-span-1"><summary className="inline-flex min-h-11 w-full cursor-pointer list-none items-center justify-center rounded-lg border border-rule bg-white px-4 text-sm font-bold text-[#14532D] sm:w-auto">Aksi</summary><div className="absolute right-0 z-20 mt-1 grid min-w-52 rounded-lg border border-rule bg-white p-1 shadow-lg">{([["excel", "Ekspor Excel (.xlsx)"], ["pdf", "Ekspor PDF"], ["csv", "Ekspor CSV"]] as const).map(([format, label]) => <button key={format} type="button" onClick={() => { setExportFormat(format); void exportClasses(format); }} className="min-h-11 rounded-md px-3 text-left text-sm font-semibold text-[#14532D] hover:bg-paper-light">{label}</button>)}</div></details><button type="button" onClick={loadClasses} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-rule bg-white px-4 text-sm font-bold text-[#14532D] hover:bg-paper-light sm:col-span-1"><RefreshCw className="h-4 w-4"/>Segarkan</button></AdminToolbar>
+            </div>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_13rem]"><label className="block text-xs font-bold text-[#514b3e]">Cari kelas<input value={classQuery} onChange={(event) => setClassQuery(event.target.value)} placeholder="Cari judul kelas" className="mt-1 min-h-11 w-full rounded-lg border border-rule bg-white px-3 text-sm" /></label><label className="block text-xs font-bold text-[#514b3e]">Tingkat<select value={classLevel} onChange={(event) => setClassLevel(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-rule bg-white px-3 text-sm"><option value="all">Semua tingkat</option><option>Pemula</option><option>Menengah</option><option value="Lanjutan">Mahir</option></select></label></div>
           {loading ? (
             <div className="rounded-xl border border-[#E5E7EB] bg-white p-8 text-center text-sm text-[#1A2E1A]/60">Memuat data kelas...</div>

@@ -1,18 +1,20 @@
 ﻿import { NextResponse } from "next/server";
 import {
   encodeSessionToken,
+  clearAuthCookies,
   GUEST_SESSION_COOKIE_NAME,
   getGuestServerSession,
   getServerSession,
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
+  revokeSupabaseSession,
+  getSessionExpiryStatus,
 } from "@/lib/auth";
 import { getActiveSubscriptionForEmail, readLocalDb, writeLocalDb } from "@/lib/db";
 import { createPublicSupabaseClient } from "@/lib/supabase";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { SessionPayload } from "@/lib/types";
 import { isHttpsRequest } from "@/lib/request-security";
-import { SUPABASE_ACCESS_TOKEN_COOKIE } from "@/lib/supabase-server";
 import { getGuestApprovalStatus } from "@/lib/guest-approval";
 
 function canEditAccount(session: SessionPayload) {
@@ -21,6 +23,7 @@ function canEditAccount(session: SessionPayload) {
 }
 
 export async function GET(req: Request) {
+  const expiredState = await getSessionExpiryStatus();
   const scope = new URL(req.url).searchParams.get("scope");
   if (scope === "class-access") {
     const session = await getServerSession();
@@ -44,7 +47,11 @@ export async function GET(req: Request) {
   }
 
   const session = await getServerSession();
-  if (!session) return NextResponse.json({ session: null });
+  if (!session) {
+    const res = NextResponse.json({ session: null, sessionExpired: expiredState.expired }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    if (expiredState.expired) clearAuthCookies(res, req);
+    return res;
+  }
 
   if ((session.role === "peserta" || session.role === "umum") && session.email) {
     const activeSub = await getActiveSubscriptionForEmail(session.email);
@@ -173,16 +180,8 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   const res = NextResponse.json({ ok: true });
-  if (new URL(req.url).searchParams.get("scope") === "guest") {
-    res.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 0, expires: new Date(0) });
-    res.cookies.delete(GUEST_SESSION_COOKIE_NAME);
-    return res;
-  }
-  res.cookies.set(SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 0, expires: new Date(0) });
-  res.cookies.delete(SESSION_COOKIE_NAME);
-  res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, "", { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 0, expires: new Date(0) });
-  res.cookies.delete(SUPABASE_ACCESS_TOKEN_COOKIE);
-  res.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", secure: isHttpsRequest(req), path: "/", maxAge: 0, expires: new Date(0) });
-  res.cookies.delete(GUEST_SESSION_COOKIE_NAME);
+  await revokeSupabaseSession(req);
+  clearAuthCookies(res, req);
+  res.headers.set("Cache-Control", "no-store, max-age=0");
   return res;
 }

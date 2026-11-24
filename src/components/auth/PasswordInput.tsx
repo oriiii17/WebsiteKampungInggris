@@ -22,7 +22,6 @@ export default function PasswordInput({ id, value, onChange, autoComplete, place
       <input id={id} type={visible ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} autoComplete={autoComplete} placeholder={placeholder} required={required} minLength={minLength} />
       <button type="button" className="auth-password-toggle" onClick={() => setVisible((current) => !current)} aria-label={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} aria-pressed={visible} title={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}>
         {visible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-        <span>{visible ? "Sembunyikan" : "Tampilkan"}</span>
       </button>
     </span>
     {helperText && <span className="auth-password-helper">{helperText}</span>}

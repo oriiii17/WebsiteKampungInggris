@@ -1,12 +1,14 @@
 import crypto from "crypto";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
-import { getSupabasePublicConfig } from "./supabase";
+import { cookies, headers } from "next/headers";
+import { NextResponse } from "next/server";
 import { SessionPayload } from "./types";
 
 const SESSION_COOKIE_NAME = "sapen_session";
 const SUPABASE_ACCESS_TOKEN_COOKIE = "sapen_supabase_access";
 export const GUEST_SESSION_COOKIE_NAME = "sapen_guest_session";
+export const SESSION_IDLE_LIMIT_MS = 90 * 60 * 1000;
+const SUPABASE_REFRESH_TOKEN_COOKIE = "sapen_supabase_refresh";
+const AUTH_COOKIE_NAMES = new Set([SESSION_COOKIE_NAME, GUEST_SESSION_COOKIE_NAME, SUPABASE_ACCESS_TOKEN_COOKIE, SUPABASE_REFRESH_TOKEN_COOKIE, "sapen_admin_session", "supabase.auth.token", "supabase-auth-token"]);
 let ephemeralSessionSecret: string | null = null;
 
 function getSecret(): string {
@@ -35,8 +37,74 @@ export function sessionCookieOptions(session: SessionPayload, secure: boolean) {
     sameSite: "lax" as const,
     path: "/",
     secure,
-    ...(privileged ? {} : { maxAge: 60 * 60 * 24 * 7 }),
+    ...(privileged ? {} : { maxAge: Math.floor(SESSION_IDLE_LIMIT_MS / 1000) }),
   };
+}
+
+export function guestSessionCookieOptions(secure: boolean) {
+  return { httpOnly: true, sameSite: "lax" as const, path: "/", secure, maxAge: Math.floor(SESSION_IDLE_LIMIT_MS / 1000) };
+}
+
+export function supabaseAccessCookieOptions(session: SessionPayload, secure: boolean) {
+  const privileged = session.role === "admin" || session.role === "pengurus" || session.role === "developer" || session.role === "tutor" || session.origin === "admin" || session.origin === "tutor";
+  return { httpOnly: true, sameSite: "lax" as const, path: "/", secure, ...(privileged ? {} : { maxAge: Math.floor(SESSION_IDLE_LIMIT_MS / 1000) }) };
+}
+
+export function supabaseRefreshCookieOptions(session: SessionPayload, secure: boolean) {
+  return supabaseAccessCookieOptions(session, secure);
+}
+
+function isAuthCookieName(name: string) {
+  return AUTH_COOKIE_NAMES.has(name) || /^sapen_.*(?:session|auth|token)/i.test(name) || /^sb-.*auth-token/i.test(name);
+}
+
+export function clearAuthCookies(response: NextResponse, req: Request) {
+  const names = new Set(AUTH_COOKIE_NAMES);
+  for (const part of (req.headers.get("cookie") || "").split(";")) {
+    const name = part.slice(0, part.indexOf("=")).trim();
+    if (name && isAuthCookieName(name)) names.add(name);
+  }
+  const secure = process.env.NODE_ENV === "production" || new URL(req.url).protocol === "https:";
+  for (const name of names) response.cookies.set(name, "", { httpOnly: true, sameSite: "lax", path: "/", secure, maxAge: 0, expires: new Date(0) });
+}
+
+export async function revokeSupabaseSession(req: Request, exceptAccessToken?: string, suppliedPreviousToken?: string, currentUserId?: string) {
+  const config = (await import("./supabase")).getSupabasePublicConfig();
+  if (!config) return;
+  const prefix = "sapen_supabase_access=";
+  const part = (req.headers.get("cookie") || "").split(";").map((value) => value.trim()).find((value) => value.startsWith(prefix));
+  let token = "";
+  try { token = part ? decodeURIComponent(part.slice(prefix.length)) : ""; } catch { return; }
+  if (!token) token = suppliedPreviousToken || req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] || "";
+  if (!token || token === exceptAccessToken) return;
+  if (currentUserId) {
+    try {
+      const payload = JSON.parse(Buffer.from(token.split(".")[1] || "", "base64url").toString("utf8")) as { sub?: string };
+      if (payload.sub === currentUserId) return;
+    } catch { /* Continue with global revocation when token identity cannot be decoded. */ }
+  }
+  let refreshToken = "";
+  try {
+    const refreshPart = (req.headers.get("cookie") || "").split(";").map((value) => value.trim()).find((value) => value.startsWith("sapen_supabase_refresh="));
+    refreshToken = refreshPart ? decodeURIComponent(refreshPart.slice("sapen_supabase_refresh=".length)) : "";
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] || "", "base64url").toString("utf8")) as { exp?: number };
+    if (refreshToken && Number(payload.exp || 0) * 1000 < Date.now() + 30_000) {
+      const refreshed = await fetch(config.url + "/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        headers: { apikey: config.anonKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(2500),
+      });
+      if (refreshed.ok) {
+        const session = await refreshed.json() as { access_token?: string };
+        if (session.access_token) token = session.access_token;
+      }
+    }
+  } catch { /* Use the existing access token for the sign-out attempt. */ }
+  try {
+    await fetch(config.url + "/auth/v1/logout?scope=global", { method: "POST", headers: { apikey: config.anonKey, Authorization: "Bearer " + token }, cache: "no-store", signal: AbortSignal.timeout(2500) });
+  } catch { /* Local cookie removal remains authoritative during network failures. */ }
 }
 
 export function decodeSessionToken(token: string | undefined): SessionPayload | null {
@@ -58,61 +126,51 @@ export function decodeSessionToken(token: string | undefined): SessionPayload | 
 export async function getServerSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const raw = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  const session = decodeSessionToken(raw);
-  if (session && session.role !== "guest" && session.origin !== "guest") {
-    if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) return null;
-    const idleLimit = session.role === "admin" || session.role === "pengurus" || session.role === "developer" || session.role === "tutor" || session.origin === "admin" || session.origin === "tutor"
-      ? 40 * 60 * 1000
-      : 7 * 24 * 60 * 60 * 1000;
-    if (!session.lastActivityAt || Date.now() - session.lastActivityAt > idleLimit) return null;
-    const privilegedRole = session.role === "admin" || session.role === "pengurus" || session.role === "developer";
-    const accessCodeSession = session.origin === "warga_kode";
-    if (session.email && !privilegedRole && !accessCodeSession && session.emailVerified !== true) {
-      return getVerifiedSupabaseSession(cookieStore.get(SUPABASE_ACCESS_TOKEN_COOKIE)?.value);
+  if (!raw) return null;
+  const current = decodeSessionToken(raw);
+  const now = Date.now();
+  if (!current || current.role === "guest" || current.origin === "guest" || !current.lastActivityAt || now - current.lastActivityAt > SESSION_IDLE_LIMIT_MS) {
+    for (const cookie of cookieStore.getAll()) {
+      if (isAuthCookieName(cookie.name)) try { cookieStore.set(cookie.name, "", { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production", maxAge: 0, expires: new Date(0) }); } catch { /* Server component cookie stores are read-only. */ }
     }
-    const hasSupabaseUserId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(session.id);
-    if (!(session.origin === "admin" || session.origin === "tutor" || session.origin === "luar_belum_aktif" || session.origin === "luar_langganan") || hasSupabaseUserId) return session;
-  }
-  return getVerifiedSupabaseSession(cookieStore.get(SUPABASE_ACCESS_TOKEN_COOKIE)?.value);
-}
-
-/** Rebuilds the app session from Supabase's verified access token when the app cookie is stale. */
-async function getVerifiedSupabaseSession(accessToken?: string): Promise<SessionPayload | null> {
-  const config = getSupabasePublicConfig();
-  if (!accessToken || !config) return null;
-  try {
-    const supabase = createClient(config.url, config.anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken);
-    if (error || !user) return null;
-    const { data: profile } = await supabase.from("profiles").select("role,full_name").eq("id", user.id).maybeSingle();
-    const role = profile?.role || user.app_metadata?.role;
-    if (role !== "admin" && role !== "pengurus" && role !== "developer" && role !== "tutor") return null;
-    const name = profile?.full_name || user.user_metadata?.full_name || (role === "developer" ? "Developer Sistem Sapen" : role === "tutor" ? "Tutor Sapen" : "Pengurus Kampung Sapen");
-    return {
-      id: user.id,
-      name,
-      email: user.email || undefined,
-      role,
-      origin: role === "tutor" ? "tutor" : "admin",
-      watermarkText: `PREVIEW ADMIN • ${name.toUpperCase()}`,
-    };
-  } catch {
     return null;
   }
+  const requestHeaders = await headers();
+  if (requestHeaders.get("x-sapen-session-activity") !== "1") return current;
+  const refreshed = { ...current, lastActivityAt: now };
+  try { cookieStore.set(SESSION_COOKIE_NAME, encodeSessionToken(refreshed), sessionCookieOptions(refreshed, process.env.NODE_ENV === "production")); } catch { /* API requests can renew cookies; page renders are read-only. */ }
+  return refreshed;
 }
 
-/** Guest attendance is scoped separately so it cannot replace an account session in another tab. */
 export async function getGuestServerSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const session = decodeSessionToken(cookieStore.get(GUEST_SESSION_COOKIE_NAME)?.value);
   if (!session || session.role !== "guest" || session.origin !== "guest") return null;
-  if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) return null;
-  return session;
+  const now = Date.now();
+  if ((session.expiresAt && Date.parse(session.expiresAt) <= now) || !session.lastActivityAt || now - session.lastActivityAt > SESSION_IDLE_LIMIT_MS) {
+    try { cookieStore.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production", maxAge: 0, expires: new Date(0) }); } catch { /* Server component cookie stores are read-only. */ }
+    return null;
+  }
+  const requestHeaders = await headers();
+  if (requestHeaders.get("x-sapen-session-activity") !== "1") return session;
+  const refreshed = { ...session, lastActivityAt: now };
+  try { cookieStore.set(GUEST_SESSION_COOKIE_NAME, encodeSessionToken(refreshed), guestSessionCookieOptions(process.env.NODE_ENV === "production")); } catch { /* API requests can renew cookies. */ }
+  return refreshed;
 }
 
 /** Account identities always win; use Guest context only when no account session is active. */
 export async function getSessionWithGuestContext(): Promise<SessionPayload | null> {
-  return (await getServerSession()) || await getGuestServerSession();
+  const cookieStore = await cookies();
+  if (cookieStore.get(SESSION_COOKIE_NAME)?.value) return getServerSession();
+  return getGuestServerSession();
+}
+
+export async function getSessionExpiryStatus(): Promise<{ expired: boolean; admin: boolean }> {
+  const raw = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  const session = decodeSessionToken(raw);
+  const now = Date.now();
+  const expired = Boolean(raw && (!session || !session.lastActivityAt || now - session.lastActivityAt > SESSION_IDLE_LIMIT_MS));
+  return { expired, admin: Boolean(expired && session && ["admin", "pengurus", "developer", "tutor"].includes(session.role)) };
 }
 
 export function hasActiveMaterialAccess(session: SessionPayload | null): boolean {

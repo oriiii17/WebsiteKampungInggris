@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import GuestNavbar from "@/components/GuestNavbar";
 import type { SessionPayload } from "@/lib/types";
-import { subscribeToSessionChanges } from "@/lib/session-sync";
+import { clearAuthBrowserStorage, subscribeToSessionChanges } from "@/lib/session-sync";
 
-export default function PublicChrome({ session, guestSession, guestClassHref, initialParticipantPending = false }: { session: SessionPayload | null; guestSession: SessionPayload | null; guestClassHref?: string; initialParticipantPending?: boolean }) {
+export default function PublicChrome({ session, guestSession, guestClassHref, initialParticipantPending = false, sessionExpired = false, expiredAdmin = false }: { session: SessionPayload | null; guestSession: SessionPayload | null; guestClassHref?: string; initialParticipantPending?: boolean; sessionExpired?: boolean; expiredAdmin?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeAccountSession, setActiveAccountSession] = useState(session);
   const [activeGuestSession, setActiveGuestSession] = useState(guestSession);
   const [participantPending, setParticipantPending] = useState(initialParticipantPending);
@@ -21,6 +22,14 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
   const activeSession = activeAccountSession || activeGuestSession;
   const activeSessionId = activeSession?.guestSessionId;
   const activeGuest = !session && (activeGuestSession?.role === "guest" || activeGuestSession?.origin === "guest");
+
+  useEffect(() => {
+    if (!sessionExpired) return;
+    void fetch("/api/auth/session", { cache: "no-store" }).catch(() => undefined);
+    const loginPath = expiredAdmin ? "/admin/masuk?expired=1" : "/masuk?expired=1";
+    const current = pathname + (searchParams.toString() ? "?" + searchParams.toString() : "");
+    if (current !== loginPath) router.replace(loginPath);
+  }, [expiredAdmin, pathname, router, searchParams, sessionExpired]);
 
   useEffect(() => {
     setActiveAccountSession(session);
@@ -126,6 +135,7 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
       if (activeGuest) {
         const response = await fetch("/api/auth/session?scope=guest", { method: "DELETE", cache: "no-store" });
         if (!response.ok) throw new Error("Sesi Guest belum berhasil dibersihkan. Tekan OK untuk mencoba lagi.");
+        clearAuthBrowserStorage();
       } else if (activeSession?.guestSessionId) {
         const response = await fetch("/api/auth/session", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear_class_session" }), cache: "no-store" });
         if (!response.ok) throw new Error("Konteks sesi belum berhasil dibersihkan. Tekan OK untuk mencoba lagi.");

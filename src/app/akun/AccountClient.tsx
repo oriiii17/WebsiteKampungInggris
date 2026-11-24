@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ImagePlus, LogOut, Save, User } from "lucide-react";
 import type { SessionPayload } from "@/lib/types";
 import PasswordInput from "@/components/auth/PasswordInput";
-import { publishSessionChanged } from "@/lib/session-sync";
+import { clearAuthBrowserStorage, getStoredSupabaseAccessToken, publishSessionChanged } from "@/lib/session-sync";
 
 const MAX_PHOTO = 10 * 1024 * 1024;
 
@@ -84,10 +84,18 @@ export default function AccountClient({ initialSession, wargaDeferred = false }:
 
   async function logout() {
     setLoggingOut(true);
-    try { await fetch("/api/auth/session", { method: "DELETE" }); } catch {}
+    const accessToken = getStoredSupabaseAccessToken();
+    try {
+      const response = await fetch("/api/auth/session", { method: "DELETE", headers: accessToken ? { Authorization: "Bearer " + accessToken } : undefined, cache: "no-store" });
+      if (!response.ok) throw new Error("Keluar belum berhasil. Periksa koneksi lalu coba lagi.");
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Keluar belum berhasil. Periksa koneksi lalu coba lagi.");
+      setLoggingOut(false);
+      return;
+    }
+    clearAuthBrowserStorage();
     publishSessionChanged();
-    router.push("/");
-    router.refresh();
+    window.location.replace("/");
   }
 
   const isWarga = session.origin === "warga_kode";
@@ -150,7 +158,7 @@ export default function AccountClient({ initialSession, wargaDeferred = false }:
                   <span className="mt-1 block"><PasswordInput required minLength={8} value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="Ulangi kata sandi baru" /></span>
                 </label>
                 <p className="text-[11px] text-[#1A2E1A]/60">Urutan: Kata Sandi Lama, Kata Sandi Baru, Konfirmasi. Setelah berhasil, Anda tetap login.</p>
-                <button type="submit" disabled={savingPass} className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#14532D] bg-white px-5 py-2.5 text-sm font-extrabold text-[#14532D] hover:bg-[#FDFBF7] disabled:opacity-50"><Save className="h-4 w-4" />{savingPass ? "Menyimpan..." : "Simpan Kata Sandi"}</button>
+              <button type="submit" disabled={savingPass} className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#183b2d] px-5 py-2.5 text-sm font-extrabold text-white hover:bg-[#244b3a] disabled:opacity-50"><Save className="h-4 w-4" />{savingPass ? "Menyimpan..." : "Simpan Kata Sandi"}</button>
               </form>
             )}
           </section>

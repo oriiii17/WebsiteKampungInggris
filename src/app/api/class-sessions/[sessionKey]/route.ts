@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getGuestServerSession, getServerSession, getSessionWithGuestContext, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, encodeSessionToken, sessionCookieOptions } from "@/lib/auth";
+import { getGuestServerSession, getServerSession, getSessionWithGuestContext, GUEST_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, encodeSessionToken, guestSessionCookieOptions, sessionCookieOptions } from "@/lib/auth";
 import { readLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import type { SessionPayload } from "@/lib/types";
@@ -34,7 +34,7 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
         if (classSlug) {
           const updated: SessionPayload = { ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` };
           const cookieName = session.role === "guest" ? GUEST_SESSION_COOKIE_NAME : SESSION_COOKIE_NAME;
-          response.cookies.set(cookieName, encodeSessionToken(updated), session.role === "guest" ? { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) } : sessionCookieOptions(updated, isHttpsRequest(request)));
+          response.cookies.set(cookieName, encodeSessionToken(updated), session.role === "guest" ? guestSessionCookieOptions(isHttpsRequest(request)) : sessionCookieOptions(updated, isHttpsRequest(request)));
         }
         return response;
       }
@@ -52,7 +52,7 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
         if (classSlug) {
           const updated: SessionPayload = { ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` };
           const cookieName = session.role === "guest" ? GUEST_SESSION_COOKIE_NAME : SESSION_COOKIE_NAME;
-          response.cookies.set(cookieName, encodeSessionToken(updated), session.role === "guest" ? { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) } : sessionCookieOptions(updated, isHttpsRequest(request)));
+          response.cookies.set(cookieName, encodeSessionToken(updated), session.role === "guest" ? guestSessionCookieOptions(isHttpsRequest(request)) : sessionCookieOptions(updated, isHttpsRequest(request)));
         }
         return response;
       }
@@ -92,7 +92,7 @@ async function getPublicSession(request: NextRequest, context: { params: Promise
       if (guest.status === "approved" && classSlug) {
         const updated: SessionPayload = { ...session, guestClassHref: `/kelas/${encodeURIComponent(classSlug)}` };
         const cookieName = session.role === "guest" ? GUEST_SESSION_COOKIE_NAME : SESSION_COOKIE_NAME;
-        response.cookies.set(cookieName, encodeSessionToken(updated), session.role === "guest" ? { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) } : sessionCookieOptions(updated, isHttpsRequest(request)));
+        response.cookies.set(cookieName, encodeSessionToken(updated), session.role === "guest" ? guestSessionCookieOptions(isHttpsRequest(request)) : sessionCookieOptions(updated, isHttpsRequest(request)));
       }
       return response;
     }
@@ -282,7 +282,7 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
       if (guestClass) guestClassHref = `/kelas/${encodeURIComponent(guestClass.slug || guestClass.id)}`;
     }
   }
-  const guestSession: SessionPayload = { id: result.registrationId, name: guest.name, role: "guest", origin: "guest", guestRegistrationId: result.registrationId, guestSessionId: result.sessionId, guestClassHref, expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(), watermarkText: guest.name };
+  const guestSession: SessionPayload = { id: result.registrationId, name: guest.name, role: "guest", origin: "guest", lastActivityAt: Date.now(), guestRegistrationId: result.registrationId, guestSessionId: result.sessionId, guestClassHref, watermarkText: guest.name };
   let activeGamePin: string | null = null;
   if (result.status === "approved") {
     if (supabase) {
@@ -294,7 +294,7 @@ async function joinPublicSession(request: Request, context: { params: Promise<{ 
     }
   }
   const response = NextResponse.json({ ok: true, title: result.title, status: result.status, sessionId: result.sessionId, activeGamePin, participantName: guest.name }, { status: 200 });
-  response.cookies.set(GUEST_SESSION_COOKIE_NAME, encodeSessionToken(guestSession), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12, secure: isHttpsRequest(request) });
+  response.cookies.set(GUEST_SESSION_COOKIE_NAME, encodeSessionToken(guestSession), guestSessionCookieOptions(isHttpsRequest(request)));
   return response;
 }
 

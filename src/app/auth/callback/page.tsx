@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createBrowserSupabaseClient } from "@/lib/supabase";
+import { createBrowserSupabaseFlowClient } from "@/lib/supabase";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -14,7 +14,7 @@ export default function AuthCallbackPage() {
     async function finish() {
       const params = new URLSearchParams(window.location.search);
       const type = params.get("type");
-      const client = createBrowserSupabaseClient();
+      const client = createBrowserSupabaseFlowClient();
       if (!client) { if (active) setError("Layanan verifikasi belum tersedia."); return; }
       try {
         const { data: sessionData } = await client.auth.getSession();

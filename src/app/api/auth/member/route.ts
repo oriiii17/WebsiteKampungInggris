@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   encodeSessionToken,
-  GUEST_SESSION_COOKIE_NAME,
+  clearAuthCookies,
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
+  supabaseAccessCookieOptions,
+  supabaseRefreshCookieOptions,
+  revokeSupabaseSession,
 } from "@/lib/auth";
 import { getActiveSubscriptionForEmail } from "@/lib/db";
 import { SessionPayload } from "@/lib/types";
 import { createPublicSupabaseClient } from "@/lib/supabase";
 import { checkApiRateLimit, getRequestIp } from "@/lib/api-rate-limit";
 import { isHttpsRequest } from "@/lib/request-security";
-import { SUPABASE_ACCESS_TOKEN_COOKIE } from "@/lib/supabase-server";
+import { SUPABASE_ACCESS_TOKEN_COOKIE, SUPABASE_REFRESH_TOKEN_COOKIE } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
   const limit = checkApiRateLimit(`member:${getRequestIp(req)}`, 10, 10 * 60 * 1000);
@@ -19,6 +22,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
+    const previousAccessToken = typeof body.previousAccessToken === "string" ? body.previousAccessToken : "";
     if (body.mode === "register") {
       return NextResponse.json({ error: "Gunakan alur pendaftaran peserta umum." }, { status: 400 });
     }
@@ -80,17 +84,14 @@ export async function POST(req: NextRequest) {
       session,
       hasActiveSubscription: Boolean(activeSub),
     });
+    await revokeSupabaseSession(req, authData.session?.access_token, previousAccessToken, authData.user.id);
+    clearAuthCookies(res, req);
     res.cookies.set(SESSION_COOKIE_NAME, encodeSessionToken(session), sessionCookieOptions(session, isHttpsRequest(req)));
-    res.cookies.set(GUEST_SESSION_COOKIE_NAME, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
-    if (role === "tutor" && authData.session?.access_token) {
-      res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, authData.session.access_token, {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: isHttpsRequest(req),
-      });
-    } else {
-      res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, expires: new Date(0), secure: isHttpsRequest(req) });
+    if (authData.session?.access_token) {
+      res.cookies.set(SUPABASE_ACCESS_TOKEN_COOKIE, authData.session.access_token, supabaseAccessCookieOptions(session, isHttpsRequest(req)));
+    }
+    if (authData.session?.refresh_token) {
+      res.cookies.set(SUPABASE_REFRESH_TOKEN_COOKIE, authData.session.refresh_token, supabaseRefreshCookieOptions(session, isHttpsRequest(req)));
     }
     return res;
   } catch (err) {

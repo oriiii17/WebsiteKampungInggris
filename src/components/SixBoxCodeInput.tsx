@@ -72,7 +72,7 @@ export default function SixBoxCodeInput({ value, onChange, onCompleteChange, inp
     inputRefs.current[focusIndex >= 0 ? focusIndex : 0]?.focus();
   }
 
-  const box = "h-11 min-w-0 w-full flex-1 rounded-lg border border-[#E5E7EB] bg-white px-0 text-center text-base font-bold uppercase text-gray-900 focus:border-[#14532D] focus:outline-none focus:ring-1 focus:ring-[#14532D] sm:h-12 sm:text-lg";
+  const box = "aspect-[1/1.15] h-auto min-w-0 w-full max-w-[56px] flex-1 rounded-lg border border-[#E5E7EB] bg-white px-0 text-center text-base font-bold uppercase text-gray-900 focus:border-[#14532D] focus:outline-none focus:ring-1 focus:ring-[#14532D] sm:text-lg";
   const renderBox = (i: number) => (
     <input
       key={i}

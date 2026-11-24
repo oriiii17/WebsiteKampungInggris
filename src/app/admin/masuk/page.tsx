@@ -6,7 +6,7 @@ function safeAdminDestination(value?: string) {
   return value;
 }
 
-export default async function AdminMasukPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+export default async function AdminMasukPage({ searchParams }: { searchParams: Promise<{ next?: string; expired?: string }> }) {
   const params = await searchParams;
-  return <AdminLoginForm nextUrl={safeAdminDestination(params.next)} />;
+  return <AdminLoginForm nextUrl={safeAdminDestination(params.next)} expired={params.expired === "1"} />;
 }

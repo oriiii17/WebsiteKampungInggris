@@ -8,7 +8,7 @@ type Props = {
   onChange: (value: string) => void;
 };
 
-const GROUPS = [3, 2, 2] as const;
+const GROUPS = [3, 3] as const;
 
 export default function SegmentedAccessCodeInput({ value, onChange }: Props) {
   const [visible, setVisible] = useState(false);
@@ -26,21 +26,21 @@ export default function SegmentedAccessCodeInput({ value, onChange }: Props) {
   }
 
   function replaceFrom(start: number, inserted: string) {
-    const chars = value.padEnd(7, " ").split("");
-    for (let offset = 0; offset < inserted.length && start + offset < 7; offset += 1) {
+    const chars = value.padEnd(6, " ").split("");
+    for (let offset = 0; offset < inserted.length && start + offset < 6; offset += 1) {
       chars[start + offset] = inserted[offset];
     }
     const next = chars.join("").replace(/\s+$/, "");
     onChange(next);
     if (inserted) {
-      const nextIndex = Math.min(start + inserted.length, 6);
+      const nextIndex = Math.min(start + inserted.length, 5);
       inputs.current[nextIndex]?.focus();
     }
     if (next) revealBriefly();
   }
 
   function clearAt(index: number) {
-    const chars = value.padEnd(7, " ").split("");
+    const chars = value.padEnd(6, " ").split("");
     chars[index] = " ";
     const next = chars.join("").replace(/\s+$/, "");
     onChange(next);
@@ -50,14 +50,14 @@ export default function SegmentedAccessCodeInput({ value, onChange }: Props) {
   let offset = 0;
   return (
     <div className="space-y-1.5">
-      <div role="group" aria-label="Kode akses baru, tujuh karakter" className="grid grid-cols-[3fr_auto_2fr_auto_2fr] items-center gap-1.5 sm:gap-2">
+      <div role="group" aria-label="Kode akses baru, enam karakter" className="grid grid-cols-[3fr_auto_3fr] items-center gap-1.5 sm:gap-2">
         {GROUPS.map((length, groupIndex) => {
           const start = offset;
           offset += length;
           return (
             <React.Fragment key={groupIndex}>
               {groupIndex > 0 && <span aria-hidden="true" className="font-bold text-muted">–</span>}
-              <div className="flex min-w-0 justify-center gap-1">
+              <div className="flex min-w-0 justify-center gap-1.5">
                 {Array.from({ length }, (_, position) => {
                   const index = start + position;
                   const char = value[index] || "";
@@ -87,14 +87,14 @@ export default function SegmentedAccessCodeInput({ value, onChange }: Props) {
                       onPaste={(event) => {
                         event.preventDefault();
                         const pasted = event.clipboardData.getData("text").toUpperCase().replace(/[^A-Z0-9]/g, "");
-                        if (pasted) replaceFrom(index, pasted.slice(0, 7 - index));
+                        if (pasted) replaceFrom(index, pasted.slice(0, 6 - index));
                       }}
-                      inputMode={index < 3 ? "text" : "numeric"}
+                      inputMode="text"
                       autoCapitalize="characters"
                       autoComplete="off"
-                      maxLength={2}
-                      aria-label={groupIndex === 0 ? `Awalan karakter ${position + 1}` : `${groupIndex === 1 ? "RW" : "RT"} karakter ${position + 1}`}
-                      className="h-11 w-8 rounded-lg border border-rule-strong bg-white p-0 text-center font-mono text-sm font-bold uppercase text-ink focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/20 sm:w-9"
+                      maxLength={1}
+                      aria-label={`Karakter ${index + 1}`}
+                      className="aspect-[1/1.15] h-auto min-w-0 w-full max-w-[56px] flex-1 rounded-lg border border-rule-strong bg-white p-0 text-center font-mono text-sm font-bold uppercase text-ink focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/20"
                     />
                   );
                 })}
@@ -107,16 +107,17 @@ export default function SegmentedAccessCodeInput({ value, onChange }: Props) {
         <button
           type="button"
           disabled={!value}
+          aria-label={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
+          title={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
           onClick={() => {
             if (visible) {
               if (maskTimer.current !== null) window.clearTimeout(maskTimer.current);
               setVisible(false);
             } else revealBriefly();
           }}
-          className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs font-bold text-leaf hover:bg-forest-soft disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-leaf disabled:cursor-not-allowed disabled:opacity-50"
         >
           {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          {visible ? "Sembunyikan" : "Tampilkan"}
         </button>
       </div>
     </div>

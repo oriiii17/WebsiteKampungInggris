@@ -42,7 +42,17 @@ export function createBrowserSupabaseClient(): SupabaseClient | null {
   const config = getSupabasePublicConfig();
   if (!config) return null;
   return createClient(config.url, config.anonKey, {
-    auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: true },
+  });
+}
+
+/** Temporary storage is limited to the email callback/reset flow and disappears when its tab closes. */
+export function createBrowserSupabaseFlowClient(): SupabaseClient | null {
+  if (typeof window === "undefined") return null;
+  const config = getSupabasePublicConfig();
+  if (!config) return null;
+  return createClient(config.url, config.anonKey, {
+    auth: { autoRefreshToken: false, persistSession: true, detectSessionInUrl: true, storage: window.sessionStorage },
   });
 }
 

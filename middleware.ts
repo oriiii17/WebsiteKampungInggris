@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const sessionCookie = "sapen_session";
+const guestSessionCookie = "sapen_guest_session";
 const supabaseAccessCookie = "sapen_supabase_access";
+const supabaseRefreshCookie = "sapen_supabase_refresh";
+const idleLimitMs = 90 * 60 * 1000;
 
 function decodeBase64Url(value: string) {
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
@@ -21,53 +24,91 @@ async function sign(value: string, secret: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  const rawToken = request.cookies.get(sessionCookie)?.value;
+  const activityRequest = !["GET", "HEAD"].includes(request.method) || request.headers.get("accept")?.includes("text/html") === true || request.headers.has("rsc");
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set("x-sapen-session-activity", activityRequest ? "1" : "0");
+  const continueRequest = () => NextResponse.next({ request: { headers: forwardedHeaders } });
+  const accountToken = request.cookies.get(sessionCookie)?.value;
+  const guestToken = request.cookies.get(guestSessionCookie)?.value;
+  const cookieName = accountToken ? sessionCookie : guestSessionCookie;
+  const rawToken = accountToken || guestToken;
   const secret = process.env.APP_SESSION_SECRET?.trim();
-  if (!rawToken || !secret) return NextResponse.next();
+  if (!rawToken || !secret) return continueRequest();
 
   const [payloadPart, signature, ...rest] = rawToken.split(".");
-  if (!payloadPart || !signature || rest.length) return NextResponse.next();
+  if (!payloadPart || !signature || rest.length) return continueRequest();
   let session: Record<string, unknown>;
   try {
     const expected = await sign(payloadPart, secret);
-    if (signature !== expected) return NextResponse.next();
+    if (signature !== expected) return continueRequest();
     session = JSON.parse(new TextDecoder().decode(decodeBase64Url(payloadPart)));
   } catch {
-    return NextResponse.next();
+    return continueRequest();
   }
 
   const role = String(session.role || "");
   const origin = String(session.origin || "");
-  if (role === "guest" || origin === "guest") return NextResponse.next();
+  const guest = role === "guest" || origin === "guest";
   // Avatar data URLs belong in persistent profile storage, never in browser cookies.
   delete session.avatarDataUrl;
   const privileged = ["admin", "pengurus", "developer", "tutor"].includes(role) || origin === "admin" || origin === "tutor";
-  const idleMs = privileged ? 40 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
   const now = Date.now();
-  const secure = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+  const secure = process.env.NODE_ENV === "production" || request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
   const lastActivity = Number(session.lastActivityAt || 0);
-  const expiresAt = session.expiresAt ? new Date(String(session.expiresAt)).getTime() : Number.POSITIVE_INFINITY;
-  if ((lastActivity > 0 && now - lastActivity > idleMs) || expiresAt <= now) {
-    request.cookies.delete(sessionCookie);
-    request.cookies.delete(supabaseAccessCookie);
-    const response = NextResponse.next({ request: { headers: request.headers } });
-    response.cookies.set(sessionCookie, "", { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 0, expires: new Date(0) });
-    response.cookies.set(supabaseAccessCookie, "", { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 0, expires: new Date(0) });
+  const expired = !lastActivity || now - lastActivity > idleLimitMs;
+  const clearCookies = (response: NextResponse) => {
+    const names = request.cookies.getAll().map((cookie) => cookie.name).filter((name) =>
+      name === sessionCookie || name === guestSessionCookie || name === supabaseAccessCookie || name === supabaseRefreshCookie ||
+      /^sapen_.*(?:session|auth|token)/i.test(name) || /^sb-.*auth-token/i.test(name) ||
+      name === "supabase.auth.token" || name === "supabase-auth-token"
+    );
+    for (const name of new Set([...names, sessionCookie, guestSessionCookie, supabaseAccessCookie, supabaseRefreshCookie])) {
+      request.cookies.delete(name);
+      response.cookies.set(name, "", { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 0, expires: new Date(0) });
+    }
+  };
+  if (expired) {
+    const isPageNavigation = !request.nextUrl.pathname.startsWith("/api/") && request.headers.get("accept")?.includes("text/html");
+    let response: NextResponse;
+    if (isPageNavigation && !guest) {
+      const destination = privileged ? "/admin/masuk" : "/masuk";
+      const login = new URL(destination, request.url);
+      login.searchParams.set("expired", "1");
+      if (request.nextUrl.pathname.startsWith("/admin/") && request.nextUrl.pathname !== "/admin/masuk") {
+        login.searchParams.set("next", request.nextUrl.pathname);
+      }
+      response = NextResponse.redirect(login);
+    } else {
+      response = NextResponse.next({ request: { headers: request.headers } });
+    }
+    clearCookies(response);
     return response;
   }
 
+  if (!activityRequest) return continueRequest();
   session.lastActivityAt = now;
   const encodedPayload = encodeBase64Url(new TextEncoder().encode(JSON.stringify(session)));
   const token = `${encodedPayload}.${await sign(encodedPayload, secret)}`;
-  request.cookies.set(sessionCookie, token);
-  const response = NextResponse.next({ request: { headers: request.headers } });
-  response.cookies.set(sessionCookie, token, {
+  request.cookies.set(cookieName, token);
+  const response = continueRequest();
+  response.cookies.set(cookieName, token, {
     httpOnly: true,
     sameSite: "lax",
     secure,
     path: "/",
-    ...(privileged ? {} : { maxAge: 60 * 60 * 24 * 7 }),
+    ...(privileged ? {} : { maxAge: Math.floor(idleLimitMs / 1000) }),
   });
+  for (const name of [supabaseAccessCookie, supabaseRefreshCookie]) {
+    const value = request.cookies.get(name)?.value;
+    if (!value) continue;
+    response.cookies.set(name, value, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure,
+      path: "/",
+      ...(privileged ? {} : { maxAge: Math.floor(idleLimitMs / 1000) }),
+    });
+  }
   return response;
 }
 

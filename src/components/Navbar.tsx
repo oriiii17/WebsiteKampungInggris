@@ -8,7 +8,7 @@ import { BookOpen, ShoppingCart, Gamepad2, GraduationCap, KeyRound, LogOut, Sett
 import { SessionPayload } from "@/lib/types";
 import { SITE_CONFIG } from "@/config/site";
 import styles from "./Navbar.module.css";
-import { publishSessionChanged } from "@/lib/session-sync";
+import { clearAuthBrowserStorage, getStoredSupabaseAccessToken, publishSessionChanged } from "@/lib/session-sync";
 import { clearClassCart, getCartIdentity, readClassCart } from "@/lib/class-cart-client";
 
 interface NavbarProps {
@@ -27,6 +27,7 @@ export default function Navbar({ session }: NavbarProps) {
   const [cartCount, setCartCount] = useState(0);
   const [scrolled, setScrolled] = useState(false);
   const [avatarDataUrl, setAvatarDataUrl] = useState(session?.avatarDataUrl);
+  const [logoutError, setLogoutError] = useState("");
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -103,20 +104,20 @@ export default function Navbar({ session }: NavbarProps) {
   ];
 
   async function handleLogout() {
-    clearClassCart();
-    if (isAdmin) {
-      try {
-        const { createBrowserSupabaseClient } = await import("@/lib/supabase");
-        const supabase = createBrowserSupabaseClient();
-        if (supabase) await supabase.auth.signOut({ scope: "local" });
-      } catch {}
+    setLogoutError("");
+    const accessToken = getStoredSupabaseAccessToken();
+    try {
+      const response = await fetch("/api/auth/session", { method: "DELETE", headers: accessToken ? { Authorization: "Bearer " + accessToken } : undefined, cache: "no-store" });
+      if (!response.ok) throw new Error("Keluar belum berhasil. Periksa koneksi lalu coba lagi.");
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : "Keluar belum berhasil. Periksa koneksi lalu coba lagi.");
+      return;
     }
-    try { await fetch("/api/auth/session", { method: "DELETE" }); } catch {}
+    clearClassCart();
+    clearAuthBrowserStorage();
     publishSessionChanged();
-    try { localStorage.removeItem("sapen_last_quiz_name"); } catch {}
     setOpen(false);
-    router.push("/");
-    router.refresh();
+    window.location.replace("/");
   }
 
   const displayName = session?.name || "Pengguna";
@@ -182,8 +183,6 @@ export default function Navbar({ session }: NavbarProps) {
             <Link href="/tentang" onClick={() => setDrawerOpen(false)}>Tentang</Link>
             <Link href="/faq" onClick={() => setDrawerOpen(false)}>FAQ</Link>
             {!session && <Link href="/daftar" onClick={() => setDrawerOpen(false)}>Daftar</Link>}
-            {!session && <Link href="/masuk" onClick={() => setDrawerOpen(false)}>Masuk</Link>}
-            {!session && <Link href="/masuk?mode=warga" onClick={() => setDrawerOpen(false)}>Masuk dengan Kode Akses</Link>}
             {session && <>{isAdmin && <Link href="/admin" onClick={() => setDrawerOpen(false)}>Panel Pengurus</Link>}<button type="button" onClick={() => { setDrawerOpen(false); void handleLogout(); }}><LogOut aria-hidden="true" />Logout</button></>}
           </nav>
         </aside>
@@ -209,6 +208,7 @@ export default function Navbar({ session }: NavbarProps) {
           {avatarDataUrl ? <Image src={avatarDataUrl} alt="" width={32} height={32} unoptimized className={`${styles.bottomAvatar} aspect-square rounded-full`} /> : <span className={styles.bottomAvatarInitial}>{initial}</span>}
         </Link> : <Link href="/masuk" aria-current={pathname.startsWith("/masuk") ? "page" : undefined} className={`${styles.bottomLink} ${pathname.startsWith("/masuk") ? styles.bottomLinkActive : ""}`}><KeyRound aria-hidden="true" />Masuk</Link>}
       </nav>
+      {logoutError && <p role="alert" className="mx-auto max-w-5xl px-4 py-2 text-sm font-semibold text-red-800">{logoutError}</p>}
     </header>
   );
 }

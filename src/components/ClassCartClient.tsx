@@ -3,18 +3,21 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowUpRight, ShoppingBag, Trash2 } from "lucide-react";
 import type { ClassItem } from "@/lib/types";
 import { formatIDR } from "@/lib/currency";
 import { getCartIdentity, readClassCart, writeClassCart, type CartIdentity } from "@/lib/class-cart-client";
 
 export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
+  const router = useRouter();
   const [ids, setIds] = useState<string[]>([]);
   const [identity, setIdentity] = useState<CartIdentity>({ kind: "guest" });
   const [ready, setReady] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   useEffect(() => {
     let active = true;
-    const sync = async () => { const next = await getCartIdentity(); if (!active) return; setIdentity(next); setIds(readClassCart(next)); setReady(true); };
+    const sync = async () => { const next = await getCartIdentity(); if (!active) return; const cartIds = readClassCart(next); setIdentity(next); setIds(cartIds); setSelectedIds(cartIds); setReady(true); };
     void sync();
     window.addEventListener("sapen:session-changed", sync);
     window.addEventListener("storage", sync);
@@ -27,6 +30,18 @@ export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
     writeClassCart(identity, next);
     setIds(next);
   }
+  function removeSelected() {
+    const next = ids.filter((id) => !selectedIds.includes(id));
+    writeClassCart(identity, next);
+    setIds(next);
+    setSelectedIds([]);
+  }
+  function continueToCheckout() {
+    const chosen = ids.filter((id) => selectedIds.includes(id));
+    if (!chosen.length) return;
+    sessionStorage.setItem("sapen:cart-checkout-step", JSON.stringify({ at: Date.now(), ids: chosen }));
+    router.push("/checkout");
+  }
 
   return <main className="workbook-page min-h-dvh py-10 sm:py-14">
     <div className="workbook-wrap max-w-5xl">
@@ -35,6 +50,7 @@ export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
         <div><h1 className="text-4xl sm:text-5xl">Keranjang kelas</h1><p className="mt-2 max-w-xl text-sm leading-6 text-body">Kelas yang Anda pilih tersimpan di perangkat ini.</p></div>
         <Link href="/kelas" className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-leaf underline decoration-sunshine underline-offset-4">Jelajahi kelas <ArrowUpRight className="h-4 w-4" /></Link>
       </div>
+      <nav aria-label="Langkah pesanan" className="mt-5 flex items-center gap-3 text-sm font-bold"><span aria-current="step" className="rounded-full bg-leaf px-4 py-2 text-white">1 Keranjang</span><span aria-hidden="true" className="text-muted">→</span><span className="rounded-full border border-rule bg-white px-4 py-2 text-muted">2 Checkout</span></nav>
 
       {!ready ? <div aria-label="Memuat keranjang" className="mt-7 grid gap-4"><div className="h-32 animate-pulse rounded-xl bg-white/70" /><div className="h-32 animate-pulse rounded-xl bg-white/70" /></div>
       : !items.length ? <section className="sapen-empty-state mt-7 grid items-center gap-6 rounded-2xl border border-rule bg-white p-6 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,.75fr)] sm:p-9">
@@ -42,11 +58,11 @@ export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
           <Image src="/images/empty-cart.svg" alt="Ilustrasi keranjang kelas kosong" width={360} height={260} className="mx-auto h-auto w-full max-w-xs" />
         </section>
       : <div className="mt-7 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-          <ul className="space-y-4">{items.map((item) => <li key={item.id} className="grid min-w-0 gap-4 rounded-xl border border-rule bg-white p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5">
-            <div className="min-w-0"><p className="workbook-print-note">Kelas pilihan</p><h2 className="mt-1 break-words text-2xl">{item.title}</h2><p className="mt-2 text-sm leading-6 text-body">{item.subtitle || item.description}</p><p className="mt-3 text-sm font-bold text-ink">{formatIDR(item.priceIdr)}</p></div>
+          <div className="min-w-0"><div className="mb-3 flex flex-wrap justify-end gap-2"><button type="button" onClick={removeSelected} disabled={!selectedIds.length} className="min-h-11 rounded-lg border border-rule px-3 text-sm font-bold text-body disabled:opacity-50">Hapus yang dipilih</button></div><ul className="space-y-4">{items.map((item) => <li key={item.id} className="grid min-w-0 gap-4 rounded-xl border border-rule bg-white p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5">
+            <div className="flex min-w-0 items-start gap-3"><input type="checkbox" aria-label={`Pilih ${item.title}`} checked={selectedIds.includes(item.id)} onChange={(event) => setSelectedIds((old) => event.target.checked ? [...old, item.id] : old.filter((id) => id !== item.id))} className="mt-1 h-5 w-5 shrink-0 accent-[#244b3a]"/><div className="min-w-0"><p className="workbook-print-note">Kelas pilihan</p><h2 className="mt-1 break-words text-2xl">{item.title}</h2><p className="mt-2 text-sm leading-6 text-body">{item.subtitle || item.description}</p><p className="mt-3 text-sm font-bold text-ink">{formatIDR(item.priceIdr)}</p></div></div>
             <button type="button" onClick={() => remove(item.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-rule px-3 text-sm font-bold text-body transition hover:border-red-300 hover:text-red-700 sm:self-start" aria-label={`Hapus ${item.title} dari keranjang`}><Trash2 className="h-4 w-4" /><span className="sm:sr-only">Hapus</span></button>
-          </li>)}</ul>
-          <aside className="cart-summary rounded-xl border border-rule bg-white p-5 sm:p-6"><p className="workbook-print-note">Ringkasan</p><h2 className="mt-2 text-2xl">Pilihan kelas</h2><div className="mt-4">{items.map((item) => <div key={item.id} className="flex items-start justify-between gap-4 border-b border-rule/60 py-3 text-sm last:border-b-0"><span className="min-w-0 flex-1 break-words text-left">{item.title}</span><strong className="shrink-0 text-right tabular-nums">{formatIDR(item.priceIdr)}</strong></div>)}</div><div className="my-4 border-t border-rule" /><p className="flex justify-between gap-3"><strong>Total</strong><strong>{formatIDR(total)}</strong></p><p className="mt-4 rounded-lg border border-rule bg-paper px-3 py-3 text-xs leading-5 text-body">Checkout belum tersedia saat ini. Pilihan kelas Anda tetap tersimpan; belum ada transaksi yang dibuat.</p><Link href="/checkout" className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-leaf px-4 py-3 text-sm font-bold text-white transition hover:bg-leaf-dark">Lihat checkout <ArrowRight className="h-4 w-4" /></Link></aside>
+          </li>)}</ul></div>
+          <aside className="cart-summary rounded-xl border border-rule bg-white p-5 sm:p-6"><p className="workbook-print-note">Ringkasan</p><h2 className="mt-2 text-2xl">Pilihan kelas</h2><p className="mt-4 text-sm text-body">{selectedIds.length} kelas dipilih</p><p className="mt-3 flex justify-between gap-3"><strong>Total pilihan</strong><strong>{formatIDR(items.filter((item) => selectedIds.includes(item.id)).reduce((sum, item) => sum + item.priceIdr, 0))}</strong></p><button type="button" onClick={continueToCheckout} disabled={!selectedIds.length} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-leaf px-4 py-3 text-sm font-bold text-white transition hover:bg-leaf-dark disabled:opacity-50">Lanjut ke Checkout <ArrowRight className="h-4 w-4" /></button></aside>
         </div>}
     </div>
   </main>;
