@@ -37,7 +37,7 @@ export default function LupaPasswordPage() {
           {message && <p role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">{message}</p>}
           <label className="block text-xs font-bold text-body">Email<span className="relative mt-1.5 block"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"/><input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@email.com" className="min-h-12 w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none" /></span></label>
           <button type="submit" disabled={loading} className="min-h-12 w-full rounded-md bg-earth px-4 py-3 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:opacity-60">{loading ? "Mengirim..." : "Kirim Link Reset"}</button>
-          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 border-t border-rule pt-3 text-center text-sm"><Link href="/masuk" className="min-h-11 inline-flex items-center font-bold text-leaf underline underline-offset-4">Sudah punya akun? Masuk</Link></div>
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 border-t border-rule pt-3 text-center text-sm"><Link href="/masuk" className="auth-link">Sudah punya akun? Masuk</Link></div>
         </form>
     </AuthShell>
   );

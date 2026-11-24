@@ -183,7 +183,6 @@ export default async function HomePage() {
             <article key={item.id} className="home-class-row">
               <div className="home-class-copy">
                 <h3 className="font-display"><Link href={`/kelas/${encodeURIComponent(item.slug)}`}>{item.title}</Link></h3>
-                {item.subtitle && <p>{item.subtitle}</p>}
               </div>
               <div className="home-class-action">
                 <span className="home-price-badge">{item.priceIdr === 0 ? "Gratis" : formatPrice(item.priceIdr)}</span>

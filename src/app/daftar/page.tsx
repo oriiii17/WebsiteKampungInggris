@@ -50,7 +50,7 @@ export default function DaftarPage() {
           <label className="block text-xs font-bold text-body">Kata Sandi<span className="mt-1.5 block"><PasswordInput required minLength={6} autoComplete="new-password" value={password} onChange={setPassword} placeholder="Minimal 6 karakter" /></span></label>
           <label className="block text-xs font-bold text-body">Konfirmasi Kata Sandi<span className="mt-1.5 block"><PasswordInput required minLength={6} autoComplete="new-password" value={confirmPassword} onChange={setConfirmPassword} placeholder="Ulangi kata sandi" /></span></label>
           <button type="submit" disabled={loading} className="flex min-h-12 w-full items-center justify-center rounded-md bg-earth py-3.5 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:opacity-60">{loading ? "Membuat akun..." : "Buat Akun"}</button>
-          <p className="border-t border-rule pt-3 text-center text-sm text-muted">Sudah punya akun? <Link href="/masuk" className="font-bold text-leaf underline underline-offset-4">Masuk</Link></p>
+          <p className="border-t border-rule pt-3 text-center text-sm text-muted">Sudah punya akun? <Link href="/masuk" className="auth-link">Masuk</Link></p>
         </form>
     </AuthShell>
   );

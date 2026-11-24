@@ -214,8 +214,8 @@ function MasukContent() {
               <label className="block text-xs font-bold text-body">Email<span className="relative mt-1.5 block"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"/><input type="email" required autoComplete="email" value={umumEmail} onChange={(event) => setUmumEmail(event.target.value)} placeholder="nama@email.com" className="min-h-12 w-full rounded-md border border-rule-strong bg-paper-light py-3 pl-10 pr-3 text-sm text-ink focus:border-leaf focus:outline-none" /></span></label>
               <label className="block text-xs font-bold text-body">Kata Sandi<span className="mt-1.5 block"><PasswordInput required autoComplete="current-password" value={umumPassword} onChange={setUmumPassword} placeholder="Masukkan kata sandi" /></span></label>
               <button type="submit" disabled={loading} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-earth py-3.5 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:opacity-60">{loading ? "Memeriksa akun..." : "Masuk"}<ArrowRight className="h-4 w-4" /></button>
-              <p className="text-right text-sm"><Link href="/lupa-password" className="font-bold text-leaf underline underline-offset-4">Lupa kata sandi?</Link></p>
-              <p className="border-t border-rule pt-4 text-center text-xs text-muted">Belum punya akun? <Link href="/daftar" className="font-bold text-leaf underline underline-offset-4">Daftar</Link></p>
+              <p className="text-right text-sm"><Link href="/lupa-password" className="auth-link">Lupa kata sandi?</Link></p>
+              <div className="border-t border-rule pt-3 text-center text-xs text-muted"><p>Belum punya akun? <Link href="/daftar" className="auth-link">Daftar</Link></p><p className="mt-1"><Link href="/admin/masuk" className="auth-link text-xs">Khusus Admin</Link></p></div>
             </form>
           ) : (
             <div className="space-y-5">
@@ -227,7 +227,7 @@ function MasukContent() {
                 <p className="mt-2 text-center text-xs text-muted">Kode akses terdiri dari 6 karakter. Karakter yang baru diketik terlihat selama 1 detik, lalu disamarkan.</p>
               </div>
               <button type="submit" disabled={loading || !wargaCodeDigits.every(Boolean)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-earth py-3.5 text-sm font-extrabold text-white transition hover:bg-earth-dark disabled:cursor-not-allowed disabled:opacity-60">{loading ? <><RefreshCw className="h-4 w-4 animate-spin"/>Memeriksa kode...</> : <><CheckCircle2 className="h-4 w-4"/>Masuk sebagai Warga</>}</button>
-              <p className="border-t border-rule pt-4 text-center text-xs text-muted"><button type="button" onClick={() => { setMode("umum"); setError(null); }} className="inline-flex min-h-11 items-center justify-center px-3 font-bold text-leaf underline underline-offset-4">← Kembali ke halaman masuk</button></p>
+              <p className="border-t border-rule pt-4 text-center text-xs text-muted"><button type="button" onClick={() => { setMode("umum"); setError(null); }} className="auth-link">← Kembali ke login</button></p>
             </form>
             <section className="rounded-xl border border-dashed border-rule-strong bg-paper-light/70 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-extrabold text-forest-deep">Lupa atau belum punya kode akses?</h2><p className="mt-1 text-xs leading-5 text-muted">Jalur ini opsional. Minta kode pengganti sesuai wilayah tempat tinggal.</p></div><button type="button" onClick={() => setShowRequestForm((open) => { if (!open) { setRequestName(""); setRequestCodeValue(""); setRequestRw(""); setRequestRt(""); setRequestError(""); } return !open; })} aria-expanded={showRequestForm} className={`inline-flex min-h-11 items-center rounded-lg border px-3 text-sm font-bold transition-colors ${showRequestForm ? "border-leaf bg-white text-leaf hover:bg-[#e6eadf]" : "border-[#244b3a] bg-[#244b3a] text-white hover:bg-[#183b2d]"}`}>{showRequestForm ? "Tutup formulir" : "Minta Kode Baru"}</button></div>
@@ -239,6 +239,7 @@ function MasukContent() {
                 <button type="submit" disabled={requestBusy || requestName.trim().length < 2 || !/^[A-Z0-9]{6}$/.test(requestCodeValue) || !requestRw || !requestRt || !/^[A-Z0-9]{3}$/.test(codePrefix)} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-extrabold text-white hover:bg-[#183b2d] disabled:opacity-60">{requestBusy ? <><RefreshCw className="h-4 w-4 animate-spin" />Mengirim…</> : "Kirim"}</button>
               </form>}
             </section>
+            <div className="border-t border-rule pt-3 text-center text-xs text-muted"><p>Belum punya akun? <Link href="/daftar" className="auth-link">Daftar</Link></p><p className="mt-1"><Link href="/admin/masuk" className="auth-link text-xs">Khusus Admin</Link></p></div>
             </div>
           )}
         </section>

@@ -6,6 +6,14 @@ const supabaseAccessCookie = "sapen_supabase_access";
 const supabaseRefreshCookie = "sapen_supabase_refresh";
 const idleLimitMs = 90 * 60 * 1000;
 
+function isProtectedRoute(pathname: string) {
+  return pathname === "/akun" || pathname.startsWith("/akun/") ||
+    pathname === "/kelas-saya" || pathname.startsWith("/kelas-saya/") ||
+    pathname === "/checkout" || pathname.startsWith("/checkout/") ||
+    pathname === "/bayar" || pathname.startsWith("/bayar/") ||
+    pathname === "/admin" || (pathname.startsWith("/admin/") && pathname !== "/admin/masuk");
+}
+
 function decodeBase64Url(value: string) {
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
@@ -70,10 +78,10 @@ export async function middleware(request: NextRequest) {
   if (expired) {
     const isPageNavigation = !request.nextUrl.pathname.startsWith("/api/") && request.headers.get("accept")?.includes("text/html");
     let response: NextResponse;
-    if (isPageNavigation && !guest) {
+    if (isPageNavigation && !guest && isProtectedRoute(request.nextUrl.pathname)) {
       const destination = privileged ? "/admin/masuk" : "/masuk";
       const login = new URL(destination, request.url);
-      login.searchParams.set("expired", "1");
+      if (!privileged) login.searchParams.set("expired", "1");
       if (request.nextUrl.pathname.startsWith("/admin/") && request.nextUrl.pathname !== "/admin/masuk") {
         login.searchParams.set("next", request.nextUrl.pathname);
       }

@@ -384,11 +384,11 @@ export default function AdminDashboardClient() {
 
         <main className="px-3 py-4 sm:px-4 lg:px-6 lg:py-6">
           <div className="mx-auto max-w-[1680px] space-y-5">
-            <AdminSectionHeader
+            {tab !== "game-builder" && <AdminSectionHeader
               title={<h1 className="text-2xl font-extrabold tracking-tight text-[#1A2E1A] sm:text-[30px]">{tab === "dashboard" ? "Dashboard Pengurus" : tabLabels[tab]}</h1>}
-              description={tab === "dashboard" ? `Selamat datang, ${data.session.name}. Berikut ringkasan pengelolaan Sapen English.` : tab === "sessions" ? undefined : "Kelola data dan aktivitas Kampung Inggris Sapen."}
+              description={tab === "dashboard" ? `Selamat datang, ${data.session.name}. Berikut ringkasan pengelolaan Sapen English.` : undefined}
               className="max-w-3xl"
-            />
+            />}
 
             {tab === "dashboard" && (
               <section aria-label="Ringkasan pengelolaan" className="space-y-6">

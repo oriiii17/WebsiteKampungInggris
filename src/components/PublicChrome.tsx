@@ -23,13 +23,15 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
   const activeSessionId = activeSession?.guestSessionId;
   const activeGuest = !session && (activeGuestSession?.role === "guest" || activeGuestSession?.origin === "guest");
 
+  const protectedRoute = pathname === "/akun" || pathname.startsWith("/akun/") || pathname === "/kelas-saya" || pathname.startsWith("/kelas-saya/") || pathname === "/checkout" || pathname.startsWith("/checkout/") || pathname === "/bayar" || pathname.startsWith("/bayar/") || pathname === "/admin" || (pathname.startsWith("/admin/") && pathname !== "/admin/masuk");
+
   useEffect(() => {
-    if (!sessionExpired) return;
+    if (!sessionExpired || !protectedRoute) return;
     void fetch("/api/auth/session", { cache: "no-store" }).catch(() => undefined);
-    const loginPath = expiredAdmin ? "/admin/masuk?expired=1" : "/masuk?expired=1";
+    const loginPath = expiredAdmin ? "/admin/masuk" : "/masuk?expired=1";
     const current = pathname + (searchParams.toString() ? "?" + searchParams.toString() : "");
     if (current !== loginPath) router.replace(loginPath);
-  }, [expiredAdmin, pathname, router, searchParams, sessionExpired]);
+  }, [expiredAdmin, pathname, protectedRoute, router, searchParams, sessionExpired]);
 
   useEffect(() => {
     setActiveAccountSession(session);

@@ -52,8 +52,8 @@ export default function ResetPasswordPage() {
           {message && <p role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">{message}</p>}
           <label className="block text-xs font-bold text-body">Kata Sandi baru<span className="mt-1.5 block"><PasswordInput required minLength={6} autoComplete="new-password" value={password} onChange={setPassword} placeholder="Masukkan kata sandi baru" /></span></label>
           <button type="submit" disabled={loading} className="min-h-12 w-full rounded-md bg-[#183b2d] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#244b3a] disabled:opacity-60">{loading ? "Menyimpan..." : "Simpan Kata Sandi Baru"}</button>
-          {message && <p className="text-center text-sm"><Link href="/masuk" className="font-bold text-leaf underline underline-offset-4">Ke halaman Masuk</Link></p>}
-          {error && <p className="text-center text-sm"><Link href="/lupa-password" className="font-bold text-leaf underline underline-offset-4">Minta tautan reset baru</Link></p>}
+          {message && <p className="text-center text-sm"><Link href="/masuk" className="auth-link">Kembali ke login</Link></p>}
+          {error && <p className="text-center text-sm"><Link href="/lupa-password" className="auth-link">Minta tautan reset baru</Link></p>}
         </form>
       </div>
     </main>
