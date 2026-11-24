@@ -6,12 +6,12 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import type { ClassItem } from "@/lib/types";
 import { formatIDR } from "@/lib/currency";
-import { getCartIdentity, readClassCart, writeClassCart, type CartIdentity } from "@/lib/class-cart-client";
+import { useClassCart } from "@/components/ClassCartProvider";
 
 export default function ClassCheckoutClient({ classes, isSignedIn }: { classes: ClassItem[]; isSignedIn: boolean }) {
   const router = useRouter();
-  const [ids, setIds] = useState<string[]>([]);
-  const [identity, setIdentity] = useState<CartIdentity>({ kind: "guest" });
+  const cart = useClassCart();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -24,13 +24,10 @@ export default function ClassCheckoutClient({ classes, isSignedIn }: { classes: 
       return;
     }
     setStepAllowed(true);
-    let active = true;
-    const sync = async () => { const next = await getCartIdentity(); if (!active) return; let selected: string[] = []; try { selected = (JSON.parse(sessionStorage.getItem("sapen:cart-checkout-step") || "null") as { ids?: string[] } | null)?.ids || []; } catch { selected = []; } setIdentity(next); setIds(readClassCart(next).filter((id) => selected.includes(id))); setReady(true); };
-    void sync();
-    window.addEventListener("sapen:session-changed", sync);
-    window.addEventListener("storage", sync);
-    return () => { active = false; window.removeEventListener("sapen:session-changed", sync); window.removeEventListener("storage", sync); };
+    try { setSelectedIds((JSON.parse(sessionStorage.getItem("sapen:cart-checkout-step") || "null") as { ids?: string[] } | null)?.ids || []); } catch { setSelectedIds([]); }
+    setReady(true);
   }, [router]);
+  const ids = cart.ids.filter((id) => selectedIds.includes(id));
   const items = classes.filter((item) => ids.includes(item.id));
   const total = items.reduce((sum, item) => sum + item.priceIdr, 0);
 
@@ -46,12 +43,12 @@ export default function ClassCheckoutClient({ classes, isSignedIn }: { classes: 
         window.location.assign(result.redirectUrl);
         return;
       }
-      if (identity.kind === "account") {
+      if (cart.identity.kind === "account") {
         const response = await fetch("/api/auth/session", { cache: "no-store" });
         const current = await response.json();
-        if (current.session?.email?.trim().toLowerCase() !== identity.email) throw new Error("Akun berubah. Muat ulang halaman sebelum melanjutkan.");
+        if (current.session?.email?.trim().toLowerCase() !== cart.identity.email) throw new Error("Akun berubah. Muat ulang halaman sebelum melanjutkan.");
       }
-      writeClassCart(identity, readClassCart(identity).filter((id) => !ids.includes(id)));
+      cart.removeMany(ids);
       sessionStorage.removeItem("sapen:cart-checkout-step");
       router.replace(result.redirectTo || "/kelas-saya");
       router.refresh();

@@ -13,6 +13,9 @@ import { getGuestApprovalStatus } from "@/lib/guest-approval";
 import { getSiteUrl } from "@/lib/site";
 import { readLocalDb } from "@/lib/db";
 import AppToastHost from "@/components/ui/AppToast";
+import { cookies } from "next/headers";
+import { ClassCartProvider } from "@/components/ClassCartProvider";
+import { CLASS_CART_SNAPSHOT_COOKIE, getSnapshotCart, parseCartSnapshot, type CartIdentity } from "@/lib/class-cart-snapshot";
 
 const dmSans = DM_Sans({ subsets: ["latin"], display: "swap", variable: "--font-dm-sans" });
 const fraunces = Fraunces({ subsets: ["latin"], display: "swap", variable: "--font-fraunces" });
@@ -24,6 +27,10 @@ export const metadata: Metadata = {
   },
   description: SITE_CONFIG.shortDesc,
   metadataBase: new URL(getSiteUrl()),
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png" }],
+    shortcut: ["/favicon.ico"],
+  },
   openGraph: {
     type: "website",
     locale: "id_ID",
@@ -62,11 +69,15 @@ export default async function RootLayout({
   const sessionParticipant = session?.guestSessionId ? session : !session && effectiveGuestSession ? effectiveGuestSession : null;
   const guestApprovalStatus = sessionParticipant ? await getGuestApprovalStatus(sessionParticipant) : null;
   const participantIsPending = Boolean(sessionParticipant?.guestSessionId && guestApprovalStatus !== "approved");
+  const cartIdentity: CartIdentity = session?.email ? { kind: "account", email: session.email.trim().toLowerCase() } : { kind: "guest" };
+  const cookieStore = await cookies();
+  const initialCartIds = getSnapshotCart(parseCartSnapshot(cookieStore.get(CLASS_CART_SNAPSHOT_COOKIE)?.value), cartIdentity);
 
   return (
     <html lang="id">
       <body className={`${dmSans.variable} ${fraunces.variable} flex min-h-dvh flex-col font-sans`}>
         <ConfirmDialogProvider>
+        <ClassCartProvider initialIdentity={cartIdentity} initialIds={initialCartIds}>
         <AppDialogProvider>
         <AppToastHost />
         <a href="#main-content" className="skip-link">Lewati ke konten utama</a>
@@ -74,6 +85,7 @@ export default async function RootLayout({
         <main id="main-content" tabIndex={-1} className="flex-1">{participantIsPending ? <GuestApprovalGate scope="attendance" initialStatus={guestApprovalStatus || "pending"} /> : children}</main>
         {!participantIsPending && <Suspense fallback={null}><PublicFooter isGuest={Boolean(effectiveGuestSession && !session)} /></Suspense>}
         </AppDialogProvider>
+        </ClassCartProvider>
         </ConfirmDialogProvider>
       </body>
     </html>

@@ -1,10 +1,12 @@
 "use client";
 
+import { cartOwnerKey, type CartIdentity } from "@/lib/class-cart-snapshot";
+
 const GUEST_KEY = "sapen_class_cart";
 const OWNER_KEY = "sapen_class_cart_owner";
 const DAY = 24 * 60 * 60 * 1000;
 
-export type CartIdentity = { kind: "guest" } | { kind: "account"; email: string };
+export type { CartIdentity } from "@/lib/class-cart-snapshot";
 
 function storageKey(identity: CartIdentity) {
   return identity.kind === "guest" ? GUEST_KEY : `${GUEST_KEY}:${identity.email}`;
@@ -61,15 +63,18 @@ export function writeClassCart(identity: CartIdentity, ids: string[]) {
     const storage = identity.kind === "guest" ? sessionStorage : localStorage;
     storage.setItem(storageKey(identity), JSON.stringify({ ids: [...new Set(ids)], expiresAt: Date.now() + DAY }));
     window.dispatchEvent(new Event("sapen:cart-updated"));
-  } catch { /* Leave the action safely unavailable if browser storage is blocked. */ }
+    return true;
+  } catch { /* Leave the action safely unavailable if browser storage is blocked. */ return false; }
 }
 
-export function clearClassCart() {
+export function cartStorageOwner(identity: CartIdentity) { return cartOwnerKey(identity); }
+
+export function clearClassCart(identity?: CartIdentity) {
   try {
-    const owner = localStorage.getItem(OWNER_KEY);
+    const owner = identity ? cartOwnerKey(identity) : localStorage.getItem(OWNER_KEY);
     if (owner === "guest") sessionStorage.removeItem(GUEST_KEY);
     else if (owner?.startsWith("account:")) localStorage.removeItem(`${GUEST_KEY}:${owner.slice("account:".length)}`);
-    localStorage.removeItem(OWNER_KEY);
+    if (!identity || localStorage.getItem(OWNER_KEY) === owner) localStorage.removeItem(OWNER_KEY);
     window.dispatchEvent(new Event("sapen:cart-updated"));
   } catch { /* Ignore unavailable storage during logout. */ }
 }

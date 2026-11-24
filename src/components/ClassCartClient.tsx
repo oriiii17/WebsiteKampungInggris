@@ -7,37 +7,26 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowUpRight, ShoppingBag, Trash2 } from "lucide-react";
 import type { ClassItem } from "@/lib/types";
 import { formatIDR } from "@/lib/currency";
-import { getCartIdentity, readClassCart, writeClassCart, type CartIdentity } from "@/lib/class-cart-client";
+import { useClassCart } from "@/components/ClassCartProvider";
 
 export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
   const router = useRouter();
-  const [ids, setIds] = useState<string[]>([]);
-  const [identity, setIdentity] = useState<CartIdentity>({ kind: "guest" });
-  const [ready, setReady] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const cart = useClassCart();
+  const [selectedIds, setSelectedIds] = useState<string[]>(cart.ids);
   useEffect(() => {
-    let active = true;
-    const sync = async () => { const next = await getCartIdentity(); if (!active) return; const cartIds = readClassCart(next); setIdentity(next); setIds(cartIds); setSelectedIds(cartIds); setReady(true); };
-    void sync();
-    window.addEventListener("sapen:session-changed", sync);
-    window.addEventListener("storage", sync);
-    return () => { active = false; window.removeEventListener("sapen:session-changed", sync); window.removeEventListener("storage", sync); };
-  }, []);
-  const items = classes.filter((item) => ids.includes(item.id));
+    setSelectedIds(cart.ids);
+  }, [cart.ids]);
+  const items = classes.filter((item) => cart.ids.includes(item.id));
   const total = items.reduce((sum, item) => sum + item.priceIdr, 0);
   function remove(id: string) {
-    const next = ids.filter((value) => value !== id);
-    writeClassCart(identity, next);
-    setIds(next);
+    cart.remove(id);
   }
   function removeSelected() {
-    const next = ids.filter((id) => !selectedIds.includes(id));
-    writeClassCart(identity, next);
-    setIds(next);
+    cart.removeMany(selectedIds);
     setSelectedIds([]);
   }
   function continueToCheckout() {
-    const chosen = ids.filter((id) => selectedIds.includes(id));
+    const chosen = cart.ids.filter((id) => selectedIds.includes(id));
     if (!chosen.length) return;
     sessionStorage.setItem("sapen:cart-checkout-step", JSON.stringify({ at: Date.now(), ids: chosen }));
     router.push("/checkout");
@@ -52,8 +41,7 @@ export default function ClassCartClient({ classes }: { classes: ClassItem[] }) {
       </div>
       <nav aria-label="Langkah pesanan" className="mt-5 flex items-center gap-3 text-sm font-bold"><span aria-current="step" className="rounded-full bg-leaf px-4 py-2 text-white">1 Keranjang</span><span aria-hidden="true" className="text-muted">→</span><span className="rounded-full border border-rule bg-white px-4 py-2 text-muted">2 Checkout</span></nav>
 
-      {!ready ? <div aria-label="Memuat keranjang" className="mt-7 grid gap-4"><div className="h-32 animate-pulse rounded-xl bg-white/70" /><div className="h-32 animate-pulse rounded-xl bg-white/70" /></div>
-      : !items.length ? <section className="sapen-empty-state mt-7 grid items-center gap-6 rounded-2xl border border-rule bg-white p-6 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,.75fr)] sm:p-9">
+      {!items.length ? <section className="sapen-empty-state mt-7 grid items-center gap-6 rounded-2xl border border-rule bg-white p-6 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,.75fr)] sm:p-9">
           <div><span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-leaf text-white"><ShoppingBag className="h-5 w-5" /></span><p className="workbook-print-note mt-5">Belum ada pilihan</p><h2 className="mt-2 text-3xl">Keranjangmu masih kosong.</h2><p className="mt-3 max-w-md text-sm leading-6 text-body">Temukan kelas yang sesuai dan tambahkan ke keranjang untuk melihat ringkasan pilihanmu.</p><Link href="/kelas" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-leaf px-5 py-3 text-sm font-bold text-white transition hover:bg-leaf-dark">Lihat daftar kelas <ArrowRight className="h-4 w-4" /></Link></div>
           <Image src="/images/empty-cart.svg" alt="Ilustrasi keranjang kelas kosong" width={360} height={260} className="mx-auto h-auto w-full max-w-xs" />
         </section>

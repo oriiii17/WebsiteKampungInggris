@@ -9,8 +9,8 @@ import { formatIDR } from "@/lib/currency";
 import ClassAccessAction from "@/components/ClassAccessAction";
 
 type ListingClass = ClassItem & { chapterCount?: number; practiceCount?: number; enrolled?: boolean };
-export default function ClassListingCard({ item, variant = "catalog", number, isSignedIn = false, canEnroll = false, departing = false }: {
-  item: ListingClass; variant?: "home" | "catalog"; number?: number; isSignedIn?: boolean; canEnroll?: boolean; departing?: boolean;
+export default function ClassListingCard({ item, variant = "catalog", number, isSignedIn = false, canEnroll = false, departing = false, returning = false }: {
+  item: ListingClass; variant?: "home" | "catalog"; number?: number; isSignedIn?: boolean; canEnroll?: boolean; departing?: boolean; returning?: boolean;
 }) {
   const router = useRouter();
   const linkRef = useRef<HTMLAnchorElement>(null);
@@ -35,7 +35,7 @@ export default function ClassListingCard({ item, variant = "catalog", number, is
     {opening && <span className="class-opening-indicator" aria-live="polite"><Loader2 className="h-4 w-4 animate-spin" />Membuka</span>}
   </article>;
 
-  return <article className={`class-catalog-card group relative flex min-w-0 flex-col gap-2 rounded-2xl border border-[#d8d0bf] bg-white p-4 shadow-sm transition hover:shadow-md ${departing ? "class-card-departing" : ""}`}>
+  return <article className={`class-catalog-card group relative flex min-w-0 flex-col gap-2 rounded-2xl border border-[#d8d0bf] bg-white p-4 shadow-sm transition hover:shadow-md ${departing ? "class-card-departing" : ""} ${returning ? "class-card-returning" : ""}`}>
     <span className="w-fit shrink-0 rounded-full bg-[#e8eee7] px-2.5 py-1 text-[11px] font-extrabold tracking-wide text-[#244b3a]">LEMBAR {String(number || 1).padStart(2, "0")}</span>
     <h2 className="line-clamp-2 min-w-0 text-left text-base font-bold leading-snug text-[#183b2d]"><Link ref={linkRef} href={href} prefetch aria-label={`Detail kelas ${item.title}`} className="class-catalog-title-link" onMouseEnter={prefetch} onTouchStart={prefetch} onClick={() => setOpening(true)}>{item.title}</Link></h2>
     <p className="line-clamp-2 min-h-10 text-sm leading-5 text-[#4a5568]">{item.description}</p>

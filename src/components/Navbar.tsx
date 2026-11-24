@@ -9,7 +9,7 @@ import { SessionPayload } from "@/lib/types";
 import { SITE_CONFIG } from "@/config/site";
 import styles from "./Navbar.module.css";
 import { clearAuthBrowserStorage, getStoredSupabaseAccessToken, publishSessionChanged } from "@/lib/session-sync";
-import { clearClassCart, getCartIdentity, readClassCart } from "@/lib/class-cart-client";
+import { useClassCart } from "@/components/ClassCartProvider";
 
 interface NavbarProps {
   session: SessionPayload | null;
@@ -24,7 +24,8 @@ export default function Navbar({ session }: NavbarProps) {
   const isAdminRoute = pathname.startsWith("/admin");
   const [open, setOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [cartCount, setCartCount] = useState(0);
+  const { ids: cartIds, clear: clearCart } = useClassCart();
+  const cartCount = cartIds.length;
   const [cartBump, setCartBump] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [avatarDataUrl, setAvatarDataUrl] = useState(session?.avatarDataUrl);
@@ -48,6 +49,7 @@ export default function Navbar({ session }: NavbarProps) {
 
   useEffect(() => {
     let bumpTimer = 0;
+    const flights = new Map<string, { dot: HTMLSpanElement; animation: Animation }>();
     const onCartFly = (event: Event) => {
       const detail = (event as CustomEvent<{ classId?: string; source?: { left: number; top: number; width: number; height: number } | null }>).detail;
       const target = [...document.querySelectorAll<HTMLElement>("[data-cart-target]")].find((node) => node.getBoundingClientRect().width > 0);
@@ -71,10 +73,20 @@ export default function Navbar({ session }: NavbarProps) {
       const dy = targetRect.top + targetRect.height / 2 - (source.top + source.height / 2);
       if (typeof dot.animate !== "function") { dot.remove(); finish(); return; }
       const animation = dot.animate([{ transform: "translate(0,0) scale(1)", opacity: 1 }, { transform: `translate(${dx * .55}px,${dy - 55}px) scale(.8)`, opacity: 1, offset: .65 }, { transform: `translate(${dx}px,${dy}px) scale(.35)`, opacity: .3 }], { duration: 600, easing: "cubic-bezier(.2,.75,.25,1)", fill: "forwards" });
-      animation.onfinish = () => { dot.remove(); finish(); };
+      if (detail?.classId) flights.set(detail.classId, { dot, animation });
+      animation.onfinish = () => { dot.remove(); if (detail?.classId) flights.delete(detail.classId); finish(); };
+    };
+    const onCartFailed = (event: Event) => {
+      const classId = (event as CustomEvent<{ classId?: string }>).detail?.classId;
+      const flight = classId ? flights.get(classId) : undefined;
+      if (!flight) return;
+      flight.animation.cancel();
+      flight.dot.remove();
+      flights.delete(classId!);
     };
     window.addEventListener("sapen:cart-fly", onCartFly);
-    return () => { window.clearTimeout(bumpTimer); window.removeEventListener("sapen:cart-fly", onCartFly); };
+    window.addEventListener("sapen:cart-failed", onCartFailed);
+    return () => { window.clearTimeout(bumpTimer); window.removeEventListener("sapen:cart-fly", onCartFly); window.removeEventListener("sapen:cart-failed", onCartFailed); for (const flight of flights.values()) { flight.animation.cancel(); flight.dot.remove(); } };
   }, []);
 
   useEffect(() => { setOpen(false); setDrawerOpen(false); }, [pathname, session?.id, session?.role]);
@@ -88,19 +100,6 @@ export default function Navbar({ session }: NavbarProps) {
     window.addEventListener("sapen:profile-avatar-updated", onProfileUpdated);
     return () => window.removeEventListener("sapen:profile-avatar-updated", onProfileUpdated);
   }, [session?.id, session?.avatarDataUrl]);
-
-  useEffect(() => {
-    let active = true;
-    const updateCart = async () => {
-      const identity = await getCartIdentity();
-      if (active) setCartCount(readClassCart(identity).length);
-    };
-    void updateCart();
-    window.addEventListener("storage", updateCart);
-    window.addEventListener("sapen:cart-updated", updateCart);
-    window.addEventListener("sapen:session-changed", updateCart);
-    return () => { active = false; window.removeEventListener("storage", updateCart); window.removeEventListener("sapen:cart-updated", updateCart); window.removeEventListener("sapen:session-changed", updateCart); };
-  }, []);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -145,7 +144,7 @@ export default function Navbar({ session }: NavbarProps) {
       setLogoutError(error instanceof Error ? error.message : "Keluar belum berhasil. Periksa koneksi lalu coba lagi.");
       return;
     }
-    clearClassCart();
+    clearCart();
     clearAuthBrowserStorage();
     publishSessionChanged();
     setOpen(false);
