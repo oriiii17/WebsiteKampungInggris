@@ -418,13 +418,6 @@ async function fetchFullSchemaFromSupabase(
     throwSb('Gagal membaca tabel "modules" dari Supabase', modErr);
   }
 
-  // Jika project Supabase baru saja dibuat & kosong, otomatis seed data awal Kampung Sapen!
-  if (!modRows || modRows.length === 0) {
-    const initial = createInitialSeedData();
-    await pushFullSchemaToSupabase(sb, initial, true);
-    return initial;
-  }
-
   const [
     plansRes,
     codesRes,
@@ -1276,66 +1269,11 @@ function normalizeClassModules(item: ClassItem, dbModules: ModuleItem[]): ClassI
   };
 }
 
-const DEFAULT_INITIAL_CLASSES: ClassItem[] = [
-  {
-    id: "class-conversation-starter",
-    slug: "conversation-starter",
-    title: "Kelas Percakapan & Kosakata Praktis",
-    subtitle: "Kombinasi materi berbicara, menyapa turis, dan game interaktif",
-    description:
-      "Program kelas terpadu untuk melatih rasa percaya diri berbicara bahasa Inggris. Berisi modul interaktif lengkap dengan audio dan kuis live.",
-    coverTheme: "emerald",
-    priceIdr: 49000,
-    durationDays: 30,
-    moduleIds: [],
-    modules: [
-      { id: "cm-conv-1", kelasId: "class-conversation-starter", judulBebas: "Bab 1: Sapaan & Perkenalan", deskripsi: "Dasar menyapa, memperkenalkan diri, dan membuka percakapan.", urutan: 1, status: "terbit", quiz: null, filePDF: "classes/class-conversation-starter/modules/cm-conv-1/materi-uji-flipbook.pdf", fileAsli: "classes/class-conversation-starter/modules/cm-conv-1/materi-uji-flipbook.pdf", fileType: "pdf", fileAsliName: "materi-uji-flipbook-4hal.pdf" },
-      { id: "cm-conv-2", kelasId: "class-conversation-starter", judulBebas: "Bab 2: Percakapan Sehari-hari", deskripsi: "Ungkapan praktis untuk situasi harian dan menyapa tamu.", urutan: 2, status: "terbit", quiz: null },
-    ],
-    gameTemplateIds: ["telling-time", "word-match"],
-    isPublished: true,
-    createdAt: new Date().toISOString(),
-    tingkat: "Pemula",
-    jadwal: "Fleksibel, 2x per minggu",
-    kodeAkses: "SAPEN-CONV",
-    status: "berjalan",
-  },
-  {
-    id: "class-grammar-mastery",
-    slug: "grammar-mastery",
-    title: "Kelas Tata Bahasa & Struktur Kalimat",
-    subtitle: "Pondasi tenses, penyusunan kalimat, dan latihan mandiri",
-    description:
-      "Kelas komprehensif mengupas tuntas tata bahasa Inggris dari dasar dengan penjelasan santai, latihan mandiri berbobot, dan tantangan kata.",
-    coverTheme: "amber",
-    priceIdr: 65000,
-    durationDays: 60,
-    moduleIds: [],
-    modules: [
-      { id: "cm-gram-1", kelasId: "class-grammar-mastery", judulBebas: "Pertemuan 1: Dasar Kalimat", deskripsi: "Mengenal subjek, predikat, dan pola kalimat sederhana.", urutan: 1, status: "terbit", quiz: null },
-      { id: "cm-gram-2", kelasId: "class-grammar-mastery", judulBebas: "Pertemuan 2: Tenses Dasar", deskripsi: "Present, past, dan future dalam konteks sehari-hari.", urutan: 2, status: "terbit", quiz: null },
-    ],
-    gameTemplateIds: ["word-builder", "quick-quiz"],
-    isPublished: true,
-    createdAt: new Date().toISOString(),
-    tingkat: "Menengah",
-    jadwal: "Fleksibel, 2x per minggu",
-    kodeAkses: "SAPEN-GRAM",
-    status: "berjalan",
-  },
-];
-
 // TODO: Temporary Vercel /tmp and in-memory fallback until the full Supabase migration.
 export async function getClasses(includeUnpublished = false): Promise<ClassItem[]> {
   const db = await readLocalDb();
   let changed = false;
-  if (!db.classes || db.classes.length === 0) {
-    const initial = DEFAULT_INITIAL_CLASSES.map((c) => normalizeClassModules(c, db.modules || []));
-    db.classes = initial;
-    await writeLocalDb(db);
-    return includeUnpublished ? initial : initial.filter((c) => c.isPublished);
-  }
-  const normalized = db.classes.map((c) => {
+  const normalized = (db.classes || []).map((c) => {
     const n = normalizeClassModules(c as ClassItem, db.modules || []);
     if (JSON.stringify(n.modules) !== JSON.stringify((c as ClassItem).modules) || n.status !== (c as ClassItem).status) changed = true;
     return n;

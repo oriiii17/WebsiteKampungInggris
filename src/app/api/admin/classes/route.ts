@@ -5,6 +5,7 @@ import { ClassItem, ClassModule, ClassQuiz } from "@/lib/types";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { formatIDR, MAX_PRICE_IDR } from "@/lib/currency";
 import { normalizeGameBlueprint } from "@/lib/game-blueprint";
+import { revalidateTag } from "next/cache";
 
 async function withInstalledGames(items: ClassItem[]) {
   const supabase = await getSupabaseServerClient();
@@ -246,13 +247,18 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ ok: false, error: "ID kelas diperlukan." }, { status: 400 });
     const supabase = await getSupabaseServerClient();
+    let deletedRemotely = false;
     if (supabase) {
-      const { error } = await supabase.rpc("delete_class_with_enrollments", { p_class_id: id });
+      const { data: deleted, error } = await supabase.rpc("delete_class_with_enrollments", { p_class_id: id });
       if (error) {
         console.error("[api/admin/classes DELETE] Supabase dependency delete", { code: error.code, message: error.message, details: error.details });
         const migrationHint = error.code === "PGRST202" || error.code === "42883" ? " Jalankan migrasi penghapusan kelas yang disediakan." : "";
         return NextResponse.json({ ok: false, error: `Penghapusan belum berhasil${error.code ? ` (${error.code})` : ""}: ${error.message}.${migrationHint}` }, { status: 500 });
       }
+      if (deleted !== true) {
+        return NextResponse.json({ ok: false, error: "Supabase tidak menghapus kelas. Kelas tidak ditemukan atau izin hapus/RLS menolak operasi." }, { status: 500 });
+      }
+      deletedRemotely = true;
     }
     const ok = await deleteClass(id);
     const stillThere = await getClassByIdOrSlug(id);
@@ -260,12 +266,16 @@ export async function DELETE(req: NextRequest) {
       console.error("[api/admin/classes DELETE] masih ada setelah hapus", id);
       return NextResponse.json({ ok: false, error: "Kelas gagal dihapus dari database (masih ditemukan setelah penghapusan)." }, { status: 500 });
     }
-    if (!ok && !stillThere) {
-      return NextResponse.json({ ok: true, deleted: false, message: "Kelas tidak ditemukan (mungkin sudah dihapus)." });
+    if (!ok && !deletedRemotely) return NextResponse.json({ ok: false, error: "Kelas tidak ditemukan; tidak ada data yang dihapus." }, { status: 404 });
+    if (supabase) {
+      const { data: remaining, error: verifyError } = await supabase.from("classes").select("id").eq("id", id).maybeSingle();
+      if (verifyError) {
+        console.error("[api/admin/classes DELETE] Supabase verification", { code: verifyError.code, message: verifyError.message });
+        return NextResponse.json({ ok: false, error: `Penghapusan belum dapat diverifikasi (${verifyError.code}).` }, { status: 500 });
+      }
+      if (remaining) return NextResponse.json({ ok: false, error: "Kelas masih tersimpan di Supabase setelah penghapusan." }, { status: 500 });
     }
-    if (!ok) {
-      return NextResponse.json({ ok: false, error: "Gagal menghapus kelas dari database." }, { status: 500 });
-    }
+    revalidateTag("public-classes");
     const classes = await getClasses(true);
     console.log("[api/admin/classes DELETE] terhapus & terverifikasi", { id });
     return NextResponse.json({ ok: true, deleted: true, classes, verified: true });
