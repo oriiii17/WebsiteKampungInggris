@@ -58,7 +58,7 @@ export default async function ClassDetailPage({
   }
 
   return (
-    <div className={`pt-8 pb-24 sm:pt-12 sm:pb-24 lg:py-14${session?.role === "guest" ? " lg:pb-14" : ""}`}>
+    <div className={`pt-8 pb-[calc(var(--bottom-nav-h,64px)+150px)] sm:pt-12 md:pb-24 lg:py-14${session?.role === "guest" ? " lg:pb-14" : ""}`}>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <ClassDetailClient
           classItem={classItem}

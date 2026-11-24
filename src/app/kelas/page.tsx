@@ -45,7 +45,7 @@ async function KelasIndexContent({
 
   return (
     <div className="workbook-page">
-      <section className="workbook-wrap pb-14 pt-12 sm:pb-20 sm:pt-16">
+      <section className="workbook-wrap pb-14 pt-8 sm:pb-20 sm:pt-8">
         {sp.from === "materi" && (
           <div className="mb-8 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
@@ -56,7 +56,7 @@ async function KelasIndexContent({
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-leaf" />
           <p>Kelas berbayar di keranjang akan aktif setelah pesanan diselesaikan. Kelas gratis dapat langsung diambil dari halaman detail kelas.</p>
         </div>}
-        <div className="mb-8 grid gap-8 border-b-2 border-ink pb-8 md:grid-cols-[1fr_auto] md:items-end">
+        <div className="mb-8 grid gap-8 border-b border-[#d8d0bf] pb-8 md:grid-cols-[1fr_auto] md:items-end">
           <div>
             <p className="workbook-print-note">Program belajar · daftar kelas</p>
             <h1 className="mt-3 max-w-3xl text-[clamp(24px,7vw,32px)] leading-tight">Pilih kelas yang pas untukmu.</h1>

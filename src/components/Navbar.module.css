@@ -53,10 +53,14 @@
   font-size: .82rem;
   font-weight: 750;
   text-decoration: none;
+  text-decoration-line: none;
   transition: color 150ms ease, background-color 150ms ease;
 }
-.navLink:hover { color: var(--nav-forest-deep); background: var(--nav-paper); }
-.navLinkActive { color: var(--nav-forest-deep); background: #e6eadf; }
+.navLink::after { position: absolute; right: .7rem; bottom: .3rem; left: .7rem; height: 1px; content: ""; background: var(--nav-tomato); transform: scaleX(0); transform-origin: left; transition: transform 150ms ease, height 150ms ease; }
+.navLink:hover { color: var(--nav-forest-deep); background: transparent; }
+.navLink:hover::after, .navLinkActive::after { transform: scaleX(1); }
+.navLinkActive { color: var(--nav-forest-deep); background: transparent; font-weight: 900; }
+.navLinkActive::after { height: 2px; }
 .desktopActions { align-items: center; gap: .45rem; }
 .cartAction, .mobileCartAction {
   display: inline-flex;
@@ -156,6 +160,7 @@
   .desktopActions { order: 2; margin-left: auto; }
   .desktopNav { order: 3; width: 100%; flex: 1 0 100%; justify-content: center; gap: .1rem; padding-bottom: .3rem; }
   .navLink { min-height: 42px; padding-inline: .55rem; font-size: .76rem; }
+  .navLink::after { right: .55rem; left: .55rem; }
   .brandLogo { width: 88px; height: 58px; }
 }
 @media (min-width: 1024px) and (max-width: 1199px) {
