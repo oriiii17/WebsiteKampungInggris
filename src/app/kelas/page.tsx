@@ -27,6 +27,7 @@ async function KelasIndexContent({
   const session = await getSessionWithGuestContext();
   if (session?.guestSessionId) redirect(await getGuestSessionDestination(session));
   const isWarga = session?.origin === "warga_kode";
+  const isWargaCodeOnly = isWarga && (!session?.email || session.emailVerified !== true);
   const [classesUnsorted, modules] = await Promise.all([getPublicClasses(), getPublicModules()]);
   const classes = [...classesUnsorted].sort((a, b) => {
     const createdA = Date.parse(a.createdAt || "");
@@ -40,7 +41,7 @@ async function KelasIndexContent({
   ]);
   const ownedClassIds = new Set(isWarga ? classes.map((item) => item.id) : enrollments.map((enrollment) => enrollment.classId));
   const canEnroll = Boolean(session?.email && session.emailVerified && session.authUserId && ["peserta", "umum", "member"].includes(session.role));
-  const isMyClassesTab = sp.tab === "mine";
+  const isMyClassesTab = !isWargaCodeOnly && sp.tab === "mine";
   const visibleClasses = isMyClassesTab ? classes.filter((cls) => isWarga || ownedClassIds.has(cls.id)) : classes.filter((cls) => isWarga || !ownedClassIds.has(cls.id));
 
   return (
@@ -66,7 +67,7 @@ async function KelasIndexContent({
 
         <nav aria-label="Daftar kelas" className="mb-7 flex w-full rounded-xl border border-rule bg-white p-1 sm:w-fit">
           <Link aria-current={!isMyClassesTab ? "page" : undefined} href="/kelas" className={`inline-flex min-h-11 flex-1 items-center justify-center rounded-lg px-4 text-sm font-bold sm:flex-none ${!isMyClassesTab ? "bg-[#244b3a] text-white" : "text-[#244b3a] hover:bg-[#f5f1e8]"}`}>Semua</Link>
-          <Link aria-current={isMyClassesTab ? "page" : undefined} href="/kelas?tab=mine" className={`inline-flex min-h-11 flex-1 items-center justify-center rounded-lg px-4 text-sm font-bold sm:flex-none ${isMyClassesTab ? "bg-[#244b3a] text-white" : "text-[#244b3a] hover:bg-[#f5f1e8]"}`}>Kelas Saya</Link>
+          {!isWargaCodeOnly && <Link aria-current={isMyClassesTab ? "page" : undefined} href="/kelas?tab=mine" className={`inline-flex min-h-11 flex-1 items-center justify-center rounded-lg px-4 text-sm font-bold sm:flex-none ${isMyClassesTab ? "bg-[#244b3a] text-white" : "text-[#244b3a] hover:bg-[#f5f1e8]"}`}>Kelas Saya</Link>}
         </nav>
 
         <ClassCatalogClient items={visibleClasses.map((cls) => ({
