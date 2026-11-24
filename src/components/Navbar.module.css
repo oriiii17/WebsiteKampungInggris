@@ -73,11 +73,14 @@
   font-weight: 800;
   text-decoration: none;
 }
-.cartAction { padding: .4rem .62rem; border: 1px solid var(--nav-rule); border-radius: .55rem; }
+.cartAction { position: relative; padding: .4rem .62rem; border: 1px solid var(--nav-rule); border-radius: .55rem; }
 .cartAction:hover, .mobileCartAction:hover { background: var(--nav-paper); }
 .mobileCartAction { width: 40px; }
 .mobileCartAction { position: relative; min-height: 44px; min-width: 44px; }
 .cartBadge { position: absolute; top: 2px; right: 0; display: grid; min-width: 18px; height: 18px; place-items: center; border: 2px solid var(--nav-page); border-radius: 999px; padding-inline: 3px; color: #fff; background: var(--nav-tomato); font-size: .62rem; line-height: 1; font-weight: 900; }
+.desktopCartBadge { top: -8px; right: -8px; }
+.cartBadgeBump { animation: cart-badge-bump .45s ease-out; }
+@keyframes cart-badge-bump { 50% { transform: scale(1.35); } }
 .mobileMenuButton, .drawerClose { display: inline-grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--nav-rule); border-radius: .6rem; color: var(--nav-forest-deep); background: var(--nav-page); cursor: pointer; }
 .mobileMenuButton svg, .drawerClose svg { width: 20px; height: 20px; }
 .drawerRoot { position: fixed; z-index: 120; inset: 0; }

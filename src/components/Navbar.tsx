@@ -25,6 +25,7 @@ export default function Navbar({ session }: NavbarProps) {
   const [open, setOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [cartBump, setCartBump] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [avatarDataUrl, setAvatarDataUrl] = useState(session?.avatarDataUrl);
   const [logoutError, setLogoutError] = useState("");
@@ -43,6 +44,37 @@ export default function Navbar({ session }: NavbarProps) {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    let bumpTimer = 0;
+    const onCartFly = (event: Event) => {
+      const detail = (event as CustomEvent<{ classId?: string; source?: { left: number; top: number; width: number; height: number } | null }>).detail;
+      const target = [...document.querySelectorAll<HTMLElement>("[data-cart-target]")].find((node) => node.getBoundingClientRect().width > 0);
+      const finish = () => {
+        window.dispatchEvent(new CustomEvent("sapen:cart-fly-complete", { detail: { classId: detail?.classId } }));
+        setCartBump(true);
+        window.clearTimeout(bumpTimer);
+        bumpTimer = window.setTimeout(() => setCartBump(false), 500);
+      };
+      if (!target || !detail?.source) { finish(); return; }
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduceMotion) { finish(); return; }
+      const targetRect = target.getBoundingClientRect();
+      const source = detail.source;
+      const dot = document.createElement("span");
+      dot.setAttribute("aria-hidden", "true");
+      dot.style.cssText = `position:fixed;z-index:9999;left:${source.left + source.width / 2 - 18}px;top:${source.top + source.height / 2 - 18}px;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:white;background:#244b3a;pointer-events:none;`;
+      dot.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>';
+      document.body.appendChild(dot);
+      const dx = targetRect.left + targetRect.width / 2 - (source.left + source.width / 2);
+      const dy = targetRect.top + targetRect.height / 2 - (source.top + source.height / 2);
+      if (typeof dot.animate !== "function") { dot.remove(); finish(); return; }
+      const animation = dot.animate([{ transform: "translate(0,0) scale(1)", opacity: 1 }, { transform: `translate(${dx * .55}px,${dy - 55}px) scale(.8)`, opacity: 1, offset: .65 }, { transform: `translate(${dx}px,${dy}px) scale(.35)`, opacity: .3 }], { duration: 600, easing: "cubic-bezier(.2,.75,.25,1)", fill: "forwards" });
+      animation.onfinish = () => { dot.remove(); finish(); };
+    };
+    window.addEventListener("sapen:cart-fly", onCartFly);
+    return () => { window.clearTimeout(bumpTimer); window.removeEventListener("sapen:cart-fly", onCartFly); };
   }, []);
 
   useEffect(() => { setOpen(false); setDrawerOpen(false); }, [pathname, session?.id, session?.role]);
@@ -139,7 +171,7 @@ export default function Navbar({ session }: NavbarProps) {
         </nav>
 
         <div className={styles.desktopActions}>
-          {showCart && <Link href="/keranjang" className={styles.cartAction} aria-label="Buka keranjang belanja"><ShoppingCart className="h-4 w-4" /><span>Keranjang</span></Link>}
+          {showCart && <Link href="/keranjang" data-cart-target className={styles.cartAction} aria-label={`Buka keranjang belanja, ${cartCount} item`}><ShoppingCart className="h-4 w-4" /><span>Keranjang</span>{cartCount > 0 && <span className={`${styles.cartBadge} ${styles.desktopCartBadge} ${cartBump ? styles.cartBadgeBump : ""}`}>{cartCount > 99 ? "99+" : cartCount}</span>}</Link>}
           {!session ? (
             <>
               <Link href="/masuk" className={styles.signIn}>
@@ -170,7 +202,7 @@ export default function Navbar({ session }: NavbarProps) {
         </div>
 
         <div className={styles.mobileActions}>
-          {showCart && <Link href="/keranjang" className={styles.mobileCartAction} aria-label={`Keranjang, ${cartCount} item`} title="Keranjang"><ShoppingCart aria-hidden="true" />{cartCount > 0 && <span className={styles.cartBadge}>{cartCount > 99 ? "99+" : cartCount}</span>}</Link>}
+          {showCart && <Link href="/keranjang" data-cart-target className={styles.mobileCartAction} aria-label={`Keranjang, ${cartCount} item`} title="Keranjang"><ShoppingCart aria-hidden="true" />{cartCount > 0 && <span className={`${styles.cartBadge} ${cartBump ? styles.cartBadgeBump : ""}`}>{cartCount > 99 ? "99+" : cartCount}</span>}</Link>}
           <button type="button" onClick={() => setDrawerOpen(true)} className={styles.mobileMenuButton} aria-label="Buka menu" aria-controls="public-mobile-drawer" aria-expanded={drawerOpen}><Menu aria-hidden="true" /></button>
         </div>
       </div>

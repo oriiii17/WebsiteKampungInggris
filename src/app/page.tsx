@@ -9,7 +9,7 @@ import { getServerSession } from "@/lib/auth";
 import type { ClassItem } from "@/lib/types";
 import type { Metadata } from "next";
 import { getSiteUrl, publicPageMetadata } from "@/lib/site";
-import { formatIDR } from "@/lib/currency";
+import ClassListingCard from "@/components/ClassListingCard";
 
 export const revalidate = 60;
 
@@ -68,10 +68,6 @@ async function HomeTestimonials() {
   const [session, testimonials] = await Promise.all([getServerSession(), getPublicTestimonials()]);
   const isEligible = Boolean(session?.email && session.emailVerified === true && session.authUserId && ["peserta", "umum", "member"].includes(session.role));
   return <TestimoniSection initialTestimoni={testimonials} isEligible={isEligible} isLoggedIn={Boolean(session)} userId={session?.authUserId} />;
-}
-
-function formatPrice(price: number) {
-  return formatIDR(price);
 }
 
 const learningRoutes = [
@@ -180,17 +176,7 @@ export default async function HomePage() {
         </div>
         <div className="home-class-list">
           {featuredClasses.length ? featuredClasses.map((item) => (
-            <article key={item.id} className="home-class-row">
-              <div className="home-class-copy">
-                <h3 className="font-display"><Link href={`/kelas/${encodeURIComponent(item.slug)}`}>{item.title}</Link></h3>
-              </div>
-              <div className="home-class-action">
-                <span className="home-price-badge">{item.priceIdr === 0 ? "Gratis" : formatPrice(item.priceIdr)}</span>
-                <Link href={`/kelas/${encodeURIComponent(item.slug)}`} aria-label={`Lihat detail ${item.title}`}>
-                  Detail <ArrowRight aria-hidden="true" className="h-4 w-4" />
-                </Link>
-              </div>
-            </article>
+            <ClassListingCard key={item.id} item={item} variant="home" />
           )) : (
             <div className="home-empty-classes">
               <p>Kelas baru sedang disiapkan.</p>

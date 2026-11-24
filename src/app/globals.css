@@ -1067,6 +1067,17 @@ input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fff inset; }
 .class-catalog-card > :not(h2) { position: relative; z-index: 2; }
 .class-catalog-card:hover { box-shadow: 0 8px 22px rgba(24, 59, 45, .1); }
 .class-catalog-title-link:focus-visible { outline: 2px solid #244b3a; outline-offset: 3px; }
+.class-opening-indicator { position: absolute; z-index: 3; top: .75rem; right: .75rem; display: inline-flex; align-items: center; gap: .4rem; border-radius: 999px; background: #244b3a; padding: .4rem .65rem; color: #fff; font-size: .75rem; font-weight: 750; }
+.home-class-row:has(.class-opening-indicator) { position: relative; opacity: .68; }
+.class-catalog-card:has(.class-opening-indicator) { opacity: .68; }
+.class-card-departing { max-height: 0 !important; min-height: 0 !important; overflow: hidden; padding-block: 0 !important; border-width: 0 !important; opacity: 0; transform: scale(.94); transition: max-height .28s ease, padding .28s ease, opacity .28s ease, transform .28s ease, border-width .28s ease; }
+.detail-cart-short { display: none; }
+.detail-cart-action { width: 100%; max-height: 48px; }
+.class-detail-access-loading { grid-template-columns: minmax(0, 1fr); }
+@media (prefers-reduced-motion: reduce) {
+  .class-catalog-card, .class-card-departing { transition: opacity .16s ease !important; transform: none !important; }
+  .cartBadgeBump { animation: none !important; }
+}
 .class-detail-enrollment button { border-color: #ba472f; }
 .class-detail-enrollment:has(> div:first-child:empty) { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 767px) {
@@ -1092,6 +1103,28 @@ input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fff inset; }
   .class-detail-enrollment > div:last-child { width: 100%; }
   .class-detail-enrollment .class-access-action, .class-detail-enrollment button { width: 100%; }
   .class-detail-enrollment:has(> div:first-child:empty) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 767px) {
+  .class-detail-enrollment {
+    height: 64px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .75rem;
+    padding: .7rem 1rem;
+  }
+  .class-detail-enrollment > div:first-child { min-width: 0; }
+  .class-detail-enrollment > div:first-child .workbook-print-note,
+  .class-detail-enrollment > div:first-child p:last-child { display: none; }
+  .class-detail-enrollment > div:first-child p:nth-child(2) { margin: 0; white-space: nowrap; font-size: clamp(18px, 5vw, 22px); line-height: 1.1; }
+  .class-detail-enrollment > div:last-child,
+  .class-detail-enrollment .class-access-action { width: auto; }
+  .class-detail-enrollment > div:last-child > div { width: auto; }
+  .class-detail-enrollment button.detail-cart-action,
+  .class-detail-enrollment a.detail-cart-action,
+  .class-detail-enrollment .detail-cart-action { width: auto; height: 40px; min-height: 40px; max-height: 40px; padding-inline: 1rem; border-radius: 999px; font-size: 14px; white-space: nowrap; }
+  .class-detail-enrollment > div:last-child > div > a,
+  .class-detail-enrollment > div:last-child > div > button { width: auto; height: 40px; min-height: 40px; max-height: 40px; padding-inline: .8rem; white-space: nowrap; }
+  .detail-cart-full { display: none; }
+  .detail-cart-short { display: inline; }
 }
 .home-faq { max-width: 60rem; margin-inline: auto; }
 .home-faq h2 { max-width: 16ch; color: var(--forest-deep); font-size: clamp(2rem, 3.5vw, 3.35rem); line-height: 1.05; }
