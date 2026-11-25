@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 import ClassDetailClient from "./ClassDetailClient";
 import { getPublicClasses } from "@/lib/public-data-cache";
 import { publicPageMetadata } from "@/lib/site";
+import { getSessionWithGuestContext, isAdminSession } from "@/lib/auth";
+import { getUserEnrollments } from "@/lib/db";
+import { getApprovedActiveClassSession } from "@/lib/active-class-session";
 
 export const revalidate = 60;
 
@@ -34,13 +37,23 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ sl
   const classItem = await findPublicClass(slug);
   if (!classItem) notFound();
 
+  const session = await getSessionWithGuestContext();
+  const [enrollments, activeSessionClass] = await Promise.all([
+    session?.email ? getUserEnrollments(session.email) : Promise.resolve([]),
+    session?.guestSessionId ? getApprovedActiveClassSession(session) : Promise.resolve(null),
+  ]);
+  const isEnrolled = Boolean(isAdminSession(session)
+    || session?.origin === "warga_kode"
+    || enrollments.some((enrollment) => enrollment.classId === classItem.id)
+    || activeSessionClass?.classId === classItem.id);
+
   return <div className="pt-8 pb-[calc(var(--bottom-nav-h,64px)+150px)] sm:pt-12 md:pb-24 lg:py-14">
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
       <ClassDetailClient
         classItem={classItem}
         includedModules={[]}
-        isEnrolled={false}
-        sessionUser={null}
+        isEnrolled={isEnrolled}
+        sessionUser={session}
         independentGameCount={0}
       />
     </div>

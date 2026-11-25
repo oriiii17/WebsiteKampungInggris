@@ -20,9 +20,10 @@ export default function LupaPasswordPage() {
     try {
       const response = await fetch("/api/auth/forgot-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
       const result = await response.json();
+      if (!response.ok) throw new Error("Gagal terhubung. Periksa koneksi lalu coba lagi.");
       setMessage(result.message || "Jika email terdaftar, tautan untuk mengatur ulang kata sandi akan segera dikirim.");
     } catch {
-      setMessage("Jika email terdaftar, tautan untuk mengatur ulang kata sandi akan segera dikirim.");
+      setError("Gagal terhubung. Periksa koneksi lalu coba lagi.");
     } finally {
       setLoading(false);
     }

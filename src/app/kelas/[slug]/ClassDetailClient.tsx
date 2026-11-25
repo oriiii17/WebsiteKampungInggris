@@ -31,11 +31,8 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
   const [leavingAsGuest, setLeavingAsGuest] = useState(false);
   const [leaveGuestError, setLeaveGuestError] = useState("");
   const [accessRevoked, setAccessRevoked] = useState(false);
-  const [resolvedSession, setResolvedSession] = useState<SessionPayload | null>(sessionUser);
+  const resolvedSession = sessionUser;
   const [hasClassAccess, setHasClassAccess] = useState(isEnrolled);
-  const [accessLoading, setAccessLoading] = useState(true);
-  const [accessError, setAccessError] = useState("");
-  const [accessAttempt, setAccessAttempt] = useState(0);
   const isGuest = resolvedSession?.role === "guest" || resolvedSession?.origin === "guest";
   const isWarga = resolvedSession?.origin === "warga_kode";
   const inClassSession = Boolean(resolvedSession?.guestSessionId);
@@ -58,43 +55,6 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
     return () => { active = false; window.clearTimeout(timeout); controller.abort(); };
   }, [classItem.id, practiceCountAttempt]);
 
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 10_000);
-    async function loadAccess() {
-      setAccessLoading(true);
-      setAccessError("");
-      try {
-        const [sessionResponse, currentResponse] = await Promise.all([
-          fetch("/api/auth/session?scope=attendance", { cache: "no-store", signal: controller.signal }),
-          fetch("/api/class-sessions/current", { cache: "no-store", signal: controller.signal }),
-        ]);
-        if (!sessionResponse.ok || !currentResponse.ok) throw new Error("Status akses kelas belum dapat diperiksa.");
-        const sessionData = await sessionResponse.json();
-        const currentData = await currentResponse.json();
-        const currentUser = (sessionData.session || null) as SessionPayload | null;
-        let allowed = Boolean(currentUser && ["admin", "pengurus", "developer"].includes(currentUser.role));
-        if (currentUser?.origin === "warga_kode") allowed = true;
-        if (currentUser?.guestSessionId) allowed = currentData.classId === classItem.id && currentData.status === "open";
-        if (!allowed && currentUser?.email) {
-          const accessResponse = await fetch(`/api/auth/session?scope=class-access&classId=${encodeURIComponent(classItem.id)}`, { cache: "no-store", signal: controller.signal });
-          if (accessResponse.ok) allowed = Boolean((await accessResponse.json()).hasAccess);
-        }
-        if (active) {
-          setResolvedSession(currentUser);
-          setHasClassAccess(allowed);
-        }
-      } catch {
-        if (active) setAccessError("Akses kelas belum dapat diperiksa. Periksa koneksi lalu coba lagi.");
-      } finally {
-        window.clearTimeout(timeout);
-        if (active) setAccessLoading(false);
-      }
-    }
-    void loadAccess();
-    return () => { active = false; window.clearTimeout(timeout); controller.abort(); };
-  }, [accessAttempt, classItem.id]);
   useEffect(() => {
     if (!watchAccountAccess) return;
     let active = true;
@@ -178,7 +138,6 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
           <div className="mb-4 flex flex-wrap items-center gap-2">
           {inClassSession && <span className="section-badge"><Sparkles className="h-3.5 w-3.5 text-earth" /> Akses sesi kelas</span>}
           {hasClassAccess && <span className="inline-flex min-h-[30px] items-center gap-1.5 rounded-full border border-[#244b3a] bg-[#244b3a] px-3 text-xs font-bold text-white"><ShieldCheck className="h-3.5 w-3.5" /> Akses Anda Aktif</span>}
-          {accessLoading && <span className="inline-flex min-h-[30px] items-center gap-1.5 rounded-full bg-[#eef3ee] px-3 text-xs font-semibold text-[#244b3a]"><Loader2 className="h-3.5 w-3.5 animate-spin" />Memeriksa akses</span>}
           </div>
           <h1 className="mt-3 break-words text-4xl sm:text-5xl">{classItem.title}</h1>
           {classItem.subtitle && <p className="mt-2 text-base font-bold text-leaf">{classItem.subtitle}</p>}
@@ -188,8 +147,7 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
             {!practiceCountLoading && !practiceCountError && practiceCount > 0 && <span className="inline-flex items-center gap-2"><Gamepad2 className="h-4 w-4 text-earth" />{practiceCount} Latihan Mandiri</span>}
           </div>
         </div>
-      {!inClassSession && !isWarga && accessLoading && <div aria-busy="true" className="class-detail-enrollment class-detail-access-loading"><div className="flex min-h-10 items-center gap-2 text-sm font-semibold text-[#244b3a]"><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />Memeriksa akses kelas</div></div>}
-      {!inClassSession && !isWarga && !accessLoading && !accessError && !hasClassAccess && <div className="class-detail-enrollment">
+      {!inClassSession && !isWarga && !hasClassAccess && <div className="class-detail-enrollment">
           {!hasClassAccess && <div>
             <p className="workbook-print-note">{classItem.priceIdr === 0 ? "Kelas gratis" : "Biaya akses kelas"}</p>
             <p className="mt-1 font-display text-3xl">{classItem.priceIdr === 0 ? "Gratis" : formatIDR(classItem.priceIdr)}</p>
@@ -197,7 +155,6 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
           </div>}
           <ClassAccessAction classId={classItem.id} classSlug={classItem.slug} priceIdr={classItem.priceIdr} isEnrolled={false} canEnroll={Boolean(resolvedSession?.email && resolvedSession.emailVerified && resolvedSession.authUserId && ["peserta", "umum", "member"].includes(resolvedSession.role))} detail />
         </div>}
-      {accessError && <div role="alert" className="rounded-xl border border-[#ba472f]/30 bg-white p-4 text-sm text-[#7b2c1d]">{accessError}<button type="button" onClick={() => setAccessAttempt((attempt) => attempt + 1)} className="ml-3 min-h-11 rounded-lg bg-[#244b3a] px-4 font-bold text-white">Coba lagi</button></div>}
       </section>
 
       <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#a9b8a4] bg-[#e8eee5] p-5 sm:p-6">
