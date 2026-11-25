@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDownRight, ArrowRight, BookOpen, MapPin, MessageCircle, MoveUpRight, Sparkles } from "lucide-react";
+import { ArrowDownRight, ArrowRight, BookOpen, MapPin, MessageCircle, Sparkles } from "lucide-react";
 import FaqAccordion, { HOME_FAQ_LIST } from "@/components/FaqAccordion";
 import TestimoniSection from "@/components/TestimoniSection";
 import { getPublicClasses, getPublicTestimonials } from "@/lib/public-data-cache";
@@ -46,18 +46,20 @@ function LocalPhoto({
   alt,
   className = "",
   loading = "lazy",
+  sizes = "(max-width: 700px) 100vw, (max-width: 1200px) 52vw, 640px",
 }: {
   file: string;
   alt: string;
   className?: string;
   loading?: "eager" | "lazy";
+  sizes?: string;
 }) {
   return (
     <Image
       src={file.startsWith("/") ? file : `/assets/${encodeURIComponent(file)}`}
       alt={alt}
       fill
-      sizes="(max-width: 700px) 100vw, (max-width: 1200px) 52vw, 640px"
+      sizes={sizes}
       priority={loading === "eager"}
       className={className}
     />
@@ -142,15 +144,16 @@ export default async function HomePage() {
           <div className="home-route-list">
             {learningRoutes.map(({ title, description, href, image, imageAlt, icon: Icon }) => (
               <article className="home-route" key={title}>
-                <Link href={href} className="home-route-image" aria-label={`Lihat kelas: ${title}`}>
-                  <LocalPhoto file={image} alt={imageAlt} />
-                  <span className="home-route-arrow"><MoveUpRight aria-hidden="true" className="h-5 w-5" /></span>
-                </Link>
-                <div className="home-route-copy">
-                  <Icon aria-hidden="true" className="home-route-icon" />
-                  <h3 className="font-display">{title}</h3>
-                  <p>{description}</p>
-                  <Link href={href} className="home-text-link">Lihat kelas <ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
+                <div className="home-route-image">
+                  <div className="home-route-photo-frame">
+                    <LocalPhoto file={image} alt={imageAlt} className="home-route-photo" sizes="(max-width: 767px) calc(100vw - 2rem), (max-width: 1279px) calc(100vw - 4rem), 1200px" />
+                  </div>
+                  <div className="home-route-copy">
+                    <Icon aria-hidden="true" className="home-route-icon" />
+                    <h3 className="font-display">{title}</h3>
+                    <p>{description}</p>
+                    <Link href={href} className="home-text-link">Lihat kelas <ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
+                  </div>
                 </div>
               </article>
             ))}
