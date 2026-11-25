@@ -255,7 +255,15 @@ export default function AdminDashboardClient() {
   }
 
   if (loading) {
-    return <div className="bg-[#FDFBF7] p-16 text-center text-sm font-bold text-[#1A2E1A]/70">Memuat Dashboard Pengurus Kampung Inggris Sapen...</div>;
+    return <main role="status" aria-live="polite" aria-busy="true" aria-label={`Memuat ${tabLabels[tab]}`} className="mx-auto w-full max-w-7xl p-4 sm:p-6">
+      <h1 className="mb-6 text-2xl font-extrabold text-[#1A2E1A]">{tabLabels[tab]}</h1>
+      <span className="sr-only">Memuat {tabLabels[tab]}…</span>
+      <div className="animate-pulse space-y-5" aria-hidden="true">
+        <div className="h-24 rounded-xl bg-slate-200" />
+        <div className="grid gap-4 sm:grid-cols-2"><div className="h-40 rounded-xl bg-slate-200" /><div className="h-40 rounded-xl bg-slate-200" /></div>
+        <div className="h-56 rounded-xl bg-slate-200" />
+      </div>
+    </main>;
   }
   if (!data) {
     return (
@@ -566,7 +574,7 @@ function PaymentsTab(props: any) {
         </form>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 rounded-xl border border-[#E5E7EB] bg-white p-3 text-center sm:p-4"><div><p className="text-[10px] font-bold uppercase text-slate-500">Total Transaksi</p><p className="mt-1 text-base font-extrabold text-[#183b2d]">{(data.enrollments || []).length}</p></div><div><p className="text-[10px] font-bold uppercase text-slate-500">Total Pemasukan</p><p className="mt-1 truncate text-sm font-extrabold text-[#183b2d]">{formatIDR(paymentTotalAmount)}</p></div><div><p className="text-[10px] font-bold uppercase text-slate-500">Total Akses Aktif</p><p className="mt-1 text-base font-extrabold text-[#183b2d]">{(data.enrollments || []).filter((entry: ClassEnrollment) => entry.status === "active").length}</p></div></div>
+      <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#E5E7EB] bg-white p-3 sm:grid-cols-3 sm:gap-2 sm:p-4"><div className="min-w-0 text-left sm:text-center"><p className="text-[10px] font-bold uppercase text-slate-500">Total Transaksi</p><p className="mt-1 text-2xl font-extrabold tabular-nums text-[#183b2d] sm:text-base">{(data.enrollments || []).length}</p></div><div className="min-w-0 text-left sm:text-center"><p className="text-[10px] font-bold uppercase text-slate-500">Total Pemasukan</p><p className="mt-1 break-words text-2xl font-extrabold tabular-nums text-[#183b2d] sm:text-sm">{formatIDR(paymentTotalAmount)}</p></div><div className="min-w-0 text-left sm:text-center"><p className="text-[10px] font-bold uppercase text-slate-500">Total Akses Aktif</p><p className="mt-1 text-2xl font-extrabold tabular-nums text-[#183b2d] sm:text-base">{(data.enrollments || []).filter((entry: ClassEnrollment) => entry.status === "active").length}</p></div></div>
 
       <div className="rounded-xl border border-[#E5E7EB] bg-white p-6">
         <h2 className="text-lg font-extrabold text-slate-900">Riwayat Pembayaran & Akses Kelas ({paymentTotal})</h2>

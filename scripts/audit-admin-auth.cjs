@@ -121,7 +121,7 @@ function routeSlug(route) { return route.replace("/admin?tab=", "admin-"); }
     activeProbe = loginProbe;
     await page.goto(`${baseUrl}/admin/masuk`, { waitUntil: "domcontentloaded", timeout: 12000 });
     const emailInput = page.getByLabel("Email Admin");
-    const passwordInput = page.getByLabel("Kata Sandi");
+    const passwordInput = page.locator('input[type="password"]').first();
     await emailInput.fill(email);
     await passwordInput.fill(password);
     // Check controlled input values without exposing their contents.
@@ -136,7 +136,7 @@ function routeSlug(route) { return route.replace("/admin?tab=", "admin-"); }
 
     const loginDeadline = Date.now() + 20_000;
     const loginTimeLeft = () => Math.max(1, loginDeadline - Date.now());
-    await page.getByRole("button", { name: "Masuk ke Panel Admin" }).click();
+    await page.getByRole("button", { name: /Masuk ke Panel Admin/ }).click();
     await page.waitForFunction(() => location.pathname === "/admin" || Boolean(document.querySelector('[role="alert"]')), { timeout: loginTimeLeft() }).catch(() => {});
     let landing = new URL(page.url());
     if (landing.pathname === "/admin") {
