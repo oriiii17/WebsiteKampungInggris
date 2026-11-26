@@ -5,7 +5,7 @@ import { ClassItem, ClassModule, ClassQuiz } from "@/lib/types";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { formatIDR, MAX_PRICE_IDR } from "@/lib/currency";
 import { normalizeGameBlueprint } from "@/lib/game-blueprint";
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 async function withInstalledGames(items: ClassItem[]) {
   const supabase = await getSupabaseServerClient();
@@ -13,6 +13,12 @@ async function withInstalledGames(items: ClassItem[]) {
   const { data, error } = await supabase.from("class_games").select("class_id,game_id").in("class_id", items.map((item) => item.id));
   if (error) { console.error("[api/admin/classes] class_games", { code: error.code, message: error.message, details: error.details, hint: error.hint }); return items; }
   return items.map((item) => ({ ...item, gameBlueprintIds: (data || []).filter((row) => row.class_id === item.id).map((row) => row.game_id) }));
+}
+
+function revalidateClassViews() {
+  revalidateTag("public-classes");
+  revalidatePath("/kelas");
+  revalidatePath("/admin");
 }
 
 async function validateIndependentGameIds(ids: unknown): Promise<string[]> {
@@ -154,11 +160,11 @@ async function getSessionImpact(classId: string) {
   const supabase = await getSupabaseServerClient();
   if (!supabase) {
     const db = await readLocalDb();
-    const sessions = (db.classSessions || []).filter((entry) => entry.classId === classId);
+    const sessions = (db.classSessions || []).filter((entry) => entry.classId === classId && entry.status === "open");
     const ids = new Set(sessions.map((entry) => entry.id));
     return { sessions: sessions.length, attendance: (db.classSessionAttendance || []).filter((entry) => ids.has(entry.sessionId)).length };
   }
-  const { data, error } = await supabase.from("class_sessions").select("id").eq("class_id", classId);
+  const { data, error } = await supabase.from("class_sessions").select("id").eq("class_id", classId).eq("status", "open");
   if (error) throw new Error(`Gagal memeriksa sesi kelas (${error.code || "Supabase"}).`);
   const ids = (data || []).map((row) => row.id);
   if (!ids.length) return { sessions: 0, attendance: 0 };
@@ -193,6 +199,7 @@ export async function POST(req: NextRequest) {
     toSave.gameBlueprintIds = await validateIndependentGameIds(toSave.gameBlueprintIds);
     await upsertClass(toSave);
     await saveInstalledGames(toSave.id, toSave.gameBlueprintIds);
+    revalidateClassViews();
     const verified = await getClassByIdOrSlug(toSave.id);
     if (!verified) {
       console.error("[api/admin/classes POST] verifikasi gagal, kelas tidak ditemukan setelah simpan", toSave.id);
@@ -223,6 +230,7 @@ export async function PATCH(req: NextRequest) {
     toSave.gameBlueprintIds = await validateIndependentGameIds(toSave.gameBlueprintIds);
     await upsertClass(toSave);
     await saveInstalledGames(toSave.id, toSave.gameBlueprintIds);
+    revalidateClassViews();
     const verified = await getClassByIdOrSlug(toSave.id);
     if (!verified) {
       console.error("[api/admin/classes PATCH] verifikasi gagal", toSave.id);
@@ -246,42 +254,19 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ ok: false, error: "ID kelas diperlukan." }, { status: 400 });
-    const supabase = await getSupabaseServerClient();
-    let deletedRemotely = false;
-    if (supabase) {
-      const { data: deleted, error } = await supabase.rpc("delete_class_with_enrollments", { p_class_id: id });
-      if (error) {
-        console.error("[api/admin/classes DELETE] Supabase dependency delete", { code: error.code, message: error.message, details: error.details });
-        const migrationHint = error.code === "PGRST202" || error.code === "42883" ? " Jalankan migrasi penghapusan kelas yang disediakan." : "";
-        return NextResponse.json({ ok: false, error: `Penghapusan belum berhasil${error.code ? ` (${error.code})` : ""}: ${error.message}.${migrationHint}` }, { status: 500 });
-      }
-      if (deleted !== true) {
-        return NextResponse.json({ ok: false, error: "Supabase tidak menghapus kelas. Kelas tidak ditemukan atau izin hapus/RLS menolak operasi." }, { status: 500 });
-      }
-      deletedRemotely = true;
-    }
     const ok = await deleteClass(id);
-    const stillThere = await getClassByIdOrSlug(id);
-    if (ok && stillThere) {
-      console.error("[api/admin/classes DELETE] masih ada setelah hapus", id);
-      return NextResponse.json({ ok: false, error: "Kelas gagal dihapus dari database (masih ditemukan setelah penghapusan)." }, { status: 500 });
-    }
-    if (!ok && !deletedRemotely) return NextResponse.json({ ok: false, error: "Kelas tidak ditemukan; tidak ada data yang dihapus." }, { status: 404 });
-    if (supabase) {
-      const { data: remaining, error: verifyError } = await supabase.from("classes").select("id").eq("id", id).maybeSingle();
-      if (verifyError) {
-        console.error("[api/admin/classes DELETE] Supabase verification", { code: verifyError.code, message: verifyError.message });
-        return NextResponse.json({ ok: false, error: `Penghapusan belum dapat diverifikasi (${verifyError.code}).` }, { status: 500 });
-      }
-      if (remaining) return NextResponse.json({ ok: false, error: "Kelas masih tersimpan di Supabase setelah penghapusan." }, { status: 500 });
-    }
-    revalidateTag("public-classes");
+    revalidateClassViews();
     const classes = await getClasses(true);
-    console.log("[api/admin/classes DELETE] terhapus & terverifikasi", { id });
-    return NextResponse.json({ ok: true, deleted: true, classes, verified: true });
+    return NextResponse.json({
+      ok: true,
+      deleted: ok,
+      message: ok ? "Kelas berhasil dihapus." : "Kelas sudah tidak ada. Daftar diperbarui.",
+      classes,
+      verified: true,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Gagal menghapus kelas.";
-    console.error("[api/admin/classes DELETE]", err);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    const blocked = message.includes("Sesi tatap muka kelas masih terbuka") || message.includes("Kelas berbayar ini sudah dibeli");
+    return NextResponse.json({ ok: false, error: message }, { status: blocked ? 409 : 500 });
   }
 }

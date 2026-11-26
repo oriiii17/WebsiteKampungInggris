@@ -265,49 +265,7 @@ async function pushFullSchemaToSupabase(
     })));
   }
 
-  // Kelas, pendaftaran, dan game (wajib tersinkron ke Supabase bila tabel ada)
-  const classes = data.classes || [];
-  if (classes.length > 0) {
-    await upsertChecked(sb, "classes", classes.map((c: any) => ({
-      id: c.id,
-      slug: c.slug || null,
-      title: c.title,
-      subtitle: c.subtitle ?? null,
-      description: c.description ?? "",
-      cover_theme: c.coverTheme ?? "emerald",
-      price_idr: Number(c.priceIdr ?? 0),
-      duration_days: Number(c.durationDays ?? 30),
-      module_ids: c.moduleIds ?? [],
-      modules: c.modules ?? [],
-      materi: c.modules ?? [],
-      game_template_ids: c.gameTemplateIds ?? [],
-      is_published: c.isPublished !== false,
-      tingkat: c.tingkat ?? null,
-      jadwal: c.jadwal ?? null,
-      kode_akses: c.kodeAkses ?? null,
-      status: c.status ?? "draft",
-      created_at: c.createdAt || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })));
-  }
-
-  const enrollments = data.enrollments || [];
-  if (enrollments.length > 0) {
-    await upsertChecked(sb, "enrollments", enrollments.map((e: any) => ({
-      id: e.id,
-      class_id: e.classId,
-      user_email: (e.userEmail || "").toLowerCase().trim(),
-      user_name: e.userName || "",
-      starts_at: e.startsAt || null,
-      expires_at: e.expiresAt || null,
-      status: e.status || "active",
-      paid_amount_idr: Number(e.paidAmountIdr ?? 0),
-      payment_method: e.paymentMethod ?? null,
-      source: e.source || (Number(e.paidAmountIdr ?? 0) > 0 ? "beli" : "legacy"),
-      created_at: e.createdAt || new Date().toISOString(),
-    })));
-  }
-
+  // classes/enrollments are written only by their dedicated Supabase operations.
   const games = data.games || [];
   for (const game of games) {
     const { data: oldRows, error: oldRowsError } = await sb.from("game_soal")
@@ -362,9 +320,6 @@ async function pushFullSchemaToSupabase(
     }
   }
 
-  // Sinkronkan penghapusan (remote harus mengikuti data lokal untuk tabel yang dikelola)
-  await syncDeletionsById(sb, "enrollments", (data.enrollments || []).map((e: any) => e.id));
-  await syncDeletionsById(sb, "classes", (data.classes || []).map((c: any) => c.id));
   // Master game bersifat tetap: sinkronisasi aplikasi tidak menghapus baris games.
 
   if (data.rwCodes?.length) {
@@ -380,19 +335,6 @@ async function pushFullSchemaToSupabase(
     if (error && !(allowMissingRwCodes && isMissingTableError(error))) throwSb('Gagal upsert ke tabel "rw_codes"', error);
     if (error) console.warn("[Supabase] Tabel rw_codes belum tersedia; perubahan kelas/game tetap tersinkron, perubahan kode RW menunggu migrasi.");
   }
-}
-
-async function syncDeletionsById(sb: SupabaseClient, table: string, localIds: string[]) {
-  const { data: rows, error } = await sb.from(table).select("id");
-  if (error) {
-    if (isMissingTableError(error)) return;
-    throwSb(`Gagal membaca id tabel "${table}" untuk sinkron hapus`, error);
-  }
-  const keep = new Set(localIds.filter(Boolean));
-  const toDel = (rows || []).map((r: any) => r.id).filter((id: string) => id && !keep.has(id));
-  if (toDel.length === 0) return;
-  const { error: dErr } = await sb.from(table).delete().in("id", toDel);
-  if (dErr) throwSb(`Gagal menghapus data dari tabel "${table}"`, dErr);
 }
 
 function mergeByIdPreferLocal<T extends { id: string }>(local: T[] = [], remote: T[] = []): T[] {
@@ -720,15 +662,17 @@ export async function readLocalDb(): Promise<DatabaseSchema> {
         classSessionGuests: local?.classSessionGuests || [],
         classSessionAttendance: local?.classSessionAttendance || [],
         classSessionGames: local?.classSessionGames || [],
-        classes: mergeByIdPreferLocal(local?.classes || [], remote.classes || []),
-        enrollments: mergeByIdPreferLocal(local?.enrollments || [], remote.enrollments || []),
+        // Remote rows are authoritative; snapshots are never merged into these collections.
+        classes: remote.classes || [],
+        enrollments: remote.enrollments || [],
         warga: (remote.warga || []) as any,
         loginLog: [],
         rwCodes: mergeByIdPreferLocal(local?.rwCodes || [], remote.rwCodes || []),
         testimoni: mergeByIdPreferLocal(local?.testimoni || [], (remote.testimoni || []) as any) as any,
       };
       ensureBuiltinGames(merged);
-      await persistDb(merged);
+      // Do not keep Supabase-owned classes/enrollments in an instance-local snapshot.
+      await persistDb({ ...merged, classes: [], enrollments: [] });
       return merged;
     }
   }
@@ -753,7 +697,7 @@ export async function writeLocalDb(data: DatabaseSchema): Promise<void> {
     await pushFullSchemaToSupabase(sb, data, rwCodesUnchanged, plansUnchanged);
   }
   // 2) Atomik di disk, setelah remote berhasil sehingga random code tidak hilang diam-diam.
-  await persistDb(data);
+  await persistDb(sb ? { ...data, classes: [], enrollments: [] } : data);
 }
 
 export async function resetLocalDbToSeed(): Promise<DatabaseSchema> {
@@ -1271,17 +1215,39 @@ function normalizeClassModules(item: ClassItem, dbModules: ModuleItem[]): ClassI
 
 // TODO: Temporary Vercel /tmp and in-memory fallback until the full Supabase migration.
 export async function getClasses(includeUnpublished = false): Promise<ClassItem[]> {
-  const db = await readLocalDb();
-  let changed = false;
-  const normalized = (db.classes || []).map((c) => {
-    const n = normalizeClassModules(c as ClassItem, db.modules || []);
-    if (JSON.stringify(n.modules) !== JSON.stringify((c as ClassItem).modules) || n.status !== (c as ClassItem).status) changed = true;
-    return n;
-  });
-  if (changed) {
-    db.classes = normalized;
-    await writeLocalDb(db);
+  const supabase = (await getSupabaseAdmin()) || (process.env.VERCEL !== undefined ? createPublicSupabaseClient() : null);
+  if (process.env.VERCEL !== undefined && !supabase) {
+    throw new Error("Daftar kelas Supabase belum dapat dimuat. Periksa konfigurasi koneksi database.");
   }
+  if (supabase) {
+    const [{ data, error }, modules] = await Promise.all([
+      supabase.from("classes").select("id,slug,title,subtitle,description,cover_theme,price_idr,duration_days,module_ids,modules,materi,game_template_ids,is_published,tingkat,jadwal,kode_akses,status,created_at").order("created_at", { ascending: false }),
+      getModules(true),
+    ]);
+    if (error) throwSb('Gagal membaca tabel "classes" dari Supabase', error);
+    const normalized = (data || []).map((row) => normalizeClassModules({
+      id: row.id,
+      slug: row.slug || "",
+      title: row.title || "",
+      subtitle: row.subtitle || "",
+      description: row.description || "",
+      coverTheme: row.cover_theme || "emerald",
+      priceIdr: Number(row.price_idr ?? 0),
+      durationDays: Number(row.duration_days ?? 30),
+      moduleIds: Array.isArray(row.module_ids) ? row.module_ids : [],
+      modules: Array.isArray(row.modules) ? row.modules : (Array.isArray(row.materi) ? row.materi : []),
+      gameTemplateIds: Array.isArray(row.game_template_ids) ? row.game_template_ids : [],
+      isPublished: row.is_published !== false,
+      tingkat: row.tingkat || "Pemula",
+      jadwal: row.jadwal || "",
+      kodeAkses: row.kode_akses || "",
+      status: row.status || "draft",
+      createdAt: row.created_at || new Date().toISOString(),
+    } as ClassItem, modules));
+    return includeUnpublished ? normalized : normalized.filter((item) => item.isPublished);
+  }
+  const db = await readLocalDb();
+  const normalized = (db.classes || []).map((c) => normalizeClassModules(c as ClassItem, db.modules || []));
   return includeUnpublished ? normalized : normalized.filter((c) => c.isPublished);
 }
 
@@ -1325,6 +1291,32 @@ export async function getClassByIdOrSlug(idOrSlug: string): Promise<ClassItem | 
 }
 
 export async function upsertClass(item: ClassItem): Promise<ClassItem> {
+  const supabase = await getSupabaseAdmin();
+  if (supabase) {
+    const { error } = await supabase.from("classes").upsert({
+      id: item.id,
+      slug: item.slug || null,
+      title: item.title,
+      subtitle: item.subtitle ?? null,
+      description: item.description ?? "",
+      cover_theme: item.coverTheme ?? "emerald",
+      price_idr: Number(item.priceIdr ?? 0),
+      duration_days: Number(item.durationDays ?? 30),
+      module_ids: item.moduleIds ?? [],
+      modules: item.modules ?? [],
+      materi: item.modules ?? [],
+      game_template_ids: item.gameTemplateIds ?? [],
+      is_published: item.isPublished !== false,
+      tingkat: item.tingkat ?? null,
+      jadwal: item.jadwal ?? null,
+      kode_akses: item.kodeAkses ?? null,
+      status: item.status ?? "draft",
+      created_at: item.createdAt || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "id" });
+    if (error) throwSb("Gagal menyimpan kelas ke Supabase", error);
+    return item;
+  }
   const db = await readLocalDb();
   if (!db.classes) db.classes = [];
   const idx = db.classes.findIndex((c) => c.id === item.id);
@@ -1338,8 +1330,54 @@ export async function upsertClass(item: ClassItem): Promise<ClassItem> {
 }
 
 export async function deleteClass(id: string): Promise<boolean> {
+  const supabase = await getSupabaseAdmin();
+  if (!supabase && process.env.VERCEL !== undefined) {
+    throw new Error("Koneksi Supabase untuk menghapus kelas tidak tersedia. Periksa sesi admin dan konfigurasi server.");
+  }
+  if (supabase) {
+    const { data: cls, error: classError } = await supabase.from("classes").select("id,price_idr").eq("id", id).maybeSingle();
+    if (classError) throwSb("Gagal memeriksa kelas sebelum dihapus", classError);
+    if (!cls) return false;
+
+    const [{ data: sessions, error: sessionsError }, { data: paidEnrollments, error: enrollmentError }, { data: paidOrders, error: orderError }] = await Promise.all([
+      supabase.from("class_sessions").select("id").eq("class_id", id).eq("status", "open").limit(1),
+      supabase.from("enrollments").select("id").eq("class_id", id).gt("paid_amount_idr", 0).limit(1),
+      supabase.from("class_checkout_orders").select("id").contains("class_ids", [id]).eq("status", "paid").limit(1),
+    ]);
+    if (sessionsError && !isMissingTableError(sessionsError)) throwSb("Gagal memeriksa sesi kelas", sessionsError);
+    if (enrollmentError && !isMissingTableError(enrollmentError)) throwSb("Gagal memeriksa enrollment kelas", enrollmentError);
+    if (orderError && !isMissingTableError(orderError)) throwSb("Gagal memeriksa pesanan lunas kelas", orderError);
+    if ((sessions || []).length) throw new Error("Sesi tatap muka kelas masih terbuka. Tutup sesi sebelum menghapus kelas.");
+    if (Number(cls.price_idr) > 0 && ((paidEnrollments || []).length || (paidOrders || []).length)) {
+      throw new Error("Kelas berbayar ini sudah dibeli, tidak bisa dihapus. Pindahkan ke Draft.");
+    }
+
+    const { data: deleted, error: deleteError } = await supabase.rpc("delete_class_with_enrollments", { p_class_id: id });
+    if (deleteError) throwSb("Gagal menghapus kelas dan enrollment turunannya", deleteError);
+    if (deleted !== true) {
+      const { data: stillExists, error: existenceError } = await supabase.from("classes").select("id").eq("id", id).maybeSingle();
+      if (existenceError) throwSb("Gagal memeriksa hasil penghapusan kelas", existenceError);
+      if (!stillExists) return false;
+      throw new Error("Supabase belum mengonfirmasi penghapusan kelas.");
+    }
+    const [{ data: remainingClass, error: verifyClassError }, { data: remainingEnrollments, error: verifyEnrollmentError }] = await Promise.all([
+      supabase.from("classes").select("id").eq("id", id).maybeSingle(),
+      supabase.from("enrollments").select("id").eq("class_id", id).limit(1),
+    ]);
+    if (verifyClassError) throwSb("Gagal memverifikasi penghapusan kelas", verifyClassError);
+    if (verifyEnrollmentError) throwSb("Gagal memverifikasi penghapusan enrollment", verifyEnrollmentError);
+    if (remainingClass || (remainingEnrollments || []).length) throw new Error("Penghapusan belum tuntas: kelas atau enrollment turunannya masih tersimpan.");
+    return true;
+  }
   const db = await readLocalDb();
   if (!db.classes) return false;
+  if ((db.classSessions || []).some((entry) => entry.classId === id && entry.status === "open")) {
+    throw new Error("Sesi tatap muka kelas masih terbuka. Tutup sesi sebelum menghapus kelas.");
+  }
+  const localClass = db.classes.find((entry) => entry.id === id);
+  if (Number(localClass?.priceIdr) > 0 && (db.enrollments || []).some((entry) => entry.classId === id && Number(entry.paidAmountIdr) > 0)) {
+    throw new Error("Kelas berbayar ini sudah dibeli, tidak bisa dihapus. Pindahkan ke Draft.");
+  }
   const before = db.classes.length;
   db.classes = db.classes.filter((c) => c.id !== id);
   if (db.classes.length === before) return false;
@@ -1354,13 +1392,30 @@ export async function deleteClass(id: string): Promise<boolean> {
 }
 
 export async function getEnrollments(): Promise<ClassEnrollment[]> {
+  const supabase = await getSupabaseAdmin();
+  if (supabase) {
+    const { data, error } = await supabase.from("enrollments").select("id,class_id,user_email,user_name,starts_at,expires_at,status,paid_amount_idr,payment_method,source,created_at");
+    if (error) throwSb('Gagal membaca tabel "enrollments" dari Supabase', error);
+    return (data || []).map((row) => ({
+      id: row.id,
+      classId: row.class_id,
+      userEmail: row.user_email || "",
+      userName: row.user_name || "",
+      startsAt: row.starts_at || "",
+      expiresAt: row.expires_at || undefined,
+      status: row.status || "active",
+      paidAmountIdr: Number(row.paid_amount_idr ?? 0),
+      paymentMethod: row.payment_method || undefined,
+      source: row.source || (Number(row.paid_amount_idr ?? 0) > 0 ? "beli" : "legacy"),
+      createdAt: row.created_at || new Date().toISOString(),
+    }));
+  }
   const db = await readLocalDb();
   return db.enrollments || [];
 }
 
 export async function getUserEnrollments(userEmail: string): Promise<ClassEnrollment[]> {
-  const db = await readLocalDb();
-  const list = db.enrollments || [];
+  const list = await getEnrollments();
   const now = new Date().getTime();
   const email = userEmail.trim().toLowerCase();
   if (!email) return [];
@@ -1391,6 +1446,24 @@ export async function enrollUserInClass(opts: {
     createdAt: now.toISOString(),
   };
 
+  const supabase = await getSupabaseAdmin();
+  if (supabase) {
+    const { data, error } = await supabase.from("enrollments").insert({
+      id: enrollment.id,
+      class_id: enrollment.classId,
+      user_email: enrollment.userEmail,
+      user_name: enrollment.userName,
+      starts_at: enrollment.startsAt,
+      status: enrollment.status,
+      paid_amount_idr: enrollment.paidAmountIdr,
+      payment_method: enrollment.paymentMethod,
+      source: opts.paidAmountIdr > 0 ? "beli" : "gratis",
+      created_at: enrollment.createdAt,
+    }).select("id").maybeSingle();
+    if (error) throwSb("Gagal menyimpan enrollment ke Supabase", error);
+    if (!data) throw new Error("Enrollment tidak tersimpan di Supabase.");
+    return enrollment;
+  }
   db.enrollments.unshift(enrollment);
   await writeLocalDb(db);
   return enrollment;
@@ -1410,22 +1483,24 @@ export async function activateClassesForUser(opts: {
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Email akun tidak tersedia. Keluar lalu masuk kembali sebelum mengambil kelas.");
   if (!classIds.length) throw new Error("Pilih setidaknya satu kelas untuk diaktifkan.");
 
-  const db = await readLocalDb();
-  const allClasses = db.classes || [];
+  const allClasses = await getClasses(true);
+  const allEnrollments = await getEnrollments();
+  const supabase = await getSupabaseAdmin();
+  const localDb = supabase ? null : await readLocalDb();
   const selected = classIds.map((id) => allClasses.find((item) => item.id === id));
   if (selected.some((item) => !item || !item.isPublished)) throw new Error("Satu atau beberapa kelas sudah tidak tersedia.");
   if (opts.source === "gratis" && selected.some((item) => Number(item?.priceIdr) !== 0)) throw new Error("Kelas ini tidak termasuk kelas gratis.");
   if (opts.source === "beli" && selected.some((item) => Number(item?.priceIdr) <= 0)) throw new Error("Kelas gratis harus diambil melalui tombol Ambil kelas gratis.");
 
-  db.enrollments ||= [];
+  if (localDb) localDb.enrollments ||= [];
   const now = new Date().toISOString();
   const activated: ClassEnrollment[] = [];
   const alreadyOwned: string[] = [];
   for (const cls of selected) {
     if (!cls) continue;
-    const existing = db.enrollments.find((entry) => entry.classId === cls.id && entry.userEmail.trim().toLowerCase() === email && entry.status === "active" && (!entry.expiresAt || Date.parse(entry.expiresAt) > Date.now()));
+    const existing = allEnrollments.find((entry) => entry.classId === cls.id && entry.userEmail.trim().toLowerCase() === email && entry.status === "active" && (!entry.expiresAt || Date.parse(entry.expiresAt) > Date.now()));
     if (existing) { alreadyOwned.push(cls.id); continue; }
-    const previous = db.enrollments.find((entry) => entry.classId === cls.id && entry.userEmail.trim().toLowerCase() === email);
+    const previous = allEnrollments.find((entry) => entry.classId === cls.id && entry.userEmail.trim().toLowerCase() === email);
     const enrollment: ClassEnrollment = {
       id: previous?.id || `enr-${randomUUID()}`,
       classId: cls.id,
@@ -1438,28 +1513,52 @@ export async function activateClassesForUser(opts: {
       source: opts.source,
       createdAt: previous?.createdAt || now,
     };
-    if (previous) Object.assign(previous, enrollment); else db.enrollments.unshift(enrollment);
+    if (supabase) {
+      const row = {
+        id: enrollment.id,
+        class_id: enrollment.classId,
+        user_email: enrollment.userEmail,
+        user_name: enrollment.userName,
+        starts_at: enrollment.startsAt,
+        expires_at: enrollment.expiresAt || null,
+        status: enrollment.status,
+        paid_amount_idr: enrollment.paidAmountIdr,
+        payment_method: enrollment.paymentMethod,
+        source: enrollment.source,
+        created_at: enrollment.createdAt,
+      };
+      const result = previous
+        ? await supabase.from("enrollments").update(row).eq("id", previous.id).select("id").maybeSingle()
+        : await supabase.from("enrollments").insert(row).select("id").maybeSingle();
+      if (result.error) {
+        if (result.error.code === "23505") {
+          const latest = await getEnrollments();
+          const nowOwned = latest.some((entry) => entry.classId === cls.id && entry.userEmail.trim().toLowerCase() === email && entry.status === "active" && (!entry.expiresAt || Date.parse(entry.expiresAt) > Date.now()));
+          if (nowOwned) { alreadyOwned.push(cls.id); continue; }
+        }
+        throwSb("Gagal menyimpan enrollment ke Supabase", result.error);
+      }
+      if (!result.data) throw new Error("Enrollment tidak tersimpan di Supabase.");
+    } else if (localDb) {
+      if (previous) {
+        const old = localDb.enrollments!.find((entry) => entry.id === previous.id);
+        if (old) Object.assign(old, enrollment);
+        else localDb.enrollments!.unshift(enrollment);
+      } else localDb.enrollments!.unshift(enrollment);
+    }
     activated.push(enrollment);
   }
-  if (activated.length) {
-    try {
-      await writeLocalDb(db);
-    } catch (error) {
-      // Recheck after a concurrent request wins the unique ownership constraint.
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("23505") && !message.toLowerCase().includes("duplicate key")) throw error;
-      const latest = await readLocalDb();
-      const current = new Set((latest.enrollments || []).filter((entry) =>
-        entry.userEmail.trim().toLowerCase() === email && entry.status === "active" && (!entry.expiresAt || Date.parse(entry.expiresAt) > Date.now()),
-      ).map((entry) => entry.classId));
-      if (!classIds.every((id) => current.has(id))) throw error;
-      return { activated: [], alreadyOwned: classIds };
-    }
-  }
+  if (activated.length && localDb) await writeLocalDb(localDb);
   return { activated, alreadyOwned };
 }
 
 export async function revokeClassAccessForUser(enrollmentId: string): Promise<boolean> {
+  const supabase = await getSupabaseAdmin();
+  if (supabase) {
+    const { data, error } = await supabase.from("enrollments").delete().eq("id", enrollmentId).select("id").maybeSingle();
+    if (error) throwSb("Gagal menghapus enrollment dari Supabase", error);
+    return Boolean(data?.id);
+  }
   const db = await readLocalDb();
   const before = (db.enrollments || []).length;
   db.enrollments = (db.enrollments || []).filter((entry) => entry.id !== enrollmentId);
@@ -1469,6 +1568,12 @@ export async function revokeClassAccessForUser(enrollmentId: string): Promise<bo
 }
 
 export async function expireClassAccessForUser(enrollmentId: string): Promise<boolean> {
+  const supabase = await getSupabaseAdmin();
+  if (supabase) {
+    const { data, error } = await supabase.from("enrollments").update({ status: "expired", expires_at: new Date().toISOString() }).eq("id", enrollmentId).neq("status", "expired").select("id").maybeSingle();
+    if (error) throwSb("Gagal mencabut akses enrollment di Supabase", error);
+    return Boolean(data?.id);
+  }
   const db = await readLocalDb();
   const enrollment = (db.enrollments || []).find((entry) => entry.id === enrollmentId);
   if (!enrollment) return false;
@@ -1485,9 +1590,8 @@ export async function hasUserActiveEnrollmentForModule(
   if (!userEmail) return false;
   const activeEnrs = await getUserEnrollments(userEmail);
   if (activeEnrs.length === 0) return false;
-  const db = await readLocalDb();
   const classIds = activeEnrs.map((e) => e.classId);
-  const enrolledClasses = (db.classes || []).filter((c) => classIds.includes(c.id));
+  const enrolledClasses = (await getClasses(true)).filter((c) => classIds.includes(c.id));
   return enrolledClasses.some((c) => c.moduleIds.includes(moduleId) || (c.modules || []).some((m) => m.id === moduleId && m.status === "terbit"));
 }
 

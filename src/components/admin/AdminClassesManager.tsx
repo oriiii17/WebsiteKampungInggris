@@ -222,18 +222,17 @@ export default function AdminClassesManager({ notify }: Props) {
       const impactRes = await fetch(`/api/admin/classes?impact=${encodeURIComponent(id)}`, { cache: "no-store" });
       const impactData = await impactRes.json().catch(() => ({}));
       if (!impactRes.ok || !impactData.ok) throw new Error(impactData.error || "Gagal memeriksa sesi dan presensi kelas.");
-      const { sessions = 0, attendance = 0 } = impactData.impact || {};
+      const { sessions = 0 } = impactData.impact || {};
       if (sessions > 0) {
-        await dialog.alert(`Kelas ini masih digunakan oleh ${sessions} sesi dan memiliki ${attendance} catatan presensi. Sesi dan presensi harus tetap tersimpan. Pindahkan sesi ke kelas lain sebelum menghapus kelas ini.`, "Kelas masih digunakan");
+        await dialog.alert("Tutup dulu sesi yang masih berjalan untuk kelas ini.", "Sesi masih berjalan");
         return;
       }
-      if (!(await dialog.confirm("Kelas ini tidak memiliki sesi atau presensi. Hapus kelas beserta materi dan kuis yang terpasang? Tindakan ini tidak dapat dibatalkan.", "Hapus kelas?"))) return;
+      if (!(await dialog.confirm("Hapus kelas beserta sesi yang sudah ditutup, data presensi, materi, dan kuis yang terpasang? Tindakan ini tidak dapat dibatalkan.", "Hapus kelas?"))) return;
       const res = await fetch(`/api/admin/classes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
         const msg = data?.error || `Gagal menghapus kelas (HTTP ${res.status}).`;
         notify(`Gagal menghapus dari database: ${msg}`);
-        await dialog.alert(`Gagal menghapus kelas:\n${msg}`);
         return;
       }
       const check = await fetch("/api/admin/classes", { cache: "no-store" }).then(r => r.json()).catch(() => null);
@@ -242,17 +241,15 @@ export default function AdminClassesManager({ notify }: Props) {
         const still = check.classes.find((c: any) => c.id === id);
         if (still) {
           notify("Gagal verifikasi: kelas masih ada di database setelah hapus.");
-          await dialog.alert("Kelas masih ditemukan di database setelah hapus.");
           return;
         }
       }
       if (editingId === id) resetForm();
-      notify("Kelas terhapus & terverifikasi hilang dari database.");
+      notify(data.message || "Kelas terhapus & terverifikasi hilang dari database.");
       await loadClasses();
     } catch (e: any) {
       const msg = e?.message || "Gagal menghapus kelas.";
       notify(`Gagal menghapus: ${msg}`);
-      await dialog.alert(`Gagal menghapus kelas:\n${msg}`);
     }
   }
 

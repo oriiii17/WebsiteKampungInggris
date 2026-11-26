@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getServerSession, isAdminSession } from "@/lib/auth";
 import { activateClassesForUser, expireClassAccessForUser, getClassByIdOrSlug, getEnrollments, revokeClassAccessForUser } from "@/lib/db";
+
+function revalidateClassAccessViews() {
+  revalidateTag("public-classes");
+  revalidatePath("/kelas");
+  revalidatePath("/admin");
+}
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
@@ -57,6 +64,7 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ ok: false, error: "ID diperlukan." }, { status: 400 });
     const removed = await revokeClassAccessForUser(id);
     if (!removed) return NextResponse.json({ ok: false, error: "Enrollment tidak ditemukan." }, { status: 404 });
+    revalidateClassAccessViews();
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("[admin/enrollments DELETE]", e);
@@ -67,9 +75,15 @@ export async function DELETE(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession();
   if (!isAdminSession(session)) return NextResponse.json({ ok: false, error: "Akses ditolak." }, { status: 403 });
-  const body = await req.json().catch(() => ({}));
-  if (body.action !== "revoke" || typeof body.id !== "string") return NextResponse.json({ ok: false, error: "Aksi pencabutan tidak valid." }, { status: 400 });
-  const revoked = await expireClassAccessForUser(body.id);
-  if (!revoked) return NextResponse.json({ ok: false, error: "Akses kelas tidak ditemukan." }, { status: 404 });
-  return NextResponse.json({ ok: true });
+  try {
+    const body = await req.json().catch(() => ({}));
+    if (body.action !== "revoke" || typeof body.id !== "string") return NextResponse.json({ ok: false, error: "Aksi pencabutan tidak valid." }, { status: 400 });
+    const revoked = await expireClassAccessForUser(body.id);
+    if (!revoked) return NextResponse.json({ ok: false, error: "Akses kelas tidak ditemukan atau sudah dicabut." }, { status: 404 });
+    revalidateClassAccessViews();
+    return NextResponse.json({ ok: true, revoked: true });
+  } catch (e: any) {
+    console.error("[admin/enrollments PATCH]", e);
+    return NextResponse.json({ ok: false, error: e?.message || "Gagal mencabut akses kelas." }, { status: 500 });
+  }
 }

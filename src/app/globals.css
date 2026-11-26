@@ -1222,9 +1222,27 @@ input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fff inset; }
 .home-closeout h2 { max-width: 16ch; }
 
 @media (max-width: 767px) {
-  .home-route-list { gap: 1rem; }
-  .home-route-image { height: auto; min-height: 0; overflow: visible; padding-top: 220px; }
-  .home-route-photo-frame { right: 0; left: 0; height: 220px; }
+  .home-route-list { gap: 1.5rem; }
+  .home-route-image {
+    position: relative;
+    display: flex;
+    height: auto;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    border-radius: 1rem;
+  }
+  .home-route-photo-frame {
+    position: relative;
+    inset: auto;
+    flex: 0 0 200px;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    border-radius: 0;
+  }
+  .home-route-photo-frame img { width: 100%; height: 100%; object-fit: cover; }
   .home-route-copy,
   .home-route:nth-child(even) .home-route-copy {
     position: relative;
@@ -1234,10 +1252,15 @@ input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fff inset; }
     width: auto;
     max-width: none;
     min-height: 0;
-    margin: -48px 8px 0;
+    margin: 0;
     padding: 1.25rem;
+    overflow: visible;
     transform: none;
   }
+  .home-route-copy h3,
+  .home-route-copy p { max-width: none; overflow: visible; }
+  .home-route-copy .home-text-link { min-height: 44px; }
+  .home-camp-feature { margin-top: 40px; }
   .home-classes-panel { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
   .home-classes-intro h2 { max-width: 16ch; }
   .home-class-row { gap: .5rem; }
