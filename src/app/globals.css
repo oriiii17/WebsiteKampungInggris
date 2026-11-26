@@ -1222,7 +1222,11 @@ input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fff inset; }
 .home-closeout h2 { max-width: 16ch; }
 
 @media (max-width: 767px) {
-  .home-route-list { gap: 1.5rem; }
+  .home-route-list { gap: 1.75rem; }
+  .home-route-image,
+  .home-route:nth-child(even) .home-route-image {
+    aspect-ratio: auto;
+  }
   .home-route-image {
     position: static;
     display: flex;
@@ -1238,7 +1242,7 @@ input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fff inset; }
   .home-route-photo-frame {
     position: relative;
     inset: auto;
-    flex: none;
+    flex: 0 0 auto;
     width: 100%;
     height: auto;
     aspect-ratio: 16 / 10;
@@ -1255,6 +1259,9 @@ input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fff inset; }
   .home-route-copy,
   .home-route:nth-child(even) .home-route-copy {
     position: static;
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
     top: auto;
     right: auto;
     left: auto;
