@@ -193,7 +193,7 @@ export interface ClassModule {
   filePDF?: string;
   fileAsli?: string;
   fileAsliName?: string;
-  fileType?: "pdf" | "ppt" | "pptx" | "other";
+  fileType?: "pdf" | "ppt" | "pptx" | "image" | "other";
   status: "draft" | "terbit";
   quiz?: ClassQuiz | null;
 }

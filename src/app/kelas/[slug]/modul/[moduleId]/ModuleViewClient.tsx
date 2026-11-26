@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, BookOpen, ChevronRight, List, Lock } from "lucide-react";
 import { ClassItem, ClassModule } from "@/lib/types";
 import FlipbookViewer from "@/components/FlipbookViewer";
+import MaterialImageViewer from "@/components/MaterialImageViewer";
+import OfficeDocumentPreview from "@/components/OfficeDocumentPreview";
 
 export default function ModuleViewClient({
   cls,
@@ -26,6 +28,7 @@ export default function ModuleViewClient({
   const pdfPath = mod.filePDF || (mod.fileType === "pdf" ? mod.fileAsli : "");
   const viewCode = "";
   const pdfUrl = pdfPath ? `/api/secure-class-file/${encodeURIComponent(cls.id)}/${encodeURIComponent(mod.id)}?kind=pdf${viewCode}` : "";
+  const originalUrl = mod.fileAsli ? `/api/secure-class-file/${encodeURIComponent(cls.id)}/${encodeURIComponent(mod.id)}?kind=original${viewCode}` : "";
   const downloadUrl = mod.fileAsli
     ? `/api/secure-class-file/${encodeURIComponent(cls.id)}/${encodeURIComponent(mod.id)}?kind=original&download=1${viewCode}`
     : (pdfPath ? `/api/secure-class-file/${encodeURIComponent(cls.id)}/${encodeURIComponent(mod.id)}?kind=pdf&download=1${viewCode}` : "");
@@ -69,11 +72,11 @@ export default function ModuleViewClient({
                 const active = m.id === mod.id;
                 return (
                   <li key={m.id}>
-                    <Link href={`/kelas/${cls.slug}/modul/${m.id}`} className={`flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition ${active ? "border-[#14532D] bg-[#14532D]/10 text-[#14532D]" : "border-transparent hover:border-[#E5E7EB] hover:bg-[#FDFBF7] text-[#1A2E1A]"}`} aria-current={active ? "page" : undefined}>
-                      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-extrabold ${active ? "bg-[#14532D] text-white" : "bg-[#FDFBF7] border border-[#E5E7EB] text-[#14532D]"}`}>{i + 1}</span>
+                    <Link href={`/kelas/${cls.slug}/modul/${m.id}`} className={`flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition ${active ? "border-[#14532D] bg-[#14532D] text-white" : "border-transparent hover:border-[#E5E7EB] hover:bg-[#FDFBF7] text-[#1A2E1A]"}`} aria-current={active ? "page" : undefined}>
+                      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-extrabold ${active ? "bg-white/15 text-white" : "bg-[#FDFBF7] border border-[#E5E7EB] text-[#14532D]"}`}>{i + 1}</span>
                       <span className="min-w-0">
-                        <span className="block font-bold leading-snug">{m.judulBebas}</span>
-                        {m.status === "draft" && <span className="block text-[10px] font-semibold text-amber-700 mt-0.5">Draft</span>}
+                        <span className={`block font-bold leading-snug ${active ? "text-white" : ""}`}>{m.judulBebas}</span>
+                        {m.status === "draft" && <span className={`mt-0.5 block text-[10px] font-semibold ${active ? "text-white/80" : "text-amber-700"}`}>Draft</span>}
                       </span>
                     </Link>
                   </li>
@@ -85,13 +88,25 @@ export default function ModuleViewClient({
 
           <div className="space-y-4 min-w-0 order-1 lg:order-2">
             {hasFile ? (
-              <FlipbookViewer
-                moduleTitle={mod.judulBebas}
-                pdfUrl={pdfUrl || undefined}
-                downloadUrl={downloadUrl || undefined}
-                downloadLabel={mod.fileAsliName ? `Download (${mod.fileAsliName})` : "Download File Asli"}
-                watermarkText={cls.title}
-              />
+              mod.fileType === "image" && originalUrl ? (
+                <MaterialImageViewer key={mod.id} src={originalUrl} downloadUrl={downloadUrl} fileName={mod.fileAsliName || "Materi gambar"} />
+              ) : pdfUrl ? (
+                <FlipbookViewer
+                  key={mod.id}
+                  moduleTitle={mod.judulBebas}
+                  pdfUrl={pdfUrl}
+                  downloadUrl={downloadUrl || undefined}
+                  downloadLabel={mod.fileAsliName ? `Unduh (${mod.fileAsliName})` : "Unduh file asli"}
+                  watermarkText={cls.title}
+                />
+              ) : mod.fileType === "ppt" || mod.fileType === "pptx" ? (
+                <OfficeDocumentPreview
+                  key={mod.id}
+                  signedUrlEndpoint={`/api/secure-class-file/${encodeURIComponent(cls.id)}/${encodeURIComponent(mod.id)}?kind=office-url`}
+                  downloadUrl={downloadUrl}
+                  fileName={mod.fileAsliName || "Materi presentasi"}
+                />
+              ) : <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 text-center text-sm">Pratinjau untuk file ini belum tersedia. <a href={downloadUrl} className="font-bold text-[#14532D] underline">Unduh file</a>.</div>
             ) : (
               <div className="rounded-xl border border-[#E5E7EB] bg-white p-10 text-center">
                 <BookOpen className="mx-auto h-10 w-10 text-[#14532D]" />

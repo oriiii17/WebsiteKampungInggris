@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import FaqAccordion from "@/components/FaqAccordion";
+import QuestionForm from "@/components/QuestionForm";
 import { publicPageMetadata } from "@/lib/site";
 
 export const metadata = publicPageMetadata({
@@ -19,6 +20,7 @@ export default function FaqPage() {
           <figure className="illustration-frame relative mx-auto aspect-[4/3] w-full max-w-sm overflow-hidden rounded-xl border border-rule bg-white"><Image src="/images/faq-guide.svg" alt="Ilustrasi panduan dan pertanyaan" fill priority sizes="(max-width: 767px) 90vw, 30vw" className="object-contain p-3" /></figure>
         </div>
         <div className="mx-auto max-w-4xl rounded-xl border border-rule bg-white px-5 sm:px-8"><FaqAccordion /></div>
+        <div className="mx-auto mt-8 max-w-4xl"><QuestionForm source="faq" /></div>
       </section>
     </main>
   );

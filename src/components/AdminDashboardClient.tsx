@@ -30,13 +30,11 @@ import {
   MatchingPair,
   WordChallenge,
   WargaRecord,
-  TestimoniRecord,
   ClassItem,
   ClassEnrollment,
   SessionPayload,
 } from "@/lib/types";
 import AdminWargaManager from "@/components/admin/AdminWargaManager";
-import AdminTestimoniManager from "@/components/admin/AdminTestimoniManager";
 import AdminClassesManager from "@/components/admin/AdminClassesManager";
 import ClassSessionManager from "@/components/admin/ClassSessionManager";
 import AdminCodesManager from "@/components/admin/AdminCodesManager";
@@ -71,8 +69,6 @@ interface AdminOverviewData {
     wargaRw08?: number;
     activeThisWeek?: number;
     mostPlayedGame?: string;
-    totalTestimoni?: number;
-    pendingTestimoni?: number;
   };
   modules: ModuleItem[];
   subscriptions: SubscriptionRecord[];
@@ -89,7 +85,6 @@ interface AdminOverviewData {
     updatedAt: string;
     forceLogoutAt?: string;
   }>;
-  testimoni?: TestimoniRecord[];
   classes?: ClassItem[];
   enrollments?: ClassEnrollment[];
   externalUsers?: Array<{ id: string; name: string; email: string; createdAt: string }>;
@@ -98,7 +93,7 @@ interface AdminOverviewData {
   plans?: Array<{ id: string; name: string; priceIdr: number; durationDays: number }>;
 }
 
-const ADMIN_TABS = ["dashboard", "classes", "warga", "testimoni", "codes", "game-builder", "sessions", "public", "payments"] as const;
+const ADMIN_TABS = ["dashboard", "classes", "warga", "codes", "game-builder", "sessions", "public", "payments"] as const;
 type TabType = (typeof ADMIN_TABS)[number];
 
 export default function AdminDashboardClient() {
@@ -113,7 +108,6 @@ export default function AdminDashboardClient() {
     dashboard: "Dashboard",
     classes: "Kelas",
     warga: "Kode Akses",
-    testimoni: "Ulasan",
     codes: "Peserta & Akses Kelas",
     "game-builder": "Kelola Kuis",
     sessions: "Sesi Tatap Muka",
@@ -297,8 +291,8 @@ export default function AdminDashboardClient() {
         { id: "warga" as const, label: "Kode Akses", icon: KeyRound },
         { id: "codes" as const, label: "Peserta & Akses Kelas", icon: Users },
         { id: "game-builder" as const, label: "Kelola Kuis", icon: Gamepad2 },
-        { id: "public" as const, label: "Situs Publik", icon: ExternalLink, href: "/" },
         { id: "payments" as const, label: "Pembayaran", icon: CreditCard },
+        { id: "public" as const, label: "Situs Publik", icon: ExternalLink, href: "/" },
       ],
     },
   ];
@@ -411,10 +405,9 @@ export default function AdminDashboardClient() {
                   <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
                     <h2 className="text-lg font-bold text-leaf">Ikhtisar kegiatan</h2>
                     <p className="mt-1 text-sm text-muted">Status utama yang membantu Anda menentukan pekerjaan berikutnya.</p>
-                    <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+                    <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-2">
                       <div><dt className="text-xs text-muted">Kelas</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.classes?.length ?? 0}</dd></div>
                       <div><dt className="text-xs text-muted">Login kode akses</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{data.stats.totalWarga ?? 0}</dd></div>
-                      <div><dt className="text-xs text-muted">Menunggu moderasi</dt><dd className={`mt-1 text-xl font-extrabold tabular-nums ${(data.stats.pendingTestimoni ?? 0) > 0 ? "rounded-lg bg-[#fbe3d8] px-2 text-[#8f2f1b]" : ""}`}>{data.stats.pendingTestimoni ?? 0}</dd></div>
                     </dl>
                   </section>
                   <section className="rounded-xl border border-rule bg-paper-light p-5 sm:p-6">
@@ -455,10 +448,6 @@ export default function AdminDashboardClient() {
         />
       )}
 
-      {tab === "testimoni" && (
-        <AdminTestimoniManager testimoni={data.testimoni || []} onRefresh={fetchOverview} notify={notify} />
-      )}
-
       {tab === "codes" && (
         <AdminCodesManager
           data={data}
@@ -471,7 +460,7 @@ export default function AdminDashboardClient() {
         <GameBuilderClient notify={notify} />
       )}
 
-      {tab === "sessions" && <ClassSessionManager />}
+      {tab === "sessions" && <ClassSessionManager initialClassId={searchParams.get("classId") || undefined} />}
 
 
       {tab === "public" && (

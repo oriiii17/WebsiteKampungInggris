@@ -1,11 +1,9 @@
-import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowDownRight, ArrowRight, BookOpen, MapPin, MessageCircle, Sparkles } from "lucide-react";
 import FaqAccordion, { HOME_FAQ_LIST } from "@/components/FaqAccordion";
-import TestimoniSection from "@/components/TestimoniSection";
-import { getPublicClasses, getPublicTestimonials } from "@/lib/public-data-cache";
-import { getServerSession } from "@/lib/auth";
+import QuestionForm from "@/components/QuestionForm";
+import { getPublicClasses } from "@/lib/public-data-cache";
 import type { ClassItem } from "@/lib/types";
 import type { Metadata } from "next";
 import { getSiteUrl, publicPageMetadata } from "@/lib/site";
@@ -64,12 +62,6 @@ function LocalPhoto({
       className={className}
     />
   );
-}
-
-async function HomeTestimonials() {
-  const [session, testimonials] = await Promise.all([getServerSession(), getPublicTestimonials()]);
-  const isEligible = Boolean(session?.email && session.emailVerified === true && session.authUserId && ["peserta", "umum", "member"].includes(session.role));
-  return <TestimoniSection initialTestimoni={testimonials} isEligible={isEligible} isLoggedIn={Boolean(session)} userId={session?.authUserId} />;
 }
 
 const learningRoutes = [
@@ -190,15 +182,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="home-reviews workbook-wrap" aria-labelledby="home-reviews-title">
-        <div className="home-reviews-heading">
-          <p className="home-eyebrow">Cerita peserta</p>
-          <h2 id="home-reviews-title" className="font-display">Ulasan dari ruang belajar Sapen.</h2>
-          <p>Pengalaman belajar dibagikan oleh peserta yang sudah terverifikasi.</p>
-        </div>
-        <Suspense fallback={<div aria-hidden="true" className="home-testimonials-loading" />}>
-          <HomeTestimonials />
-        </Suspense>
+      <section className="home-reviews workbook-wrap" aria-label="Formulir pertanyaan">
+        <QuestionForm />
       </section>
 
       <section className="home-faq-section site-surface" aria-labelledby="home-faq-title">

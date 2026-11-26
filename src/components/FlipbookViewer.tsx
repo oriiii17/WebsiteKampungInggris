@@ -42,6 +42,7 @@ export default function FlipbookViewer({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
+  const loadingTaskRef = useRef<{ destroy: () => Promise<void> } | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfDocRef = useRef<any>(null);
 
@@ -61,25 +62,29 @@ export default function FlipbookViewer({
   useEffect(() => {
     if (!isPdfMode || !pdfUrl) { setIsLoading(false); return; }
     let cancelled = false;
-    setIsLoading(true); setError(null); setDocReady(false); setNumPages(0); setPage(1);
+    setIsLoading(true); setError(null); setDocReady(false); setNumPages(0); setPage(1); setZoom(1);
     pdfDocRef.current = null;
+    loadingTaskRef.current = null;
 
     (async () => {
       try {
         const pdfjs: any = await import("pdfjs-dist");
+        if (cancelled) return;
         try {
           (pdfjs as any).GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
         } catch {}
         const loadingTask = pdfjs.getDocument({ url: pdfUrl, disableAutoFetch: false, disableStream: false });
+        loadingTaskRef.current = loadingTask;
         const doc = await loadingTask.promise;
-        if (cancelled) return;
+        if (cancelled) { await doc.destroy(); return; }
         pdfDocRef.current = doc;
+        loadingTaskRef.current = null;
         setNumPages(doc.numPages || 0);
         setDocReady(true);
         setIsLoading(false); // allow canvas/preview area to show immediately; page render follows
       } catch {
         if (cancelled) return;
-        setError("Gagal memuat flipbook. Pastikan file PDF tersedia.");
+        setError("Gagal memuat PDF. Periksa koneksi atau unggah kembali file materi.");
         setIsLoading(false);
       }
     })();
@@ -87,7 +92,9 @@ export default function FlipbookViewer({
     return () => {
       cancelled = true;
       try { renderTaskRef.current?.cancel(); } catch {}
+      try { void loadingTaskRef.current?.destroy(); } catch {}
       try { pdfDocRef.current?.destroy?.(); } catch {}
+      loadingTaskRef.current = null;
       pdfDocRef.current = null;
     };
   }, [isPdfMode, pdfUrl]);
@@ -107,8 +114,10 @@ export default function FlipbookViewer({
         const pdfPage = await doc.getPage(page);
         if (cancelled) return;
         const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-        // fast default: 1.5*dpr, scale up with zoom for clarity when needed
-        const renderScale = Math.max(1.25, dpr * 1.5) * zoom;
+        const baseViewport = pdfPage.getViewport({ scale: 1 });
+        const availableWidth = Math.max(240, (canvas.parentElement?.clientWidth || containerRef.current?.clientWidth || 960) - 24);
+        const fitScale = Math.min(availableWidth / baseViewport.width, 1.5);
+        const renderScale = fitScale * dpr * zoom;
         const viewport = pdfPage.getViewport({ scale: renderScale });
         const ctx = canvas.getContext("2d", { alpha: false });
         if (!ctx) return;
@@ -166,7 +175,7 @@ export default function FlipbookViewer({
   }, [initialPages, isPdfMode, page]);
 
   return (
-    <div ref={containerRef} className={`flex flex-col border border-[#E5E7EB] bg-white text-[#1A2E1A] ${isFullscreen ? "h-screen w-screen" : "min-h-[60vh] rounded-xl"}`}>
+      <div ref={containerRef} className={`flex flex-col border border-[#E5E7EB] bg-white text-[#1A2E1A] ${isFullscreen ? "h-screen w-screen" : "rounded-xl"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-[#FDFBF7] px-4 py-2.5 sm:px-5">
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#14532D] text-white"><BookOpen className="h-4 w-4" /></div>
@@ -190,7 +199,7 @@ export default function FlipbookViewer({
         </div>
       </div>
 
-      <div className="relative flex-1 overflow-auto bg-[#FDFBF7] p-3 sm:p-6">
+      <div className="relative overflow-auto bg-[#FDFBF7] p-3 sm:p-6">
         {error && (
           <div className="mx-auto max-w-lg rounded-xl border border-[#E5E7EB] bg-white p-5 text-center">
             <p className="text-sm font-bold text-[#1A2E1A]">{error}</p>
@@ -199,18 +208,17 @@ export default function FlipbookViewer({
         )}
 
         {!error && isPdfMode && (
-          <div className="mx-auto w-fit max-w-full min-h-[360px] sm:min-h-[460px]">
+          <div className="mx-auto w-full max-w-5xl">
             {/* Page 1 / preview area shown immediately (no black screen). Canvas renders as soon as ready. */}
             {isLoading && !docReady && (
-              <div className="w-[min(92vw,720px)] aspect-[3/4] max-h-[70vh] rounded-lg border border-[#E5E7EB] bg-white shadow-sm flex flex-col items-center justify-center gap-3">
+              <div className="flex min-h-28 w-full items-center justify-center gap-3 rounded-lg border border-[#E5E7EB] bg-white p-5">
                 <div className="h-10 w-10 rounded-full border-2 border-[#14532D]/20 border-t-[#14532D] animate-spin" />
-                <p className="text-xs font-bold text-[#14532D]">Menyiapkan halaman pertama…</p>
-                <div className="w-2/3 space-y-2 mt-2 px-6"><div className="h-2 rounded bg-[#E5E7EB] animate-pulse" /><div className="h-2 rounded bg-[#E5E7EB] animate-pulse w-5/6" /><div className="h-2 rounded bg-[#E5E7EB] animate-pulse w-4/6" /></div>
+                <p className="text-sm font-bold text-[#14532D]">Menyiapkan halaman pertama…</p>
               </div>
             )}
             {(docReady || !isLoading) && (
               <div className="relative">
-                <canvas ref={canvasRef} className="mx-auto block border border-[#E5E7EB] bg-white shadow-sm rounded-sm" />
+                <canvas ref={canvasRef} className="mx-auto block border border-[#E5E7EB] bg-white rounded-sm" />
                 {isRendering && docReady && (
                   <div className="pointer-events-none absolute inset-x-0 top-2 flex justify-center">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 border border-[#E5E7EB] px-3 py-1 text-[11px] font-bold text-[#14532D]"><span className="h-3 w-3 rounded-full border-2 border-[#14532D]/30 border-t-[#14532D] animate-spin" />Memuat halaman…</span>
@@ -223,7 +231,7 @@ export default function FlipbookViewer({
         )}
 
         {!error && !isPdfMode && (
-          <div className="mx-auto w-fit max-w-full min-h-[320px] flex items-center justify-center">
+          <div className="mx-auto w-full max-w-full flex items-center justify-center">
             {legacySrc ? (
               <img src={legacySrc} alt={`Halaman ${page}`} className="mx-auto block max-w-full border border-[#E5E7EB] bg-white" style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }} />
             ) : (

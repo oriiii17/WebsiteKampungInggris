@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
 import { getClassByIdOrSlug, getUserEnrollments, readClassModuleFile } from "@/lib/db";
+import { getSupabaseServerClient } from "@/lib/supabase-server";
 
 export async function GET(
   req: NextRequest,
@@ -23,9 +24,29 @@ export async function GET(
   }
   if (!hasAccess) return new NextResponse("Akses ditolak.", { status: 403 });
 
-  const kind = req.nextUrl.searchParams.get("kind") || "pdf"; // pdf | original
+  const kind = req.nextUrl.searchParams.get("kind") || "pdf"; // pdf | original | office-url
+  if (kind === "office-url" && !["ppt", "pptx"].includes(mod.fileType || "")) {
+    return NextResponse.json({ error: "Pratinjau Office hanya tersedia untuk file PPT/PPTX." }, { status: 415 });
+  }
   const storagePath = kind === "original" ? mod.fileAsli : (mod.filePDF || mod.fileAsli);
   if (!storagePath) return new NextResponse("File belum tersedia.", { status: 404 });
+
+  // Supabase signed URLs let the browser/pdf.js fetch large files directly, including Range requests.
+  // Legacy local paths retain the authenticated streaming fallback below.
+  if (!storagePath.startsWith("class-files/")) {
+    const supabase = await getSupabaseServerClient();
+    if (!supabase) return new NextResponse("Supabase Storage belum tersedia.", { status: 503 });
+    const download = req.nextUrl.searchParams.get("download") === "1";
+    const { data, error } = await supabase.storage.from("class-files").createSignedUrl(
+      storagePath,
+      60 * 60,
+      download ? { download: mod.fileAsliName || true } : undefined,
+    );
+    if (error || !data?.signedUrl) return new NextResponse("Tautan file aman belum dapat dibuat. Periksa penyimpanan materi.", { status: 503 });
+    if (kind === "office-url") return NextResponse.json({ signedUrl: data.signedUrl });
+    return NextResponse.redirect(data.signedUrl, 307);
+  }
+  if (kind === "office-url") return NextResponse.json({ error: "Pratinjau Office membutuhkan file di Supabase Storage." }, { status: 503 });
 
   const file = await readClassModuleFile(storagePath);
   if (!file) return new NextResponse("File tidak ditemukan.", { status: 404 });

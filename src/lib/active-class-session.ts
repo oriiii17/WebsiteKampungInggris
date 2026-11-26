@@ -7,8 +7,9 @@ export async function getApprovedActiveClassSession(session: SessionPayload | nu
   if (!session?.guestSessionId) return null;
   const supabase = await getSupabaseServerClient();
   if (supabase) {
-    const { data: parent } = await supabase.from("class_sessions").select("id,class_id,status").eq("id", session.guestSessionId).maybeSingle();
-    if (!parent || parent.status !== "open" || !parent.class_id) return null;
+    const { data: parent } = await supabase.from("class_sessions").select("id,class_id,status,auto_close_at").eq("id", session.guestSessionId).maybeSingle();
+    const autoCloseExpired = parent?.auto_close_at && Date.parse(parent.auto_close_at) <= Date.now();
+    if (!parent || parent.status !== "open" || autoCloseExpired || !parent.class_id) return null;
     if (session.guestRegistrationId) {
       const { data: guest } = await supabase.from("class_session_guests").select("session_id,status").eq("id", session.guestRegistrationId).maybeSingle();
       return guest?.status === "approved" && guest.session_id === parent.id ? { sessionId: parent.id, classId: parent.class_id } : null;
@@ -17,7 +18,7 @@ export async function getApprovedActiveClassSession(session: SessionPayload | nu
     return attendance ? { sessionId: parent.id, classId: parent.class_id } : null;
   }
   const db = await readLocalDb();
-  const parent = db.classSessions?.find((item) => item.id === session.guestSessionId && item.status === "open");
+  const parent = db.classSessions?.find((item) => item.id === session.guestSessionId && item.status === "open" && !(item.autoCloseAt && Date.parse(item.autoCloseAt) <= Date.now()));
   if (!parent?.classId) return null;
   if (session.guestRegistrationId) {
     const guest = db.classSessionGuests?.find((item) => item.id === session.guestRegistrationId && item.sessionId === parent.id && item.status === "approved");

@@ -42,9 +42,11 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ sl
     session?.email ? getUserEnrollments(session.email) : Promise.resolve([]),
     session?.guestSessionId ? getApprovedActiveClassSession(session) : Promise.resolve(null),
   ]);
+  const hasOwnedAccess = enrollments.some((enrollment) => enrollment.classId === classItem.id);
+  const hasWargaCodeAccessOutsideSession = session?.origin === "warga_kode" && !session.guestSessionId;
   const isEnrolled = Boolean(isAdminSession(session)
-    || session?.origin === "warga_kode"
-    || enrollments.some((enrollment) => enrollment.classId === classItem.id)
+    || hasWargaCodeAccessOutsideSession
+    || hasOwnedAccess
     || activeSessionClass?.classId === classItem.id);
 
   return <div className="pt-8 pb-[calc(var(--bottom-nav-h,64px)+150px)] sm:pt-12 md:pb-24 lg:py-14">

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -24,10 +25,11 @@ import {
 } from "lucide-react";
 import { ClassItem, ClassModule } from "@/lib/types";
 import { useAppDialog } from "@/components/AppDialogProvider";
-import type { GameBlueprint } from "@/lib/game-blueprint";
+import { isPublishedIndependentGame, normalizeGameBlueprint, type GameBlueprint } from "@/lib/game-blueprint";
 import CurrencyInput from "@/components/ui/CurrencyInput";
 import { formatIDR, MAX_PRICE_IDR } from "@/lib/currency";
 import { AdminToolbar } from "@/components/admin/AdminSectionHeader";
+import { createBrowserSupabaseClient } from "@/lib/supabase";
 
 interface Props {
   modules?: any[]; // legacy prop (unused in new flow)
@@ -49,6 +51,7 @@ function emptyClass(): ClassItem {
 
 export default function AdminClassesManager({ notify }: Props) {
   const dialog = useAppDialog();
+  const router = useRouter();
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [publishedGames, setPublishedGames] = useState<GameBlueprint[]>([]);
   const [gamePickerOpen, setGamePickerOpen] = useState(false);
@@ -64,11 +67,18 @@ export default function AdminClassesManager({ notify }: Props) {
   const [exportFormat, setExportFormat] = useState<"excel" | "csv" | "pdf">("excel");
   const [classQuery, setClassQuery] = useState("");
   const [classLevel, setClassLevel] = useState("all");
+  const [highlightedClassId, setHighlightedClassId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!highlightedClassId) return;
+    const timeout = window.setTimeout(() => setHighlightedClassId(null), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [highlightedClassId]);
 
   async function loadClasses() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/classes");
+      const res = await fetch("/api/admin/classes", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setClasses(data.classes || []);
@@ -76,7 +86,7 @@ export default function AdminClassesManager({ notify }: Props) {
       const gameResponse = await fetch("/api/admin/game-builder", { cache: "no-store" });
       if (gameResponse.ok) {
         const availableGames = (await gameResponse.json()).games || [];
-        setPublishedGames(availableGames.filter((game: GameBlueprint) => game.status === "published" && game.destination === "independent"));
+        setPublishedGames(availableGames.map(normalizeGameBlueprint).filter(isPublishedIndependentGame));
       }
     } catch {}
     finally { setLoading(false); }
@@ -145,6 +155,7 @@ export default function AdminClassesManager({ notify }: Props) {
       setEditingId(data.class.id);
       setForm(data.class);
       setClasses(data.classes || []);
+      router.refresh();
       return true;
     } catch (error) {
       notify(error instanceof Error ? error.message : "Gagal menyimpan draft kelas.");
@@ -155,15 +166,46 @@ export default function AdminClassesManager({ notify }: Props) {
   async function uploadFile(modId: string, file: File) {
     setUploading((u) => ({ ...u, [modId]: true }));
     try {
+      const extension = file.name.toLowerCase().split(".").pop() || "";
+      const isImage = ["jpg", "jpeg", "png", "webp"].includes(extension);
+      const isDocument = ["pdf", "ppt", "pptx"].includes(extension);
+      if (!isImage && !isDocument) throw new Error("Format tidak didukung. Gunakan PDF, PPT, PPTX, JPG, PNG, atau WebP.");
+      const maximum = isImage ? 10 * 1024 * 1024 : 25 * 1024 * 1024;
+      if (file.size > maximum) throw new Error(isImage ? "Ukuran gambar maksimal 10 MB." : "Ukuran dokumen maksimal 25 MB.");
       if (!(await saveDraftSnapshot())) return;
-      const fd = new FormData();
-      fd.append("classId", form.id);
-      fd.append("moduleId", modId);
-      fd.append("file", file);
-      const res = await fetch("/api/admin/classes/upload-module-file", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal upload.");
+      const supabase = createBrowserSupabaseClient();
+      let data: { storagePath: string; fileName?: string; fileType: ClassModule["fileType"]; pdfPath?: string };
+      if (!supabase) {
+        const fd = new FormData();
+        fd.append("classId", form.id);
+        fd.append("moduleId", modId);
+        fd.append("file", file);
+        const response = await fetch("/api/admin/classes/upload-module-file", { method: "POST", body: fd });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || "Gagal mengunggah file materi.");
+        data = result;
+      } else {
+        const signedResponse = await fetch("/api/admin/classes/upload-module-file", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ classId: form.id, moduleId: modId, fileName: file.name, size: file.size }),
+        });
+        const signed = await signedResponse.json().catch(() => ({}));
+        if (!signedResponse.ok) throw new Error(signed.error || "Tautan unggah aman belum dapat dibuat.");
+        const mimeType = file.type || (extension === "pdf" ? "application/pdf" : extension === "ppt" ? "application/vnd.ms-powerpoint" : extension === "pptx" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : extension === "png" ? "image/png" : extension === "webp" ? "image/webp" : "image/jpeg");
+        const { error: uploadError } = await supabase.storage.from("class-files").uploadToSignedUrl(signed.path, signed.token, file, { contentType: mimeType, upsert: false });
+        if (uploadError) throw new Error("Unggah ke Supabase Storage gagal. Periksa bucket class-files dan pengaturan CORS.");
+        const finalizeResponse = await fetch("/api/admin/classes/upload-module-file", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ classId: form.id, moduleId: modId, path: signed.path, fileName: file.name }),
+        });
+        const finalized = await finalizeResponse.json().catch(() => ({}));
+        if (!finalizeResponse.ok) throw new Error(finalized.error || "File terunggah, tetapi data bab belum dapat diperbarui.");
+        data = finalized;
+      }
       updateModule(modId, { fileAsli: data.storagePath, fileAsliName: data.fileName || file.name, fileType: data.fileType, filePDF: data.pdfPath || (data.fileType === "pdf" ? data.storagePath : undefined) });
+      router.refresh();
       notify("File modul berhasil diunggah.");
     } catch (e: any) { notify(e.message || "Gagal mengunggah file modul."); }
     finally { setUploading((u) => ({ ...u, [modId]: false })); }
@@ -173,7 +215,6 @@ export default function AdminClassesManager({ notify }: Props) {
     if (!priceInputValid || !Number.isSafeInteger(form.priceIdr) || form.priceIdr < 0 || form.priceIdr > MAX_PRICE_IDR) { notify(`Harga harus berupa bilangan bulat dari Rp 0 sampai ${formatIDR(MAX_PRICE_IDR)}.`); setFormStep(0); return; }
     if (!form.title.trim()) { notify("Gagal: Nama kelas wajib diisi."); return; }
     if (publish && !(await dialog.confirm("Publikasikan kelas ini sekarang? Kelas akan tampil di katalog dan dapat diakses peserta.", "Publikasikan kelas?"))) return;
-    const isNewClass = !editingId;
     setSaving(true);
     try {
       const payload = { ...form, status: publish ? "berjalan" : "draft", isPublished: publish, durationDays: 0, jadwal: "", kodeAkses: "", modules: (form.modules || []).map((m, i) => ({ ...m, status: publish ? ("terbit" as const) : ("draft" as const), urutan: i + 1, kelasId: form.id })) };
@@ -190,10 +231,6 @@ export default function AdminClassesManager({ notify }: Props) {
         notify("Peringatan: respons server tidak mengonfirmasi verifikasi simpan. Segarkan dan cek daftar kelas.");
       }
       const saved: ClassItem = data.class || payload;
-      if (!isNewClass) {
-        setEditingId(saved.id);
-        setForm({ ...saved, modules: saved.modules || payload.modules });
-      }
       if (Array.isArray(data.classes)) setClasses(data.classes);
       // verifikasi ulang dari DB
       const check = await fetch("/api/admin/classes", { cache: "no-store" }).then(r => r.json()).catch(() => null);
@@ -208,8 +245,11 @@ export default function AdminClassesManager({ notify }: Props) {
       }
       notify(publish ? `Kelas "${saved.title}" berhasil dipublikasikan.` : `Kelas "${saved.title}" tersimpan di Draft Kelas.`);
       setClassView(publish ? "active" : "drafts");
+      resetForm();
       await loadClasses();
-      if (isNewClass) resetForm();
+      setHighlightedClassId(saved.id);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      router.refresh();
     } catch (e: any) {
       const msg = e?.message || "Gagal menyimpan kelas.";
       notify(`Gagal menyimpan ke database: ${msg}`);
@@ -235,6 +275,7 @@ export default function AdminClassesManager({ notify }: Props) {
         notify(`Gagal menghapus dari database: ${msg}`);
         return;
       }
+      setClasses((current) => current.filter((item) => item.id !== id));
       const check = await fetch("/api/admin/classes", { cache: "no-store" }).then(r => r.json()).catch(() => null);
       if (check?.ok && Array.isArray(check.classes)) {
         setClasses(check.classes);
@@ -247,6 +288,7 @@ export default function AdminClassesManager({ notify }: Props) {
       if (editingId === id) resetForm();
       notify(data.message || "Kelas terhapus & terverifikasi hilang dari database.");
       await loadClasses();
+      router.refresh();
     } catch (e: any) {
       const msg = e?.message || "Gagal menghapus kelas.";
       notify(`Gagal menghapus: ${msg}`);
@@ -259,7 +301,7 @@ export default function AdminClassesManager({ notify }: Props) {
     <div className="mt-6 space-y-6 text-[#1A2E1A]">
       <div className="flex flex-wrap items-center justify-between gap-4"><div className="min-w-0"><h2 className="max-w-full text-xl font-extrabold text-[#183b2d]">Kelas</h2><p className="mt-2 text-sm text-muted">Atur kelas, bab, materi, dan latihan mandiri.</p></div><button type="button" onClick={() => { resetForm(); setEditorOpen(true); }} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white hover:bg-[#183b2d]"><Plus className="h-4 w-4" />Buat Kelas Baru</button></div>
       <div className="grid grid-cols-1 items-start gap-6">
-        {editorOpen && <form onSubmit={(event) => { event.preventDefault(); handleSave(false); }} className="mx-auto w-full max-w-3xl space-y-5 rounded-xl border border-[#E5E7EB] bg-white p-5 pb-28 sm:p-6 sm:pb-28 md:pb-6">
+        {editorOpen && <form onSubmit={(event) => { event.preventDefault(); handleSave(false); }} className="mx-auto w-full max-w-3xl space-y-5 rounded-xl border border-[#E5E7EB] bg-white p-5 pb-[calc(8rem+env(safe-area-inset-bottom))] scroll-pb-[calc(8rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(8rem+env(safe-area-inset-bottom))] md:pb-6 md:scroll-pb-0">
           <div className="flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 text-base font-extrabold text-[#1A2E1A]"><Plus className="h-4 w-4 text-[#14532D]" /> {editingId ? "Edit Kelas" : "Buat Kelas Baru"}</h3>
             {editingId && <button type="button" onClick={resetForm} className="text-xs font-bold text-[#14532D] hover:underline">Buat Baru</button>}
@@ -285,7 +327,7 @@ export default function AdminClassesManager({ notify }: Props) {
               <h4 className="text-sm font-extrabold text-[#1A2E1A]">Bab & Materi dalam Kelas ({(form.modules||[]).length})</h4>
               <button type="button" onClick={addModule} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-md border border-[#14532D] bg-white px-3 py-2 text-xs font-bold text-[#14532D] hover:bg-[#FDFBF7]"><Plus className="h-4 w-4" /> Tambah Bab/Materi</button>
             </div>
-            <p className="mb-3 text-xs text-[#1A2E1A]/70">Tambahkan bab, susun urutannya, lalu unggah materi PDF atau PPT. Kelas akan disimpan sebagai draft saat materi diunggah; peserta belum dapat melihatnya sampai kelas dipublikasikan.</p>
+                    <p className="mb-3 text-xs text-[#1A2E1A]/70">Tambahkan bab dan unggah PDF, PPT, PPTX, atau gambar JPG/PNG/WebP. Untuk pratinjau terbaik, unggah PDF. Kelas disimpan sebagai draft saat materi diunggah.</p>
             <div className="space-y-4">
               {(form.modules||[]).map((m, idx) => (
                 <div key={m.id} className="rounded-xl border border-[#E5E7EB] bg-[#FDFBF7] p-4 space-y-3">
@@ -301,11 +343,11 @@ export default function AdminClassesManager({ notify }: Props) {
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Ringkasan materi<textarea rows={2} value={m.deskripsi} onChange={(e)=>updateModule(m.id,{deskripsi:e.target.value})} className="mt-1 w-full rounded-md border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm font-normal" placeholder="Tuliskan ringkasan materi bab ini." /></label>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Upload Materi (PDF/PPT/PPTX/Flipbook)</label>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-[#1A2E1A]/75">Upload Materi (PDF/PPT/PPTX/JPG/PNG/WebP)</label>
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         <label className={`inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-bold hover:bg-[#FDFBF7] ${uploading[m.id]?"opacity-60":""}`}>
                           {uploading[m.id]?<Loader2 className="h-4 w-4 animate-spin"/>:<Upload className="h-4 w-4" />} {uploading[m.id]?"Mengunggah...":"Pilih File"}
-                          <input type="file" accept=".pdf,.ppt,.pptx" className="hidden" disabled={uploading[m.id]} onChange={(e)=>{const f=e.target.files?.[0]; if(f) uploadFile(m.id,f); e.currentTarget.value="";}} />
+                          <input type="file" accept=".pdf,.ppt,.pptx,.jpg,.jpeg,.png,.webp,application/pdf,application/msword,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/jpeg,image/png,image/webp" className="hidden" disabled={uploading[m.id]} onChange={(e)=>{const f=e.target.files?.[0]; if(f) uploadFile(m.id,f); e.currentTarget.value="";}} />
                         </label>
                         {(m.fileAsliName || m.filePDF) && <span className="text-[11px] text-[#14532D]">{m.fileAsliName || "File tersimpan"} {m.filePDF?"(PDF siap)":""}</span>}
                       </div>
@@ -356,8 +398,8 @@ export default function AdminClassesManager({ notify }: Props) {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleClasses.map((cls) => (
-                <div key={cls.id} className={`flex min-w-0 flex-col rounded-xl border bg-white p-4 ${editingId===cls.id?"border-[#14532D]":"border-[#E5E7EB]"}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+          <div key={cls.id} className={`flex min-w-0 flex-col rounded-xl border bg-white p-4 transition-colors duration-300 ${highlightedClassId === cls.id ? "border-[#14532D] bg-[#f1f5ec] ring-2 ring-[#c8d7bf]" : editingId===cls.id?"border-[#14532D]":"border-[#E5E7EB]"}`}>
+                  <div className="flex min-w-0 flex-col">
                     <div className="min-w-0">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
                         <span className="rounded-md border border-[#E5E7EB] bg-[#FDFBF7] px-2 py-0.5 text-[11px] font-bold text-[#14532D]">{cls.status || "berjalan"}</span>
@@ -368,13 +410,13 @@ export default function AdminClassesManager({ notify }: Props) {
                       {cls.tingkat && <p className="text-xs font-semibold text-[#14532D]">Tingkat {cls.tingkat}</p>}
                       <p className="mt-1 text-xs text-[#1A2E1A]/70 line-clamp-2">{cls.description}</p>
                     </div>
-                    <div className="mt-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-3">
-                      {cls.isPublished && <Link href={`/sesi/kelola?classId=${encodeURIComponent(cls.id)}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-[#244b3a] px-3 text-xs font-bold text-white hover:bg-[#183b2d]"><Plus className="h-3.5 w-3.5" />Buat sesi</Link>}
+                  </div>
+                  <div className="mt-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-3">
+                      {cls.isPublished && <Link href={`/admin?tab=sessions&view=buat&classId=${encodeURIComponent(cls.id)}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-[#244b3a] px-3 text-xs font-bold text-white hover:bg-[#183b2d]"><Plus className="h-3.5 w-3.5" />Buat sesi</Link>}
                       <button type="button" onClick={()=>startEdit(cls)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#E5E7EB] text-[#14532D] hover:bg-[#FDFBF7]" title={`Edit kelas ${cls.title}`} aria-label={`Edit kelas ${cls.title}`}><Pencil className="h-4 w-4" /></button>
-                      <Link href={`/kelas/${cls.slug}`} target="_blank" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#E5E7EB] text-[#1A2E1A] hover:bg-[#FDFBF7]" title={`Lihat kelas ${cls.title}`} aria-label={`Lihat kelas ${cls.title}`}><ExternalLink className="h-4 w-4" /></Link>
+                      {cls.isPublished && <Link href={`/kelas/${cls.slug}`} target="_blank" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#E5E7EB] text-[#1A2E1A] hover:bg-[#FDFBF7]" title={`Lihat kelas ${cls.title}`} aria-label={`Lihat kelas ${cls.title}`}><ExternalLink className="h-4 w-4" /></Link>}
                       <button type="button" onClick={()=>handleDelete(cls.id)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-[#E5E7EB] bg-[#fff2ec] text-[#7A1F1F] hover:bg-[#f9e1d8]" title={`Hapus kelas ${cls.title}`} aria-label={`Hapus kelas ${cls.title}`}><Trash2 className="h-4 w-4" /></button>
                     </div>
-                  </div>
                   <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-[#E5E7EB] pt-3 text-xs text-[#1A2E1A]/70">
                     <span>{(cls.modules?.length ? cls.modules.filter((module) => module.status === "terbit").length : cls.moduleIds?.length || 0)} Bab</span>
                     <span>{(cls.gameBlueprintIds || []).length} Latihan Mandiri</span>

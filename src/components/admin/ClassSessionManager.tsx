@@ -160,30 +160,57 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
   };
 
   useEffect(() => {
-    const timer = window.setInterval(async () => {
-      const selectedId = selected?.id;
-      const [sessionsResponse, detailResponse] = await Promise.all([
-        fetch("/api/class-sessions", { cache: "no-store" }),
-        selectedId ? fetch(`/api/class-sessions/${selectedId}`, { cache: "no-store" }) : Promise.resolve(null),
-      ]);
-      if (sessionsResponse.status === 401 || sessionsResponse.status === 403) {
-        const data = await sessionsResponse.json().catch(() => ({}));
-        setNeedsAdminLogin(sessionsResponse.status === 401);
-        setError(sessionsResponse.status === 401 ? "Sesi admin sudah berakhir. Masuk kembali untuk melanjutkan." : data.error || "Akun ini belum memiliki akses untuk mengelola sesi.");
-      } else if (sessionsResponse.ok) {
-        const data = await sessionsResponse.json();
-        setSessions(Array.isArray(data.sessions) ? data.sessions.filter((item: SessionDetail) => !deletedSessionIds.current.has(item.id)) : []);
+    let inFlight = false;
+    const refreshVisibleData = async () => {
+      if (document.visibilityState !== "visible" || inFlight) return;
+      inFlight = true;
+      try {
+        const sessionsResponse = await fetch("/api/class-sessions", { cache: "no-store" });
+        const sessionsData = await sessionsResponse.json().catch(() => ({}));
+        if (sessionsResponse.status === 401 || sessionsResponse.status === 403) {
+          setNeedsAdminLogin(sessionsResponse.status === 401);
+          setError(sessionsResponse.status === 401 ? "Sesi admin sudah berakhir. Masuk kembali untuk melanjutkan." : sessionsData.error || "Akun ini belum memiliki akses untuk mengelola sesi.");
+          return;
+        }
+        if (!sessionsResponse.ok) return;
+        const freshSessions: SessionDetail[] = Array.isArray(sessionsData.sessions)
+          ? sessionsData.sessions.filter((item: SessionDetail) => !deletedSessionIds.current.has(item.id))
+          : [];
+        setSessions(freshSessions);
+        setNeedsAdminLogin(false);
+
+        const selectedId = selected?.id;
+        if (!selectedId) return;
+        const freshSelected = freshSessions.find((item) => item.id === selectedId && item.status === "open");
+        if (!freshSelected) {
+          setSelected(null);
+          setDetail(null);
+          return;
+        }
+        setSelected(freshSelected);
+        const detailResponse = await fetch(`/api/class-sessions/${selectedId}`, { cache: "no-store" });
+        const detailData = await detailResponse.json().catch(() => ({}));
+        if (detailResponse.status === 401 || detailResponse.status === 403) {
+          setNeedsAdminLogin(detailResponse.status === 401);
+          setError(detailResponse.status === 401 ? "Sesi admin sudah berakhir. Masuk kembali untuk melihat detail sesi." : detailData.error || "Akun ini belum memiliki akses untuk melihat detail sesi.");
+        } else if (detailResponse.ok) {
+          setDetail({ attendees: detailData.attendees || [], guests: detailData.guests || [], games: detailData.games || [] });
+        }
+      } catch {
+        // Polling is best-effort; the manual refresh remains available.
+      } finally {
+        inFlight = false;
       }
-      if (detailResponse && (detailResponse.status === 401 || detailResponse.status === 403)) {
-        const data = await detailResponse.json().catch(() => ({}));
-        setNeedsAdminLogin(detailResponse.status === 401);
-        setError(detailResponse.status === 401 ? "Sesi admin sudah berakhir. Masuk kembali untuk melihat detail sesi." : data.error || "Akun ini belum memiliki akses untuk melihat detail sesi.");
-      } else if (detailResponse?.ok) {
-        const data = await detailResponse.json();
-        setDetail({ attendees: data.attendees || [], guests: data.guests || [], games: data.games || [] });
-      }
-    }, 5000);
-    return () => window.clearInterval(timer);
+    };
+    const timer = window.setInterval(() => void refreshVisibleData(), 15_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshVisibleData();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [selected?.id]);
 
   const createSession = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -210,6 +237,7 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
       setSelected(session); setDetail({ attendees: [], guests: [], games: [] });
       setCreateStep(0);
       changeView("aktif");
+      router.refresh();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Sesi belum dapat dibuat."); }
     finally { setSaving(false); }
   };
@@ -219,7 +247,7 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
     const response = await fetch(`/api/class-sessions/${selected.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, registrationId }) });
     const data = await response.json();
     if (!response.ok) { setError(data.error || "Perubahan belum tersimpan."); return; }
-    await loadSessions(); await loadDetail(selected);
+    await loadSessions(); await loadDetail(selected); router.refresh();
   };
 
   const openSessionGamePicker = async () => {
@@ -252,6 +280,7 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
       setDetail((current) => current ? { ...current, games: chosen } : current);
       showAppToast(`${chosen.length} game disimpan untuk sesi ini.`);
       setSessionGamePickerOpen(false);
+      router.refresh();
     } catch (reason) {
       setSessionGamesError(reason instanceof Error ? reason.message : "Kuis sesi belum dapat disimpan.");
     } finally {
@@ -344,9 +373,11 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
           }
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data.error || "Sesi belum berhasil ditutup.");
-          setSelected((current) => current ? { ...current, status: "closed" } : current);
+          setSelected(null);
+          setDetail(null);
+          setSessions((current) => current.filter((item) => item.id !== session.id));
           await loadSessions(false);
-          changeView("riwayat");
+          router.refresh();
           showAppToast(`Sesi '${session.title}' selesai. Data kehadiran tetap tersimpan.`);
         },
       });
@@ -381,6 +412,7 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
           setSessions((current) => current.filter((item) => item.id !== session.id));
           setSelected((current) => current?.id === session.id ? null : current);
           setDetail((current) => selected?.id === session.id ? null : current);
+          router.refresh();
           showAppToast(`Sesi '${session.title}' berhasil dihapus.`);
         },
       });
@@ -407,6 +439,7 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
     } catch { setError("Kode belum dapat disalin. Pilih dan salin kodenya secara manual."); }
   };
   const activeSessions = useMemo(() => sessions.filter((session) => session.status === "open"), [sessions]);
+  const selectedActive = useMemo(() => selected ? activeSessions.find((session) => session.id === selected.id) || null : null, [activeSessions, selected]);
   const historySessions = useMemo(() => sessions.filter((session) => session.status === "closed" && `${session.title} ${session.classTitle} ${session.code}`.toLocaleLowerCase().includes(historyQuery.toLocaleLowerCase())), [sessions, historyQuery]);
 
   if (loading) return <div className="flex items-center gap-3 p-8 text-sm text-[#3d4038]"><Loader2 className="h-5 w-5 animate-spin" />Memuat sesi kelas…</div>;
@@ -442,7 +475,7 @@ export default function ClassSessionManager({ initialClassId }: { initialClassId
 
     {view === "aktif" && <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(18rem,.72fr)_minmax(0,1.28fr)]">
       <section className="min-w-0"><h2 className="text-lg font-bold text-[#183b2d]">Sesi berlangsung dan akan datang</h2><p className="mt-1 text-sm text-[#625f54]">{activeSessions.length} sesi aktif</p>{activeSessions.length ? <div className="mt-3 space-y-2">{[...ongoing, ...upcoming].map((session) => <button key={session.id} type="button" onClick={() => void loadDetail(session)} aria-pressed={selected?.id === session.id} className={`w-full rounded-xl border p-4 text-left transition hover:border-[#244b3a] ${selected?.id === session.id ? "border-[#244b3a] bg-[#e6eadf]" : "border-[#d2c5ad] bg-[#fdf9f0]"}`}><div className="flex items-start justify-between gap-2"><strong>{session.title}</strong><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${session.startsAt && new Date(session.startsAt).getTime() > Date.now() ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}`}>{session.startsAt && new Date(session.startsAt).getTime() > Date.now() ? "Akan datang" : "Berlangsung"}</span></div><p className="mt-1 text-sm text-[#625f54]">{session.classTitle} · {session.attendeeCount} hadir</p>{session.pendingCount > 0 && <span className="mt-2 inline-flex rounded-full bg-[#ba472f] px-2.5 py-1 text-xs font-bold text-white">{session.pendingCount} menunggu persetujuan</span>}<p className="mt-2 text-xs font-bold tracking-wider">Kode {session.code}</p></button>)}</div> : <div className="mt-4 rounded-xl bg-[#fdf9f0] p-5 text-sm"><p className="font-bold text-[#183b2d]">Belum ada sesi aktif.</p><p className="mt-1 text-[#625f54]">Buat sesi baru untuk membagikan kode presensi.</p><button type="button" onClick={() => updateDraft("buat")} className="mt-3 min-h-11 rounded-lg bg-[#244b3a] px-4 font-bold text-white">Buat sesi</button></div>}</section>
-      {selected ? <section className="min-w-0 space-y-5 rounded-2xl border border-[#d2c5ad] bg-[#fdf9f0] p-4 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold text-[#183b2d]">{selected.title}</h2><p className="mt-2 text-sm text-[#625f54]">Kode sesi</p><p className="font-display text-5xl font-bold tracking-[.12em] text-[#244b3a] sm:text-6xl">{selected.code}</p><p className="mt-2 text-sm font-bold">{selected.attendeeCount} peserta hadir</p></div>{qr && <div className="rounded-lg border border-[#d2c5ad] bg-white p-2"><Image src={qr} alt={`QR code sesi ${selected.code}`} width={150} height={150} unoptimized /><button type="button" onClick={() => setQrFullscreen(true)} className="mt-1 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#b8aa8e] text-sm font-bold text-[#244b3a]"><Maximize2 className="h-4 w-4" />Layar penuh</button></div>}</div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void copyJoinLink()} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a] transition-all duration-150 hover:-translate-y-px hover:border-[#244b3a] hover:bg-[#e8eee5] hover:shadow-sm ">{copied === "link" ? <><Check aria-hidden="true" className="h-4 w-4" />✓ Tersalin</> : <><Clipboard aria-hidden="true" className="h-4 w-4" />Salin tautan</>}</button><button type="button" onClick={() => void copySessionCode()} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a] transition-all duration-150 hover:-translate-y-px hover:border-[#244b3a] hover:bg-[#e8eee5] hover:shadow-sm ">{copied === "code" ? <><Check aria-hidden="true" className="h-4 w-4" />✓ Tersalin</> : <><Clipboard aria-hidden="true" className="h-4 w-4" />Salin kode</>}</button><a target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`Gabung sesi ${selected.title}: ${classSessionJoinUrl(window.location.origin, selected.code)}`)}`} className="inline-flex min-h-11 items-center rounded-lg bg-[#244b3a] px-3 text-sm font-bold text-white"><MessageCircle className="mr-2 h-4 w-4" />Bagikan WhatsApp</a><details className="relative"><summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a]"><Download className="h-4 w-4" />Ekspor</summary><div className="absolute right-0 z-20 mt-1 grid min-w-48 rounded-lg border border-[#d2c5ad] bg-white p-1 shadow-lg">{[["excel", "Ekspor Excel (.xlsx)"], ["pdf", "Ekspor PDF"], ["csv", "Ekspor CSV"]].map(([format, label]) => <a key={format} href={`/api/class-sessions/${selected.id}/export?format=${format}`} className="flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-[#244b3a] hover:bg-[#e8eee5]">{label}</a>)}</div></details>{selected.status === "open" && <button type="button" disabled={busyAction === selected.id} onClick={() => void closeSelectedSession()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#943520] px-3 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{busyAction === selected.id && <Loader2 className="h-4 w-4 animate-spin" />}{busyAction === selected.id ? "Menutup…" : "Tutup sesi"}</button>}</div><section className="rounded-xl border border-[#d2c5ad] bg-white/70 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-[#183b2d]">Kuis untuk sesi</h3><p className="mt-1 text-sm text-[#625f54]">Pilih beberapa kuis berstatus Sesi untuk peserta sesi ini.</p></div><button type="button" onClick={() => void openSessionGamePicker()} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white transition hover:bg-[#183b2d] "><Gamepad2 className="h-4 w-4" />Pilih kuis</button></div>{detail?.games.length ? <div className="mt-3 flex flex-wrap gap-2">{detail.games.map((game) => { const locked = selected.status !== "open"; return <button key={game.id} type="button" disabled={locked} onClick={() => showGameActions(game)} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-left text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#244b3a] ${locked ? "cursor-not-allowed border-[#d2c5ad] bg-[#eee8dc] text-[#777267]" : "border-[#b8aa8e] bg-[#fdf9f0] text-[#244b3a] hover:border-[#244b3a] hover:bg-[#e8eee5] "}`}><Gamepad2 className="h-4 w-4 shrink-0" /><span>{game.title}</span>{game.liveStatus === "closed" && !locked && <span className="ml-1 rounded-full bg-[#e6eadf] px-2 py-0.5 text-[11px] font-bold text-[#244b3a]">Mulai pertandingan lagi</span>}{locked && <span className="ml-1 rounded-full bg-[#ddd6c9] px-2 py-0.5 text-[11px] font-bold">Terkunci</span>}</button>; })}</div> : <p className="mt-3 rounded-lg bg-[#f3e9d5] p-3 text-sm text-[#625f54]">Belum ada kuis. Pilih kuis sesi untuk menampilkannya bagi peserta di sesi ini.</p>}</section><section><h3 className="border-b border-[#d2c5ad] pb-2 font-bold">Daftar hadir ({detail?.attendees.length || 0})</h3>{detail?.attendees.length ? detail.attendees.map((row) => <div key={row.id} className="flex flex-wrap justify-between gap-2 border-b border-[#e6ddcd] py-3 text-sm"><strong>{row.participant_name}</strong><span className="text-[#625f54]">{row.participant_type === "guest" ? "Tamu" : "Warga"} · {new Date(row.attended_at).toLocaleString("id-ID")}</span></div>) : <p className="py-3 text-sm text-[#625f54]">Presensi peserta akan muncul di sini.</p>}</section><section><h3 className="border-b border-[#d2c5ad] pb-2 font-bold">Antrean persetujuan tamu</h3>{detail?.guests.filter((g) => g.status === "pending").length ? detail.guests.filter((g) => g.status === "pending").map((guest) => <div key={guest.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e6ddcd] py-3"><div><strong>{guest.full_name}</strong><p className="text-sm text-[#625f54]">{guest.whatsapp}</p></div><div className="flex gap-2"><button type="button" onClick={() => void sessionAction("approve", guest.id)} className="min-h-11 rounded-lg bg-[#244b3a] px-3 text-sm font-bold text-white">Setujui</button><button type="button" onClick={() => void sessionAction("reject", guest.id)} className="min-h-11 rounded-lg border border-[#943520] px-3 text-sm font-bold text-[#943520]">Tolak</button></div></div>) : <p className="py-3 text-sm text-[#625f54]">Tidak ada tamu yang menunggu persetujuan.</p>}</section></section> : <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed border-[#b8aa8e] bg-[#fdf9f0] p-6 text-center text-sm text-[#625f54]">Pilih sesi di daftar untuk melihat kode, QR, dan presensinya.</div>}
+      {selectedActive ? <section className="min-w-0 space-y-5 rounded-2xl border border-[#d2c5ad] bg-[#fdf9f0] p-4 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold text-[#183b2d]">{selectedActive.title}</h2><p className="mt-2 text-sm text-[#625f54]">Kode sesi</p><p className="font-display text-5xl font-bold tracking-[.12em] text-[#244b3a] sm:text-6xl">{selectedActive.code}</p><p className="mt-2 text-sm font-bold">{selectedActive.attendeeCount} peserta hadir</p></div>{qr && <div className="rounded-lg border border-[#d2c5ad] bg-white p-2"><Image src={qr} alt={`QR code sesi ${selectedActive.code}`} width={150} height={150} unoptimized /><button type="button" onClick={() => setQrFullscreen(true)} className="mt-1 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#b8aa8e] text-sm font-bold text-[#244b3a]"><Maximize2 className="h-4 w-4" />Layar penuh</button></div>}</div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void copyJoinLink()} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a] transition-all duration-150 hover:-translate-y-px hover:border-[#244b3a] hover:bg-[#e8eee5] hover:shadow-sm ">{copied === "link" ? <><Check aria-hidden="true" className="h-4 w-4" />✓ Tersalin</> : <><Clipboard aria-hidden="true" className="h-4 w-4" />Salin tautan</>}</button><button type="button" onClick={() => void copySessionCode()} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a] transition-all duration-150 hover:-translate-y-px hover:border-[#244b3a] hover:bg-[#e8eee5] hover:shadow-sm ">{copied === "code" ? <><Check aria-hidden="true" className="h-4 w-4" />✓ Tersalin</> : <><Clipboard aria-hidden="true" className="h-4 w-4" />Salin kode</>}</button><a target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(`Gabung sesi ${selectedActive.title}: ${classSessionJoinUrl(window.location.origin, selectedActive.code)}`)}`} className="inline-flex min-h-11 items-center rounded-lg bg-[#244b3a] px-3 text-sm font-bold text-white"><MessageCircle className="mr-2 h-4 w-4" />Bagikan WhatsApp</a><details className="relative"><summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-[#b8aa8e] px-3 text-sm font-bold text-[#244b3a]"><Download className="h-4 w-4" />Ekspor</summary><div className="absolute right-0 z-20 mt-1 grid min-w-48 rounded-lg border border-[#d2c5ad] bg-white p-1 shadow-lg">{[["excel", "Ekspor Excel (.xlsx)"], ["pdf", "Ekspor PDF"], ["csv", "Ekspor CSV"]].map(([format, label]) => <a key={format} href={`/api/class-sessions/${selectedActive.id}/export?format=${format}`} className="flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-[#244b3a] hover:bg-[#e8eee5]">{label}</a>)}</div></details>{selectedActive.status === "open" && <button type="button" disabled={busyAction === selectedActive.id} onClick={() => void closeSelectedSession()} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#943520] px-3 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{busyAction === selectedActive.id && <Loader2 className="h-4 w-4 animate-spin" />}{busyAction === selectedActive.id ? "Menutup…" : "Tutup sesi"}</button>}</div><section className="rounded-xl border border-[#d2c5ad] bg-white/70 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-[#183b2d]">Kuis untuk sesi</h3><p className="mt-1 text-sm text-[#625f54]">Pilih beberapa kuis berstatus Sesi untuk peserta sesi ini.</p></div><button type="button" onClick={() => void openSessionGamePicker()} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-[#244b3a] px-4 text-sm font-bold text-white transition hover:bg-[#183b2d] "><Gamepad2 className="h-4 w-4" />Pilih kuis</button></div>{detail?.games.length ? <div className="mt-3 flex flex-wrap gap-2">{detail.games.map((game) => { const locked = selectedActive.status !== "open"; return <button key={game.id} type="button" disabled={locked} onClick={() => showGameActions(game)} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-left text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#244b3a] ${locked ? "cursor-not-allowed border-[#d2c5ad] bg-[#eee8dc] text-[#777267]" : "border-[#b8aa8e] bg-[#fdf9f0] text-[#244b3a] hover:border-[#244b3a] hover:bg-[#e8eee5] "}`}><Gamepad2 className="h-4 w-4 shrink-0" /><span>{game.title}</span>{game.liveStatus === "closed" && !locked && <span className="ml-1 rounded-full bg-[#e6eadf] px-2 py-0.5 text-[11px] font-bold text-[#244b3a]">Mulai pertandingan lagi</span>}{locked && <span className="ml-1 rounded-full bg-[#ddd6c9] px-2 py-0.5 text-[11px] font-bold">Terkunci</span>}</button>; })}</div> : <p className="mt-3 rounded-lg bg-[#f3e9d5] p-3 text-sm text-[#625f54]">Belum ada kuis. Pilih kuis sesi untuk menampilkannya bagi peserta di sesi ini.</p>}</section><section><h3 className="border-b border-[#d2c5ad] pb-2 font-bold">Daftar hadir ({detail?.attendees.length || 0})</h3>{detail?.attendees.length ? detail.attendees.map((row) => <div key={row.id} className="flex flex-wrap justify-between gap-2 border-b border-[#e6ddcd] py-3 text-sm"><strong>{row.participant_name}</strong><span className="text-[#625f54]">{row.participant_type === "guest" ? "Tamu" : "Akun"} · {new Date(row.attended_at).toLocaleString("id-ID")}</span></div>) : <p className="py-3 text-sm text-[#625f54]">Presensi peserta akan muncul di sini.</p>}</section><section><h3 className="border-b border-[#d2c5ad] pb-2 font-bold">Antrean persetujuan tamu</h3>{detail?.guests.filter((g) => g.status === "pending").length ? detail.guests.filter((g) => g.status === "pending").map((guest) => <div key={guest.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e6ddcd] py-3"><div><strong>{guest.full_name}</strong><p className="text-sm text-[#625f54]">{guest.whatsapp}</p></div><div className="flex gap-2"><button type="button" onClick={() => void sessionAction("approve", guest.id)} className="min-h-11 rounded-lg bg-[#244b3a] px-3 text-sm font-bold text-white">Setujui</button><button type="button" onClick={() => void sessionAction("reject", guest.id)} className="min-h-11 rounded-lg border border-[#943520] px-3 text-sm font-bold text-[#943520]">Tolak</button></div></div>) : <p className="py-3 text-sm text-[#625f54]">Tidak ada tamu yang menunggu persetujuan.</p>}</section></section> : <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed border-[#b8aa8e] bg-[#fdf9f0] p-6 text-center text-sm text-[#625f54]">Pilih sesi di daftar...</div>}
     </div>}
 
     {view === "riwayat" && <section className="w-full space-y-4"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-bold text-[#183b2d]">Riwayat sesi</h2><p className="mt-1 text-sm text-[#625f54]">{historySessions.length} sesi selesai · {historySessions.reduce((sum, s) => sum + s.attendeeCount, 0)} total kehadiran</p></div><input aria-label="Cari riwayat sesi" value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Cari judul, kelas, atau kode" className={`${inputClass} max-w-sm`} /></div>{historySessions.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{historySessions.map((session) => <article key={session.id} className="flex flex-col rounded-xl border border-[#d2c5ad] bg-[#fdf9f0] p-4"><h3 className="font-bold text-[#183b2d]">{session.title}</h3><p className="mt-1 text-sm text-[#625f54]">{session.classTitle}</p><p className="mt-1 text-xs text-[#625f54]">{session.startsAt || session.createdAt ? new Date(session.startsAt || session.createdAt!).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }) : "Waktu sesi tidak tersedia"}</p><p className="mt-3 text-sm">{session.attendeeCount} peserta hadir</p><p className="mt-1 text-xs text-[#625f54]">Kode {session.code}</p><div className="mt-3 flex flex-wrap gap-2 border-t border-[#e6ddcd] pt-3"><details className="relative"><summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-2 font-bold text-[#244b3a] underline underline-offset-4"><Download className="h-4 w-4" />Ekspor</summary><div className="absolute left-0 z-20 mt-1 grid min-w-48 rounded-lg border border-[#d2c5ad] bg-white p-1 shadow-lg">{[["excel", "Ekspor Excel (.xlsx)"], ["pdf", "Ekspor PDF"], ["csv", "Ekspor CSV"]].map(([format, label]) => <a key={format} href={`/api/class-sessions/${session.id}/export?format=${format}`} className="flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-[#244b3a] hover:bg-[#e8eee5]">{label}</a>)}</div></details><button type="button" disabled={busyAction === session.id} onClick={() => void deleteHistoricalSession(session)} className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#943520]/40 px-3 text-sm font-bold text-[#943520] hover:bg-[#ba472f]/5 disabled:cursor-wait disabled:opacity-60">{busyAction === session.id && <Loader2 className="h-4 w-4 animate-spin" />}Hapus</button></div></article>)}</div> : <div className="rounded-xl bg-[#fdf9f0] p-6 text-sm text-[#625f54]">{sessions.some((session) => session.status === "closed") ? "Tidak ada sesi riwayat yang cocok dengan pencarian ini." : "Riwayat sesi masih kosong. Sesi akan muncul di sini setelah ditutup."}</div>}</section>}

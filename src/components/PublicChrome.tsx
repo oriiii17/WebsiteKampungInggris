@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import GuestNavbar from "@/components/GuestNavbar";
 import type { SessionPayload } from "@/lib/types";
 import { clearAuthBrowserStorage, subscribeToSessionChanges } from "@/lib/session-sync";
 
-export default function PublicChrome({ session, guestSession, guestClassHref, initialParticipantPending = false, sessionExpired = false, expiredAdmin = false }: { session: SessionPayload | null; guestSession: SessionPayload | null; guestClassHref?: string; initialParticipantPending?: boolean; sessionExpired?: boolean; expiredAdmin?: boolean }) {
+export default function PublicChrome({ session, guestSession, initialParticipantPending = false, sessionExpired = false, expiredAdmin = false }: { session: SessionPayload | null; guestSession: SessionPayload | null; initialParticipantPending?: boolean; sessionExpired?: boolean; expiredAdmin?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -88,15 +87,6 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
       } catch {
         // Keep the last server-provided session when a temporary request fails.
       }
-      if (activeSessionId && !pathname.startsWith("/sesi/")) {
-        try {
-          const response = await fetch("/api/class-sessions/current", { cache: "no-store" });
-          const data = await response.json();
-          if (active && requestId === latestRequest && data.status === "closed") setSessionEnded(true);
-        } catch {
-          // Keep the current page usable if the status check is temporarily unavailable.
-        }
-      }
       requestInFlight = false;
     };
     const onVisibilityChange = () => {
@@ -123,12 +113,37 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
     };
   }, [activeGuestSession, activeSessionId, pathname, participantPending, router]);
 
+  useEffect(() => {
+    if (!activeSessionId) return;
+    let active = true;
+    let inFlight = false;
+    const checkSessionStatus = async () => {
+      if (!active || inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      try {
+        const response = await fetch("/api/class-sessions/current", { cache: "no-store" });
+        const data = await response.json();
+        if (active && data.status === "closed") setSessionEnded(true);
+      } catch {
+        // Keep the page available during temporary network failures.
+      } finally {
+        inFlight = false;
+      }
+    };
+    const onVisibilityChange = () => { if (document.visibilityState === "visible") void checkSessionStatus(); };
+    void checkSessionStatus();
+    const poll = window.setInterval(() => void checkSessionStatus(), 12_000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      active = false;
+      window.clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [activeSessionId]);
+
   const isAdminRoute = pathname.startsWith("/admin");
   const visibleSession = isAdminRoute || pathname.startsWith("/game/host") ? activeAccountSession : activeSession;
-  const isGuest = visibleSession?.role === "guest" || visibleSession?.origin === "guest";
   const isAdminHostRoute = (visibleSession?.role === "admin" || visibleSession?.role === "pengurus" || visibleSession?.role === "developer") && pathname.startsWith("/game/host");
-  const isGameJoinRoute = pathname.startsWith("/game/join");
-  const isStandaloneRoute = pathname.startsWith("/sesi/") || pathname.startsWith("/game/play/") || (isGameJoinRoute && !isGuest) || (!isGuest && pathname.startsWith("/games/"));
   const acknowledgeSessionEnd = async () => {
     if (acknowledgingEnd) return;
     setAcknowledgingEnd(true);
@@ -146,6 +161,7 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
       setActiveAccountSession((current) => current ? { ...current, guestSessionId: undefined, guestRegistrationId: undefined, guestClassHref: undefined } : null);
       setActiveGuestSession(null);
       setSessionEnded(false);
+      router.refresh();
       router.replace("/");
     } catch (error) {
       setEndError(error instanceof Error ? error.message : "Belum dapat kembali ke beranda. Tekan OK untuk mencoba lagi.");
@@ -153,11 +169,6 @@ export default function PublicChrome({ session, guestSession, guestClassHref, in
     }
   };
 
-  const inClassSession = Boolean(visibleSession?.guestSessionId);
-  const navbar = isAdminRoute || isAdminHostRoute || participantPending ? null
-    : inClassSession && !pathname.startsWith("/game/play/") ? <GuestNavbar guestClassHref={visibleSession?.guestClassHref || activeGuestSession?.guestClassHref || guestClassHref || "/kelas"} displayName={isGuest ? "Guest" : visibleSession?.name || "Peserta"} isGuest={isGuest} />
-      : isGuest && !pathname.startsWith("/game/play/") ? <GuestNavbar guestClassHref={activeGuestSession?.guestClassHref || guestClassHref || "/kelas"} displayName="Guest" isGuest />
-      : isStandaloneRoute ? null
-        : <Navbar session={visibleSession} />;
-  return <>{!isAdminRoute && <div className="site-background" aria-hidden="true" />}{navbar}{sessionChanged && <div className="session-ended-backdrop" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="session-changed-title" className="session-ended-panel"><h2 id="session-changed-title" className="session-ended-title">Sesi Anda telah berubah</h2><p className="session-ended-message">Sesi Anda telah berubah, silakan muat ulang halaman.</p><div className="session-ended-actions"><button data-session-reload type="button" autoFocus onClick={() => window.location.reload()}>Muat ulang halaman</button></div></section></div>}{sessionEnded && <div className="session-ended-backdrop" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="guest-session-ended-title" aria-describedby="guest-session-ended-description" className="session-ended-panel"><h2 id="guest-session-ended-title" className="session-ended-title">Sesi sudah ditutup</h2><p id="guest-session-ended-description" className="session-ended-message">Sesi sudah ditutup. Silakan kembali ke beranda.</p>{endError && <p role="alert" className="session-ended-error">{endError}</p>}<div className="session-ended-actions"><button type="button" autoFocus disabled={acknowledgingEnd} onClick={() => void acknowledgeSessionEnd()}>{acknowledgingEnd ? "Menyiapkan…" : "OK"}</button></div></section></div>}</>;
+  const navbar = isAdminRoute || isAdminHostRoute ? null : <Navbar session={visibleSession} />;
+  return <>{!isAdminRoute && <div className="site-background" aria-hidden="true" />}{navbar}{sessionChanged && <div className="session-ended-backdrop" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="session-changed-title" className="session-ended-panel"><h2 id="session-changed-title" className="session-ended-title">Sesi Anda telah berubah</h2><p className="session-ended-message">Sesi Anda telah berubah, silakan muat ulang halaman.</p><div className="session-ended-actions"><button data-session-reload type="button" autoFocus onClick={() => window.location.reload()}>Muat ulang halaman</button></div></section></div>}{sessionEnded && <div className="session-ended-backdrop" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="guest-session-ended-title" aria-describedby="guest-session-ended-description" className="session-ended-panel"><h2 id="guest-session-ended-title" className="session-ended-title">Sesi sudah berakhir</h2><p id="guest-session-ended-description" className="session-ended-message">Sesi sudah ditutup. Silakan kembali ke beranda.</p>{endError && <p role="alert" className="session-ended-error">{endError}</p>}<div className="session-ended-actions"><button type="button" autoFocus disabled={acknowledgingEnd} onClick={() => void acknowledgeSessionEnd()}>{acknowledgingEnd ? "Menyiapkan…" : "OK"}</button></div></section></div>}</>;
 }

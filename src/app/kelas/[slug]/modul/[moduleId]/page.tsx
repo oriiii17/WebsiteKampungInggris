@@ -18,7 +18,7 @@ export default async function ClassModulePage({
   if (!mod) notFound();
   if (mod.status !== "terbit" && !isAdminSession(session)) notFound();
 
-  let enrolled = isAdminSession(session) || session?.origin === "warga_kode";
+  let enrolled = isAdminSession(session) || (session?.origin === "warga_kode" && !session.guestSessionId);
   const activeClassSession = await getApprovedActiveClassSession(session);
   if (activeClassSession?.classId === cls.id) enrolled = true;
   if (!enrolled && session?.email) {

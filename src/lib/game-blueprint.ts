@@ -16,6 +16,20 @@ export type GameLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 export type GameBlueprintStatus = "draft" | "published" | "session" | "independent";
 export type GameBlueprintDestination = "public" | "session" | "independent";
 
+/** Normalizes legacy display values in memory; persisted category values stay unchanged. */
+export function normalizeGameDestination(value: unknown): GameBlueprintDestination | null {
+  const normalized = String(value ?? "").trim().toLocaleLowerCase("id-ID");
+  if (normalized === "public" || normalized === "kuis website") return "public";
+  if (normalized === "session" || normalized === "sesi tatap muka") return "session";
+  if (normalized === "independent" || normalized === "latihan kelas" || normalized === "latihan mandiri") return "independent";
+  return null;
+}
+
+export function isPublishedIndependentGame(game: Pick<GameBlueprint, "status" | "destination">): boolean {
+  return normalizeGameDestination(game.destination) === "independent"
+    && (game.status === "published" || game.status === "independent");
+}
+
 export interface GameBlueprintItem {
   id: string;
   prompt: string;
@@ -102,9 +116,8 @@ export function normalizeGameBlueprint(value: unknown): GameBlueprint {
   const status = ["draft", "published", "session", "independent"].includes(String(game.status))
     ? game.status as GameBlueprintStatus
     : "draft";
-  const destination = ["public", "session", "independent"].includes(String(game.destination))
-    ? game.destination as GameBlueprintDestination
-    : status === "session" ? "session" : status === "independent" ? "independent" : "public";
+  const destination = normalizeGameDestination(game.destination)
+    ?? (status === "session" ? "session" : status === "independent" ? "independent" : "public");
   const gameWithoutCover = Object.fromEntries(Object.entries(game).filter(([key]) => key !== "coverImage"));
   const initialsSource = String(game.cardInitials || game.card_initials || "").replace(/[^\p{L}\p{N}]/gu, "");
   const titleInitials = String(game.title || "Kuis").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2);

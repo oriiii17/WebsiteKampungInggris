@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, ShoppingCart, Gamepad2, GraduationCap, KeyRound, LogOut, Settings, User, CalendarDays, Menu, X } from "lucide-react";
+import { BookOpen, ShoppingCart, Gamepad2, GraduationCap, KeyRound, LogOut, Settings, User, CalendarDays, Menu, X, Info, CircleHelp } from "lucide-react";
 import { SessionPayload } from "@/lib/types";
 import { SITE_CONFIG } from "@/config/site";
 import styles from "./Navbar.module.css";
@@ -236,6 +236,8 @@ export default function Navbar({ session }: NavbarProps) {
         <Link href="/kelas" aria-current={pathname.startsWith("/kelas") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen aria-hidden="true" /><span className={styles.bottomLabel}>Kelas</span></Link>
         <Link href="/sesi" aria-current={pathname === "/sesi" ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname === "/sesi" || pathname.startsWith("/sesi/") ? styles.bottomLinkActive : ""}`}><CalendarDays aria-hidden="true" /><span className={styles.bottomLabel}>Sesi Kelas</span></Link>
         <Link href="/games" aria-current={pathname.startsWith("/games") || pathname.startsWith("/game") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/games") || pathname.startsWith("/game") ? styles.bottomLinkActive : ""}`}><Gamepad2 aria-hidden="true" /><span className={styles.bottomLabel}>Kuis</span></Link>
+        <Link href="/tentang" aria-current={pathname === "/tentang" ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname === "/tentang" ? styles.bottomLinkActive : ""}`}><Info aria-hidden="true" /><span className={styles.bottomLabel}>Tentang</span></Link>
+        <Link href="/faq" aria-current={pathname === "/faq" ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname === "/faq" ? styles.bottomLinkActive : ""}`}><CircleHelp aria-hidden="true" /><span className={styles.bottomLabel}>FAQ</span></Link>
         {hasAccountDestination ? <Link href="/akun" aria-label="Akun saya" title="Akun saya" aria-current={pathname.startsWith("/akun") ? "page" : undefined} className={`${styles.bottomLink} ${styles.bottomAccountLink} ${pathname.startsWith("/akun") ? styles.bottomLinkActive : ""}`}>
           {avatarDataUrl ? <Image src={avatarDataUrl} alt="" width={32} height={32} unoptimized className={`${styles.bottomAvatar} aspect-square rounded-full`} /> : <span className={styles.bottomAvatarInitial}>{initial}</span>}
         </Link> : <Link href="/masuk" aria-current={pathname.startsWith("/masuk") ? "page" : undefined} className={`${styles.bottomLink} ${pathname.startsWith("/masuk") ? styles.bottomLinkActive : ""}`}><KeyRound aria-hidden="true" /><span className={styles.bottomLabel}>Masuk</span></Link>}

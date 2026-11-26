@@ -81,11 +81,11 @@ export default function AdminCodesManager(props: Props) {
     try {
       const response = await fetch("/api/admin/session-guests", { cache: "no-store" });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "Daftar Guest belum dapat dimuat.");
+      if (!response.ok) throw new Error(result.error || "Daftar peserta sesi belum dapat dimuat.");
       setGuestRows(Array.isArray(result.guests) ? result.guests : []);
       setSelectedGuests(new Set());
     } catch (error) {
-      setGuestError(error instanceof Error ? error.message : "Daftar Guest belum dapat dimuat.");
+      setGuestError(error instanceof Error ? error.message : "Daftar peserta sesi belum dapat dimuat.");
     } finally {
       setGuestLoading(false);
     }
@@ -162,13 +162,13 @@ export default function AdminCodesManager(props: Props) {
   async function deleteSelectedGuests() {
     const deletable = guestRows.filter((guest) => selectedGuests.has(guest.id) && guest.canDelete);
     if (!deletable.length) { notify("Pilih peserta yang sudah memenuhi syarat penghapusan."); return; }
-    if (!(await dialog.confirm(`Hapus ${deletable.length} peserta Guest?`, "Penghapusan hanya tersedia setelah sesi ditutup dan peserta tidak aktif selama 3 jam."))) return;
+    if (!(await dialog.confirm(`Hapus ${deletable.length} peserta sesi?`, "Penghapusan hanya tersedia setelah sesi ditutup dan peserta tidak aktif selama 3 jam."))) return;
     setDeletingGuests(true);
     try {
       const response = await fetch("/api/admin/session-guests", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: deletable.map((guest) => guest.id) }) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Peserta belum dapat dihapus.");
-      notify(`${deletable.length} peserta Guest dihapus.`);
+      notify(`${deletable.length} peserta sesi dihapus.`);
       await loadGuestParticipants();
     } catch (cause) { notify(cause instanceof Error ? cause.message : "Peserta belum dapat dihapus."); }
     finally { setDeletingGuests(false); }
@@ -181,7 +181,7 @@ export default function AdminCodesManager(props: Props) {
 
         <div role="group" aria-label="Jenis peserta" className="mt-5 flex gap-2 overflow-x-auto overscroll-x-contain border-b border-[#e5dfd3] pb-px">
           <button type="button" aria-pressed={activeList === "users"} onClick={() => setActiveList("users")} className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-sm font-bold transition ${activeList === "users" ? "border-[#244b3a] text-[#183b2d]" : "border-transparent text-[#625f54] hover:text-[#183b2d]"}`}><UserCheck className="h-4 w-4 shrink-0" />User reguler</button>
-          <button type="button" aria-pressed={activeList === "guests"} onClick={() => setActiveList("guests")} className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-sm font-bold transition ${activeList === "guests" ? "border-[#244b3a] text-[#183b2d]" : "border-transparent text-[#625f54] hover:text-[#183b2d]"}`}><Users className="h-4 w-4 shrink-0" />Peserta Guest<span className="shrink-0 whitespace-nowrap rounded-full bg-[#e8eee5] px-2 py-0.5 text-xs text-[#244b3a]">{guestRows.length}</span></button>
+          <button type="button" aria-pressed={activeList === "guests"} onClick={() => setActiveList("guests")} className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-sm font-bold transition ${activeList === "guests" ? "border-[#244b3a] text-[#183b2d]" : "border-transparent text-[#625f54] hover:text-[#183b2d]"}`}><Users className="h-4 w-4 shrink-0" />Peserta sesi<span className="shrink-0 whitespace-nowrap rounded-full bg-[#e8eee5] px-2 py-0.5 text-xs text-[#244b3a]">{guestRows.length}</span></button>
         </div>
 
         {activeList === "users" && <div id="admin-participants-panel-users">
@@ -212,8 +212,8 @@ export default function AdminCodesManager(props: Props) {
 
         {activeList === "guests" && <div id="admin-participants-panel-guests" className="mt-4 space-y-4">
           <div className="flex flex-wrap items-end gap-2 border-b border-[#e5dfd3] pb-4">
-            <div><h3 className="flex items-center gap-2 font-bold text-[#183b2d]"><Users className="h-4 w-4" />Peserta Guest · {filteredGuests.length} orang</h3><p className="mt-1 text-sm text-[#625f54]">Daftar ini hanya berisi peserta sesi; user reguler ada di tab terpisah.</p></div>
-            <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto"><button type="button" onClick={() => void deleteSelectedGuests()} disabled={deletingGuests || !guestRows.some((guest) => selectedGuests.has(guest.id) && guest.canDelete)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#a23b27] px-3 text-sm font-bold text-white hover:bg-[#842f20] disabled:cursor-not-allowed disabled:bg-[#e5e7eb] disabled:text-[#6b7280]"> <Trash2 className="h-4 w-4" />{deletingGuests ? "Menghapus…" : (() => { const count = Array.from(selectedGuests).filter((id) => filteredGuests.some((guest) => guest.id === id && guest.canDelete)).length; return count ? `Hapus ${count} peserta` : "Hapus peserta"; })()}</button><label className="relative block min-w-[220px] flex-1 sm:max-w-xs"><span className="sr-only">Cari peserta Guest</span><Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#625f54]" /><input value={guestQuery} onChange={(event) => setGuestQuery(event.target.value)} placeholder="Cari nama, nomor, atau sesi" className="min-h-11 w-full rounded-lg border border-[#c9bda7] bg-[#fffdf8] py-2.5 pl-10 pr-3 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20" /></label></div>
+            <div><h3 className="flex items-center gap-2 font-bold text-[#183b2d]"><Users className="h-4 w-4" />Peserta sesi · {filteredGuests.length} orang</h3><p className="mt-1 text-sm text-[#625f54]">Daftar ini hanya berisi peserta sesi; user reguler ada di tab terpisah.</p></div>
+            <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto"><button type="button" onClick={() => void deleteSelectedGuests()} disabled={deletingGuests || !guestRows.some((guest) => selectedGuests.has(guest.id) && guest.canDelete)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#a23b27] px-3 text-sm font-bold text-white hover:bg-[#842f20] disabled:cursor-not-allowed disabled:bg-[#e5e7eb] disabled:text-[#6b7280]"> <Trash2 className="h-4 w-4" />{deletingGuests ? "Menghapus…" : (() => { const count = Array.from(selectedGuests).filter((id) => filteredGuests.some((guest) => guest.id === id && guest.canDelete)).length; return count ? `Hapus ${count} peserta` : "Hapus peserta"; })()}</button><label className="relative block min-w-[220px] flex-1 sm:max-w-xs"><span className="sr-only">Cari peserta sesi</span><Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#625f54]" /><input value={guestQuery} onChange={(event) => setGuestQuery(event.target.value)} placeholder="Cari nama, nomor, atau sesi" className="min-h-11 w-full rounded-lg border border-[#c9bda7] bg-[#fffdf8] py-2.5 pl-10 pr-3 text-sm text-[#20251f] placeholder:text-[#625f54] focus:border-[#244b3a] focus:outline-none focus:ring-2 focus:ring-[#244b3a]/20" /></label></div>
           </div>
           <details className="rounded-xl border border-[#e5dfd3] bg-[#faf7ef]"><summary className="min-h-11 cursor-pointer px-3 py-2.5 font-bold text-[#244b3a]">Filter peserta</summary><div className="grid grid-cols-2 gap-3 px-3 pb-3 pt-1 xl:px-4 xl:pb-4">
             <label className="space-y-1 text-xs font-bold text-[#514b3e]"><span>Negara</span><select value={guestCountry} onChange={(event) => setGuestCountry(event.target.value)} className={guestSelectClass}><option value="all">Semua negara</option>{guestCountries.map((country) => <option key={country.dial} value={country.dial}>{country.name} (+{country.dial})</option>)}<option value="other">Prefiks lainnya</option></select></label>
@@ -227,13 +227,13 @@ export default function AdminCodesManager(props: Props) {
           <ResponsiveTable
             rows={guestLoading ? [] : filteredGuests}
             getRowKey={(guest) => guest.id}
-            ariaLabel="Daftar peserta Guest"
-            emptyMessage={guestLoading ? "Memuat peserta Guest…" : guestRows.length ? "Tidak ada peserta Guest yang cocok dengan filter." : "Belum ada peserta Guest yang mendaftar melalui sesi."}
+            ariaLabel="Daftar peserta sesi"
+            emptyMessage={guestLoading ? "Memuat peserta sesi…" : guestRows.length ? "Tidak ada peserta sesi yang cocok dengan filter." : "Belum ada peserta sesi yang mendaftar melalui sesi."}
             tableMinWidthClassName="min-w-[900px]"
-            mobileHeader={<label className="flex min-h-11 items-center gap-2 rounded-lg border border-[#e5dfd3] bg-white px-3 text-sm font-semibold text-[#514b3e]"><input type="checkbox" aria-label="Pilih semua peserta Guest yang bisa dihapus" checked={filteredGuests.some((guest) => guest.canDelete) && filteredGuests.filter((guest) => guest.canDelete).every((guest) => selectedGuests.has(guest.id))} onChange={(event) => selectVisibleGuests(event.target.checked)} />Pilih semua yang bisa dihapus</label>}
+            mobileHeader={<label className="flex min-h-11 items-center gap-2 rounded-lg border border-[#e5dfd3] bg-white px-3 text-sm font-semibold text-[#514b3e]"><input type="checkbox" aria-label="Pilih semua peserta sesi yang bisa dihapus" checked={filteredGuests.some((guest) => guest.canDelete) && filteredGuests.filter((guest) => guest.canDelete).every((guest) => selectedGuests.has(guest.id))} onChange={(event) => selectVisibleGuests(event.target.checked)} />Pilih semua yang bisa dihapus</label>}
             columns={[
-              { id: "select", label: "Pilih", header: <input type="checkbox" aria-label="Pilih semua peserta Guest yang bisa dihapus" checked={filteredGuests.some((guest) => guest.canDelete) && filteredGuests.filter((guest) => guest.canDelete).every((guest) => selectedGuests.has(guest.id))} onChange={(event) => selectVisibleGuests(event.target.checked)} />, render: (guest) => <input type="checkbox" aria-label={`Pilih ${guest.name}`} disabled={!guest.canDelete} checked={selectedGuests.has(guest.id)} title={guest.deleteBlockedReason || "Peserta siap dihapus"} onChange={(event) => toggleGuestSelection(guest, event.target.checked)} /> },
-              { id: "name", label: "Nama lengkap", render: (guest) => <><p className="font-bold text-[#20251f]">{guest.name || "(tanpa nama)"}</p><p className="mt-1 text-xs text-[#625f54]">Peserta Guest</p></> },
+              { id: "select", label: "Pilih", header: <input type="checkbox" aria-label="Pilih semua peserta sesi yang bisa dihapus" checked={filteredGuests.some((guest) => guest.canDelete) && filteredGuests.filter((guest) => guest.canDelete).every((guest) => selectedGuests.has(guest.id))} onChange={(event) => selectVisibleGuests(event.target.checked)} />, render: (guest) => <input type="checkbox" aria-label={`Pilih ${guest.name}`} disabled={!guest.canDelete} checked={selectedGuests.has(guest.id)} title={guest.deleteBlockedReason || "Peserta siap dihapus"} onChange={(event) => toggleGuestSelection(guest, event.target.checked)} /> },
+              { id: "name", label: "Nama lengkap", render: (guest) => <><p className="font-bold text-[#20251f]">{guest.name || "(tanpa nama)"}</p><p className="mt-1 text-xs text-[#625f54]">Peserta sesi</p></> },
               { id: "phone", label: "WhatsApp / telepon", render: (guest) => {
                 const phone = String(guest.whatsapp || "");
                 const prefix = phone ? phoneCountryPrefix(phone) : "";

@@ -81,9 +81,9 @@ export default async function RootLayout({
         <AppDialogProvider>
         <AppToastHost />
         <a href="#main-content" className="skip-link">Lewati ke konten utama</a>
-        <Suspense fallback={null}><PublicChrome session={chromeSession} guestSession={effectiveGuestSession} guestClassHref={sessionParticipant?.guestClassHref || effectiveGuestSession?.guestClassHref} initialParticipantPending={participantIsPending} sessionExpired={sessionExpiry.expired} expiredAdmin={sessionExpiry.admin} /></Suspense>
+        <Suspense fallback={null}><PublicChrome session={chromeSession} guestSession={effectiveGuestSession} initialParticipantPending={participantIsPending} sessionExpired={sessionExpiry.expired} expiredAdmin={sessionExpiry.admin} /></Suspense>
         <main id="main-content" tabIndex={-1} className="flex-1">{participantIsPending ? <GuestApprovalGate scope="attendance" initialStatus={guestApprovalStatus || "pending"} /> : children}</main>
-        {!participantIsPending && <Suspense fallback={null}><PublicFooter isGuest={Boolean(effectiveGuestSession && !session)} /></Suspense>}
+        {!participantIsPending && <Suspense fallback={null}><PublicFooter /></Suspense>}
         </AppDialogProvider>
         </ClassCartProvider>
         </ConfirmDialogProvider>

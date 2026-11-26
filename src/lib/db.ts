@@ -20,6 +20,7 @@ import {
   GameQuestion,
 } from "./types";
 import { getBuiltinGames } from "./builtin-games";
+import { isPublishedIndependentGame, normalizeGameBlueprint } from "./game-blueprint";
 
 const DATA_DIR = process.env.VERCEL !== undefined ? path.join("/tmp", ".data") : path.join(process.cwd(), ".data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
@@ -1262,9 +1263,9 @@ export async function getPublishedIndependentGameCounts(classIds: string[]): Pro
       if (!linksError && links) {
         if (!links.length) return counts;
         const gameIds = [...new Set(links.map((link) => String(link.game_id)))];
-        const { data: games, error } = await supabase.from("game_blueprints").select("id,status,destination").in("id", gameIds).in("status", ["published", "independent"]).eq("destination", "independent");
+        const { data: games, error } = await supabase.from("game_blueprints").select("id,status,destination").in("id", gameIds);
         if (!error) {
-          const valid = new Set((games || []).map((game) => String(game.id)));
+          const valid = new Set((games || []).map(normalizeGameBlueprint).filter(isPublishedIndependentGame).map((game) => String(game.id)));
           for (const link of links) if (valid.has(String(link.game_id))) counts[String(link.class_id)] = (counts[String(link.class_id)] || 0) + 1;
           return counts;
         }
@@ -1279,7 +1280,7 @@ export async function getPublishedIndependentGameCounts(classIds: string[]): Pro
     if (!ids.includes(cls.id)) continue;
     counts[cls.id] = [...new Set(cls.gameBlueprintIds || [])].filter((id) => {
       const game = games.get(String(id));
-      return Boolean(game && ["published", "independent"].includes(game.status) && game.destination === "independent");
+      return Boolean(game && isPublishedIndependentGame(normalizeGameBlueprint(game)));
     }).length;
   }
   return counts;
@@ -1339,17 +1340,20 @@ export async function deleteClass(id: string): Promise<boolean> {
     if (classError) throwSb("Gagal memeriksa kelas sebelum dihapus", classError);
     if (!cls) return false;
 
-    const [{ data: sessions, error: sessionsError }, { data: paidEnrollments, error: enrollmentError }, { data: paidOrders, error: orderError }] = await Promise.all([
-      supabase.from("class_sessions").select("id").eq("class_id", id).eq("status", "open").limit(1),
-      supabase.from("enrollments").select("id").eq("class_id", id).gt("paid_amount_idr", 0).limit(1),
-      supabase.from("class_checkout_orders").select("id").contains("class_ids", [id]).eq("status", "paid").limit(1),
-    ]);
+    const { data: sessions, error: sessionsError } = await supabase
+      .from("class_sessions").select("id").eq("class_id", id).eq("status", "open").limit(1);
     if (sessionsError && !isMissingTableError(sessionsError)) throwSb("Gagal memeriksa sesi kelas", sessionsError);
-    if (enrollmentError && !isMissingTableError(enrollmentError)) throwSb("Gagal memeriksa enrollment kelas", enrollmentError);
-    if (orderError && !isMissingTableError(orderError)) throwSb("Gagal memeriksa pesanan lunas kelas", orderError);
     if ((sessions || []).length) throw new Error("Sesi tatap muka kelas masih terbuka. Tutup sesi sebelum menghapus kelas.");
-    if (Number(cls.price_idr) > 0 && ((paidEnrollments || []).length || (paidOrders || []).length)) {
-      throw new Error("Kelas berbayar ini sudah dibeli, tidak bisa dihapus. Pindahkan ke Draft.");
+    if (Number(cls.price_idr) > 0) {
+      const [{ data: paidEnrollments, error: enrollmentError }, { data: paidOrders, error: orderError }] = await Promise.all([
+        supabase.from("enrollments").select("id").eq("class_id", id).gt("paid_amount_idr", 0).limit(1),
+        supabase.from("class_checkout_orders").select("id").filter("class_ids", "cs", JSON.stringify([id])).eq("status", "paid").limit(1),
+      ]);
+      if (enrollmentError && !isMissingTableError(enrollmentError)) throwSb("Gagal memeriksa enrollment kelas", enrollmentError);
+      if (orderError && !isMissingTableError(orderError)) throwSb("Gagal memeriksa pesanan lunas kelas", orderError);
+      if ((paidEnrollments || []).length || (paidOrders || []).length) {
+        throw new Error("Kelas berbayar ini sudah dibeli, tidak bisa dihapus. Pindahkan ke Draft.");
+      }
     }
 
     const { data: deleted, error: deleteError } = await supabase.rpc("delete_class_with_enrollments", { p_class_id: id });
@@ -1601,7 +1605,7 @@ export async function saveClassModuleFile(opts: {
   buffer: Buffer;
   mimeType: string;
   originalName: string;
-}): Promise<{ storagePath: string; fileType: "pdf" | "ppt" | "pptx" | "other"; fileName: string; pdfPath?: string }> {
+}): Promise<{ storagePath: string; fileType: "pdf" | "ppt" | "pptx" | "image" | "other"; fileName: string; pdfPath?: string }> {
   await ensureDirs();
   const safe = opts.originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
   const dir = path.join(PRIVATE_PAGES_DIR, "class-files", opts.classId);
@@ -1609,7 +1613,7 @@ export async function saveClassModuleFile(opts: {
   await tryWriteFile(path.join(dir, fileName), opts.buffer);
   const storagePath = `class-files/${opts.classId}/${fileName}`;
   const lower = safe.toLowerCase();
-  const fileType: "pdf" | "ppt" | "pptx" | "other" = lower.endsWith(".pdf") ? "pdf" : lower.endsWith(".pptx") ? "pptx" : lower.endsWith(".ppt") ? "ppt" : "other";
+  const fileType: "pdf" | "ppt" | "pptx" | "image" | "other" = lower.endsWith(".pdf") ? "pdf" : lower.endsWith(".pptx") ? "pptx" : lower.endsWith(".ppt") ? "ppt" : /\.(jpe?g|png|webp)$/.test(lower) ? "image" : "other";
   let pdfPath: string | undefined;
   if (fileType === "pdf") {
     pdfPath = storagePath;
@@ -1654,6 +1658,12 @@ export async function readClassModuleFile(storagePath: string): Promise<{ buffer
       ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
       : lower.endsWith(".ppt")
       ? "application/vnd.ms-powerpoint"
+      : /\.(jpe?g)$/.test(lower)
+      ? "image/jpeg"
+      : lower.endsWith(".png")
+      ? "image/png"
+      : lower.endsWith(".webp")
+      ? "image/webp"
       : "application/octet-stream";
     return { buffer, contentType, fileName: path.basename(resolved) };
   } catch {

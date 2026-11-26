@@ -3,6 +3,8 @@ import nodemailer from "nodemailer";
 
 type EmailOptions = { to: string; subject: string; heading: string; intro: string; actionUrl: string; actionLabel: string; note?: string };
 
+type CustomEmailOptions = { to: string; replyTo: string; subject: string; text: string; html: string };
+
 function smtpConfig() {
   const host = process.env.SMTP_HOST?.trim();
   const port = Number(process.env.SMTP_PORT?.trim());
@@ -44,5 +46,28 @@ export async function sendAppEmail(options: EmailOptions) {
   } catch (error) {
     if (error instanceof Error && error.message === "Layanan email belum siap") throw error;
     throw new Error("Email belum dapat dikirim. Periksa konfigurasi layanan email.");
+  }
+}
+
+export async function sendCustomEmail(options: CustomEmailOptions) {
+  try {
+    const config = smtpConfig();
+    const validEmail = (value: string) => /^[^\s@\r\n]+@[^\s@\r\n]+\.[^\s@\r\n]+$/.test(value);
+    if (!validEmail(options.to) || !validEmail(options.replyTo) || /[\r\n]/.test(options.subject)) {
+      throw new Error("Alamat email tidak valid.");
+    }
+    const transporter = nodemailer.createTransport({ host: config.host, port: config.port, secure: config.port === 465, requireTLS: config.port === 587, auth: { user: config.user, pass: config.pass } });
+    await transporter.sendMail({
+      from: `"Kampung Inggris Sapen" <${config.fromEmail}>`,
+      to: options.to,
+      replyTo: options.replyTo,
+      subject: options.subject,
+      text: options.text,
+      html: options.html,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Layanan email belum siap") throw error;
+    if (error instanceof Error && error.message === "Alamat email tidak valid.") throw error;
+    throw new Error("Pertanyaan belum dapat dikirim. Coba lagi nanti.");
   }
 }

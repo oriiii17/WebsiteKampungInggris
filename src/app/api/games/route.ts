@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserEnrollments, readLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
-import { normalizeGameBlueprint, type GameBlueprint } from "@/lib/game-blueprint";
+import { isPublishedIndependentGame, normalizeGameBlueprint, type GameBlueprint } from "@/lib/game-blueprint";
 import { getSessionWithGuestContext, isAdminSession } from "@/lib/auth";
 import { getApprovedActiveClassSession } from "@/lib/active-class-session";
 
@@ -32,17 +32,17 @@ export async function GET(request: Request) {
     if (supabase) {
       const [{ data: links, error: linksError }, { data, error }] = await Promise.all([
         supabase.from("class_games").select("game_id").eq("class_id", classId),
-        supabase.from("game_blueprints").select("*").in("status", ["published", "independent"]).order("updated_at", { ascending: false }),
+        supabase.from("game_blueprints").select("*").order("updated_at", { ascending: false }),
       ]);
-      if (linksError) return NextResponse.json({ error: "Daftar latihan kelas belum dapat dimuat." }, { status: 503 });
+      if (linksError) return NextResponse.json({ error: "Daftar latihan mandiri belum dapat dimuat." }, { status: 503 });
       if (error) return NextResponse.json({ error: "Latihan mandiri belum dapat dimuat." }, { status: 503 });
       const linkedIds = new Set((links || []).map((link) => link.game_id));
-      const games = (data || []).map(fromRow).filter((game) => linkedIds.has(game.id) && ["published", "independent"].includes(game.status) && game.destination === "independent");
+      const games = (data || []).map(fromRow).filter((game) => linkedIds.has(game.id) && isPublishedIndependentGame(game));
       return NextResponse.json({ games }, { headers: { "Cache-Control": "no-store, max-age=0" } });
     }
     const db = await readLocalDb();
     const linkedIds = new Set(db.classes?.find((item) => item.id === classId)?.gameBlueprintIds || []);
-    return NextResponse.json({ games: (db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => linkedIds.has(game.id) && ["published", "independent"].includes(game.status) && game.destination === "independent") }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    return NextResponse.json({ games: (db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => linkedIds.has(game.id) && isPublishedIndependentGame(game)) }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
   let allowedGuestGameIds: string[] | null = null;
   let allowedSelectedSessionGameIds: string[] = [];

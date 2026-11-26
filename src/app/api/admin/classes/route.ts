@@ -4,7 +4,7 @@ import { getClasses, getClassByIdOrSlug, upsertClass, deleteClass, readLocalDb }
 import { ClassItem, ClassModule, ClassQuiz } from "@/lib/types";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { formatIDR, MAX_PRICE_IDR } from "@/lib/currency";
-import { normalizeGameBlueprint } from "@/lib/game-blueprint";
+import { isPublishedIndependentGame, normalizeGameBlueprint } from "@/lib/game-blueprint";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 async function withInstalledGames(items: ClassItem[]) {
@@ -28,12 +28,12 @@ async function validateIndependentGameIds(ids: unknown): Promise<string[]> {
   if (supabase) {
     const { data: published, error: validateError } = await supabase.from("game_blueprints").select("id,status,destination").in("id", gameIds);
     if (validateError) throw new Error("Game terbit belum dapat diverifikasi.");
-    const validIds = new Set((published || []).filter((game) => ["published", "independent"].includes(game.status) && game.destination === "independent").map((game) => game.id));
+    const validIds = new Set((published || []).map(normalizeGameBlueprint).filter(isPublishedIndependentGame).map((game) => game.id));
     if (validIds.size !== gameIds.length) throw new Error("Pilih hanya game terbit dengan kategori Latihan Mandiri.");
     return gameIds;
   }
   const db = await readLocalDb();
-  const validIds = new Set((db.gameBlueprints || []).map(normalizeGameBlueprint).filter((game) => ["published", "independent"].includes(game.status) && game.destination === "independent").map((game) => game.id));
+  const validIds = new Set((db.gameBlueprints || []).map(normalizeGameBlueprint).filter(isPublishedIndependentGame).map((game) => game.id));
   if (gameIds.some((id) => !validIds.has(id))) throw new Error("Pilih hanya game terbit dengan kategori Latihan Mandiri.");
   return gameIds;
 }
@@ -43,7 +43,7 @@ async function saveInstalledGames(classId: string, ids: string[]) {
   if (!supabase) return;
   const desiredIds = [...new Set(ids)];
   const { data: currentRows, error: readError } = await supabase.from("class_games").select("game_id").eq("class_id", classId);
-  if (readError) throw new Error(`Relasi latihan kelas belum dapat dibaca (${readError.code}).`);
+  if (readError) throw new Error(`Relasi latihan mandiri belum dapat dibaca (${readError.code}).`);
   const currentIds = new Set((currentRows || []).map((row) => String(row.game_id)));
   const additions = desiredIds.filter((gameId) => !currentIds.has(gameId));
   const removals = [...currentIds].filter((gameId) => !desiredIds.includes(gameId));
@@ -54,18 +54,18 @@ async function saveInstalledGames(classId: string, ids: string[]) {
       additions.map((game_id) => ({ class_id: classId, game_id })),
       { onConflict: "class_id,game_id", ignoreDuplicates: true },
     );
-    if (error) throw new Error(`Latihan kelas gagal disimpan (${error.code}).`);
+    if (error) throw new Error(`Latihan mandiri gagal disimpan (${error.code}).`);
   }
   if (removals.length) {
     const { error } = await supabase.from("class_games").delete().eq("class_id", classId).in("game_id", removals);
-    if (error) throw new Error(`Latihan kelas gagal diperbarui (${error.code}).`);
+    if (error) throw new Error(`Latihan mandiri gagal diperbarui (${error.code}).`);
   }
 
   const { data: savedRows, error: verifyError } = await supabase.from("class_games").select("game_id").eq("class_id", classId);
-  if (verifyError) throw new Error(`Perubahan latihan kelas belum dapat diverifikasi (${verifyError.code}).`);
+  if (verifyError) throw new Error(`Perubahan latihan mandiri belum dapat diverifikasi (${verifyError.code}).`);
   const savedIds = new Set((savedRows || []).map((row) => String(row.game_id)));
   if (savedIds.size !== desiredIds.length || desiredIds.some((gameId) => !savedIds.has(gameId))) {
-    throw new Error("Pilihan latihan kelas belum tersimpan seluruhnya. Silakan simpan kelas sekali lagi.");
+    throw new Error("Pilihan latihan mandiri belum tersimpan seluruhnya. Silakan simpan kelas sekali lagi.");
   }
 }
 
