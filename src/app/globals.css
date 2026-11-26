@@ -1224,42 +1224,66 @@ input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px #fff inset; }
 @media (max-width: 767px) {
   .home-route-list { gap: 1.5rem; }
   .home-route-image {
-    position: relative;
+    position: static;
     display: flex;
     height: auto;
     min-height: 0;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
     padding: 0;
-    border-radius: 1rem;
+    margin: 0;
+    transform: none;
+    border-radius: 0;
   }
   .home-route-photo-frame {
     position: relative;
     inset: auto;
-    flex: 0 0 200px;
+    flex: none;
     width: 100%;
-    height: 200px;
+    height: auto;
+    aspect-ratio: 16 / 10;
     overflow: hidden;
-    border-radius: 0;
+    border-radius: 1rem 1rem 0 0;
   }
-  .home-route-photo-frame img { width: 100%; height: 100%; object-fit: cover; }
+  .home-route-photo-frame img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
   .home-route-copy,
   .home-route:nth-child(even) .home-route-copy {
-    position: relative;
+    position: static;
     top: auto;
     right: auto;
     left: auto;
-    width: auto;
+    width: 100%;
     max-width: none;
     min-height: 0;
+    height: auto;
     margin: 0;
     padding: 1.25rem;
     overflow: visible;
     transform: none;
+    border-radius: 0 0 1rem 1rem;
+    background: #fff;
+    color: #1a3626;
   }
   .home-route-copy h3,
-  .home-route-copy p { max-width: none; overflow: visible; }
-  .home-route-copy .home-text-link { min-height: 44px; }
+  .home-route-copy p {
+    max-width: none;
+    overflow: visible;
+    display: block;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+  }
+  .home-route-copy h3 { color: #1a3626; }
+  .home-route-copy p { color: #4a5568; }
+  .home-route-copy .home-text-link {
+    min-height: 44px;
+    color: #1a3626;
+  }
   .home-camp-feature { margin-top: 40px; }
   .home-classes-panel { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
   .home-classes-intro h2 { max-width: 16ch; }
