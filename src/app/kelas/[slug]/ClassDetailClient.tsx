@@ -109,6 +109,7 @@ export default function ClassDetailClient({ classItem, includedModules, isEnroll
       if (!response.ok) throw new Error("Konteks sesi belum berhasil dibersihkan. Coba lagi.");
       if (isGuest) clearAuthBrowserStorage();
       window.dispatchEvent(new Event("sapen:guest-session-updated"));
+      window.dispatchEvent(new CustomEvent("sapen:session-participation-changed", { detail: { status: "outside" } }));
       router.refresh();
       router.replace("/");
     } catch (error) {

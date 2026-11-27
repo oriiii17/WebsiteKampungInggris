@@ -17,6 +17,7 @@ export default function PublicChrome({ session, guestSession, initialParticipant
   const [activeGuestSession, setActiveGuestSession] = useState(guestSession);
   const [participantPending, setParticipantPending] = useState(initialParticipantPending);
   const [sessionJoinStatus, setSessionJoinStatus] = useState<SessionParticipation>(isSessionEntryRoute ? "waiting" : "outside");
+  const [sessionExitRequested, setSessionExitRequested] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [acknowledgingEnd, setAcknowledgingEnd] = useState(false);
   const [endError, setEndError] = useState("");
@@ -43,14 +44,20 @@ export default function PublicChrome({ session, guestSession, initialParticipant
   }, [guestSession, initialParticipantPending, session]);
 
   useEffect(() => {
-    if (isSessionEntryRoute) setSessionJoinStatus("waiting");
-    else if (!activeSessionId) setSessionJoinStatus("outside");
+    if (isSessionEntryRoute) {
+      setSessionExitRequested(false);
+      setSessionJoinStatus((current) => current === "approved" ? current : "waiting");
+    }
+    else if (!activeSessionId) setSessionJoinStatus((current) => current === "approved" ? current : "outside");
   }, [activeSessionId, isSessionEntryRoute, pathname]);
 
   useEffect(() => {
     const onParticipationChange = (event: Event) => {
       const status = (event as CustomEvent<{ status?: SessionParticipation }>).detail?.status;
-      if (status === "outside" || status === "waiting" || status === "approved") setSessionJoinStatus(status);
+      if (status === "outside" || status === "waiting" || status === "approved") {
+        setSessionJoinStatus(status);
+        setSessionExitRequested(status === "outside");
+      }
     };
     window.addEventListener("sapen:session-participation-changed", onParticipationChange);
     return () => window.removeEventListener("sapen:session-participation-changed", onParticipationChange);
@@ -84,8 +91,8 @@ export default function PublicChrome({ session, guestSession, initialParticipant
     let active = true;
     let latestRequest = 0;
     let requestInFlight = false;
-    const syncGuestSession = async () => {
-      if (!activeSessionId && !activeGuestSession) return;
+    const syncGuestSession = async (force = false) => {
+      if (!force && !activeSessionId && !activeGuestSession) return;
       if (requestInFlight) return;
       requestInFlight = true;
       const requestId = ++latestRequest;
@@ -100,6 +107,13 @@ export default function PublicChrome({ session, guestSession, initialParticipant
           setActiveAccountSession((previous) => previous?.id === nextAccount?.id && previous?.guestSessionId === nextAccount?.guestSessionId && previous?.guestClassHref === nextAccount?.guestClassHref ? previous : nextAccount);
           const nextPending = Boolean(data.session?.guestSessionId && data.approvalStatus !== "approved");
           setParticipantPending(nextPending);
+          if (data.session?.guestSessionId) {
+            setSessionJoinStatus(data.approvalStatus === "approved" ? "approved" : "waiting");
+            setSessionExitRequested(false);
+          } else if (force) {
+            setSessionJoinStatus("outside");
+            setSessionExitRequested(true);
+          }
           if (!nextPending && data.approvalStatus === "approved" && participantPending) router.refresh();
         }
       } catch {
@@ -110,22 +124,24 @@ export default function PublicChrome({ session, guestSession, initialParticipant
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") void syncGuestSession();
     };
+    const onFocus = () => { void syncGuestSession(); };
     const onRegistrationUpdated = () => {
       setParticipantPending(true);
-      void syncGuestSession();
+      void syncGuestSession(true);
     };
+    const onGuestSessionUpdated = () => { void syncGuestSession(true); };
 
     void syncGuestSession();
     const poll = window.setInterval(() => { if (document.visibilityState === "visible") void syncGuestSession(); }, 5000);
-    window.addEventListener("focus", syncGuestSession);
-    window.addEventListener("sapen:guest-session-updated", syncGuestSession);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("sapen:guest-session-updated", onGuestSessionUpdated);
     window.addEventListener("sapen:session-registration-updated", onRegistrationUpdated);
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       active = false;
       window.clearInterval(poll);
-      window.removeEventListener("focus", syncGuestSession);
-      window.removeEventListener("sapen:guest-session-updated", syncGuestSession);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("sapen:guest-session-updated", onGuestSessionUpdated);
       window.removeEventListener("sapen:session-registration-updated", onRegistrationUpdated);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
@@ -141,7 +157,11 @@ export default function PublicChrome({ session, guestSession, initialParticipant
       try {
         const response = await fetch("/api/class-sessions/current", { cache: "no-store" });
         const data = await response.json();
-        if (active && data.status === "closed") setSessionEnded(true);
+        if (active && (data.status === "closed" || data.status === null)) {
+          setSessionJoinStatus("outside");
+          setSessionExitRequested(true);
+          setSessionEnded(true);
+        }
       } catch {
         // Keep the page available during temporary network failures.
       } finally {
@@ -176,6 +196,8 @@ export default function PublicChrome({ session, guestSession, initialParticipant
         if (!response.ok) throw new Error("Konteks sesi belum berhasil dibersihkan. Tekan OK untuk mencoba lagi.");
       }
       window.dispatchEvent(new Event("sapen:guest-session-updated"));
+      setSessionJoinStatus("outside");
+      setSessionExitRequested(true);
       setActiveAccountSession((current) => current ? { ...current, guestSessionId: undefined, guestRegistrationId: undefined, guestClassHref: undefined } : null);
       setActiveGuestSession(null);
       setSessionEnded(false);
@@ -189,11 +211,11 @@ export default function PublicChrome({ session, guestSession, initialParticipant
 
   const participationForNavbar: SessionParticipation = sessionEnded
     ? "outside"
-    : isSessionEntryRoute
-      ? sessionJoinStatus
-      : activeSessionId
-        ? participantPending ? "waiting" : "approved"
-        : "outside";
+    : sessionExitRequested
+      ? "outside"
+    : activeSessionId
+      ? participantPending ? "waiting" : "approved"
+      : sessionJoinStatus;
   const navbar = isAdminRoute || isAdminHostRoute ? null : <Navbar session={visibleSession} sessionParticipation={participationForNavbar} />;
   return <>{!isAdminRoute && <div className="site-background" aria-hidden="true" />}{navbar}{sessionChanged && <div className="session-ended-backdrop" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="session-changed-title" className="session-ended-panel"><h2 id="session-changed-title" className="session-ended-title">Sesi Anda telah berubah</h2><p className="session-ended-message">Sesi Anda telah berubah, silakan muat ulang halaman.</p><div className="session-ended-actions"><button data-session-reload type="button" autoFocus onClick={() => window.location.reload()}>Muat ulang halaman</button></div></section></div>}{sessionEnded && <div className="session-ended-backdrop" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="guest-session-ended-title" aria-describedby="guest-session-ended-description" className="session-ended-panel"><h2 id="guest-session-ended-title" className="session-ended-title">Sesi sudah berakhir</h2><p id="guest-session-ended-description" className="session-ended-message">Sesi sudah ditutup. Silakan kembali ke beranda.</p>{endError && <p role="alert" className="session-ended-error">{endError}</p>}<div className="session-ended-actions"><button type="button" autoFocus disabled={acknowledgingEnd} onClick={() => void acknowledgeSessionEnd()}>{acknowledgingEnd ? "Menyiapkan…" : "OK"}</button></div></section></div>}</>;
 }
