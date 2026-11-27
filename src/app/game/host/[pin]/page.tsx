@@ -1,5 +1,5 @@
 import React from "react";
-import { getLiveSession } from "@/lib/game-session";
+import { loadLiveGame } from "@/lib/live-game-store";
 import { notFound } from "next/navigation";
 import HostLiveSessionClient from "@/components/game/HostLiveSessionClient";
 
@@ -9,7 +9,7 @@ export default async function HostLiveSessionPage({
   params: Promise<{ pin: string }>;
 }) {
   const { pin } = await params;
-  const session = getLiveSession(pin);
+  const session = await loadLiveGame(pin);
 
   if (!session) {
     notFound();

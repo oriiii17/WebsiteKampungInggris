@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
 import { getLiveSession } from "@/lib/game-session";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { loadLiveGame, persistLiveGame } from "@/lib/live-game-store";
 import { readLocalDb, writeLocalDb } from "@/lib/db";
 import {
   closeSessionGame,
@@ -23,6 +24,7 @@ export async function POST(
   const body = await req.json().catch(() => ({}));
   const { action, hostId, targetPlayerId } = body;
 
+  await loadLiveGame(pin);
   const liveSession = getLiveSession(pin);
   if (!hostId || !liveSession || session?.id !== hostId || liveSession.hostId !== session?.id) {
     return NextResponse.json(
@@ -74,14 +76,11 @@ export async function POST(
   const updatedSession = getLiveSession(pin) || (action === "close" ? liveSession : null);
   const supabase = await getSupabaseServerClient();
   if (updatedSession && supabase) {
-    const { error } = await supabase.from("game_sessions").update({
-      status: updatedSession.status,
-      current_question_index: updatedSession.currentQuestionIndex,
-      updated_at: new Date().toISOString(),
-    }).eq("pin", pin);
-    if (error) {
-      console.error("[game/live/action] Supabase", { code: error.code, message: error.message, details: error.details, hint: error.hint });
-      return NextResponse.json({ ok: false, error: `Sesi berubah di layar host, tetapi gagal disimpan (${error.code || "Supabase"}): ${error.message}` }, { status: 500 });
+    try {
+      await persistLiveGame(updatedSession);
+    } catch (error) {
+      console.error("[game/live/action] Supabase", error instanceof Error ? error.message : "Persistence failed");
+      return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Sesi berubah di layar host, tetapi gagal disimpan." }, { status: 500 });
     }
     if (action === "close") {
       const { error: linkError } = await supabase.from("class_session_games").update({ live_status: "closed" }).eq("live_pin", pin);

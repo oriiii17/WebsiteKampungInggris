@@ -6,6 +6,7 @@ import {
   sanitizeSessionForClient,
 } from "@/lib/game-session";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { loadLiveGame, persistLiveGame } from "@/lib/live-game-store";
 
 export async function POST(
   req: Request,
@@ -51,8 +52,10 @@ export async function POST(
     }
     if (!data?.ok) return NextResponse.json({ ok: false, error: data?.error || "Sesi tidak ditemukan atau sudah ditutup." }, { status: 400 });
     playerId = data.playerId || playerId;
+    await loadLiveGame(pin);
     const result = joinPlayerToSession(pin, playerName, playerId, avatarId, data.team === "saffron" ? "saffron" : "forest");
     if (!result.ok || !result.session) return NextResponse.json({ ok: false, error: result.error || "Gagal bergabung." }, { status: 400 });
+    await persistLiveGame(result.session);
     return NextResponse.json({ ok: true, playerId, playerName, avatarId, team: data.team, session: sanitizeSessionForClient(result.session) });
   }
 

@@ -168,6 +168,12 @@ export function getLiveSession(pin: string): LiveGameSession | null {
   return s;
 }
 
+/** Populate the process cache from the durable server-side store. */
+export function restoreLiveSession(session: LiveGameSession) {
+  sessionsMap.set(session.pin, session);
+  return session;
+}
+
 export function joinPlayerToSession(pin: string, playerName: string, playerId: string, avatarId: PlayerSession["avatarId"] = "leaf", forcedTeam?: PlayerSession["team"]): { ok: boolean; error?: string; session?: LiveGameSession } {
   const session = getLiveSession(pin);
   if (!session) return { ok: false, error: "PIN sesi tidak ditemukan atau sudah selesai." };

@@ -1,5 +1,5 @@
 import React from "react";
-import { getLiveSession } from "@/lib/game-session";
+import { loadLiveGame } from "@/lib/live-game-store";
 import { notFound } from "next/navigation";
 import PlayerLiveGameClient from "@/components/game/PlayerLiveGameClient";
 import { getSessionWithGuestContext } from "@/lib/auth";
@@ -11,7 +11,7 @@ export default async function PlayerGamePage({
   params: Promise<{ pin: string }>;
 }) {
   const { pin } = await params;
-  const session = getLiveSession(pin);
+  const session = await loadLiveGame(pin);
   const participantSession = await getSessionWithGuestContext();
 
   if (!session) {

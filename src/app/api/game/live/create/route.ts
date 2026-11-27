@@ -1,9 +1,10 @@
 ﻿import { NextResponse } from "next/server";
 import { getServerSession, isAdminSession } from "@/lib/auth";
-import { createLiveGameSessionFromGame, getLiveSession } from "@/lib/game-session";
+import { createLiveGameSessionFromGame } from "@/lib/game-session";
+import { loadLiveGame } from "@/lib/live-game-store";
 import { readLocalDb, writeLocalDb } from "@/lib/db";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
-import type { GameBlueprint } from "@/lib/game-blueprint";
+import { normalizeGameDestination, type GameBlueprint } from "@/lib/game-blueprint";
 import type { GameRecord, GameQuestion } from "@/lib/types";
 
 function blueprintToLiveGame(game: GameBlueprint): GameRecord {
@@ -49,6 +50,7 @@ export async function POST(req: Request) {
     const classSessionId = typeof body.classSessionId === "string" ? body.classSessionId : "";
     let game = null as GameRecord | null;
     let gameStatus: GameBlueprint["status"] | null = null;
+    let gameDestination: GameBlueprint["destination"] | null = null;
     if (body.source === "blueprint") {
       const supabase = await getSupabaseServerClient();
       let blueprint: GameBlueprint | null = null;
@@ -58,12 +60,13 @@ export async function POST(req: Request) {
           console.error("[game/live/create] Blueprint lookup failed", { code: error.code, message: error.message });
           return NextResponse.json({ ok: false, error: "Game belum dapat diverifikasi. Pastikan game sudah tersimpan dan migrasi game_blueprints sudah diterapkan." }, { status: 503 });
         }
-        if (data) blueprint = { id: data.id, title: data.title, cardInitials: String(data.card_initials || data.title || "Kuis").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toLocaleUpperCase("id-ID") || "KU", template: data.template, level: data.level, topic: data.topic, language: data.language, status: data.status, plays: data.play_count || 0, settings: data.settings, items: data.items, createdAt: data.created_at, updatedAt: data.updated_at };
+        if (data) blueprint = { id: data.id, title: data.title, cardInitials: String(data.card_initials || data.title || "Kuis").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toLocaleUpperCase("id-ID") || "KU", template: data.template, level: data.level, topic: data.topic, language: data.language, status: data.status, destination: normalizeGameDestination(data.destination) || undefined, plays: data.play_count || 0, settings: data.settings, items: data.items, createdAt: data.created_at, updatedAt: data.updated_at };
       } else {
         blueprint = (await readLocalDb()).gameBlueprints?.find((entry) => entry.id === gameId && (entry.status === "published" || entry.status === "session")) || null;
       }
       if (blueprint) {
         gameStatus = blueprint.status;
+        gameDestination = normalizeGameDestination(blueprint.destination) || (blueprint.status === "session" ? "session" : null);
         game = blueprintToLiveGame(blueprint);
       }
     } else return NextResponse.json({ ok: false, error: "Pilih game dari Game Builder untuk membuat sesi live." }, { status: 400 });
@@ -73,7 +76,7 @@ export async function POST(req: Request) {
     const supabase = await getSupabaseServerClient();
     let linkedGame: { livePin?: string | null; liveStatus?: string | null } | null = null;
     if (classSessionId) {
-      if (gameStatus !== "session") return NextResponse.json({ ok: false, error: "Hanya game kategori Sesi yang dapat dibuka dari sesi tatap muka." }, { status: 400 });
+      if (gameStatus !== "session" || gameDestination !== "session") return NextResponse.json({ ok: false, error: "Hanya game terbit untuk sesi tatap muka yang dapat dibuka dari sesi." }, { status: 400 });
       if (supabase) {
         const { data: parent } = await supabase.from("class_sessions").select("id,status").eq("id", classSessionId).maybeSingle();
         if (!parent || parent.status !== "open") return NextResponse.json({ ok: false, error: "Sesi tatap muka sudah berakhir atau tidak ditemukan." }, { status: 409 });
@@ -93,7 +96,7 @@ export async function POST(req: Request) {
       const selectedLink = linkedGame;
       if (!selectedLink) return NextResponse.json({ ok: false, error: "Game ini belum ditautkan ke sesi tatap muka." }, { status: 404 });
       if (selectedLink.livePin) {
-        const existing = getLiveSession(selectedLink.livePin);
+        const existing = await loadLiveGame(selectedLink.livePin);
         if (existing && ["lobby", "question", "reveal"].includes(existing.status)) {
           if (body.mode === "host" && existing.hostId !== session?.id) return NextResponse.json({ ok: false, error: "Mode Host hanya dapat dibuka oleh pengurus yang membuat sesi game ini." }, { status: 403 });
           return NextResponse.json({ ok: true, pin: existing.pin, hostId: existing.hostId, templateTitle: existing.templateTitle, gameId: game.id, gameKind: game.kind });
@@ -119,7 +122,7 @@ export async function POST(req: Request) {
         status: "lobby",
         current_question_index: 0,
         total_questions: gameSession.totalQuestions,
-        game_snapshot: { title: game.title, kind: game.kind, questions: gameSession.questions },
+        game_snapshot: { title: game.title, kind: game.kind, questions: gameSession.questions, liveState: gameSession },
       });
       if (error) {
         console.error("[game/live/create] Supabase", { code: error.code, message: error.message, details: error.details, hint: error.hint });
