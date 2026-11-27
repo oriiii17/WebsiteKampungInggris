@@ -13,5 +13,5 @@ export default async function GamesPage() {
   const session = await getSessionWithGuestContext();
   const isGuest = session?.role === "guest" || session?.origin === "guest";
   const isSessionParticipant = Boolean(session?.guestSessionId);
-  return <GameCatalogClient isGuest={isSessionParticipant} guestParticipantId={isGuest ? session?.guestRegistrationId : undefined} showHistory={canSavePersonalGameHistory(session)} />;
+  return <GameCatalogClient isGuest={isSessionParticipant} guestParticipantId={isGuest ? session?.guestRegistrationId : undefined} initialName={session?.name} showHistory={canSavePersonalGameHistory(session)} />;
 }

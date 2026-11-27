@@ -20,6 +20,8 @@ export default function JoinGameClient({ defaultName = "", isGuest = false }: { 
     if (pinParam) {
       setPin(pinParam.replace(/\D/g, "").slice(0, 6));
     }
+    const participantName = (searchParams.get("name") || "").trim();
+    if (participantName) setName(participantName.slice(0, 80));
     let scannedName = "";
     if (searchParams.get("entry") === "scan") {
       try { scannedName = (sessionStorage.getItem("sapen_scan_guest_name") || "").trim(); } catch {}

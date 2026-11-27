@@ -6,11 +6,13 @@ import { ArrowRight, Gamepad2, Search, Trophy, X } from "lucide-react";
 import { GAME_TEMPLATES, type GameBlueprint } from "@/lib/game-blueprint";
 import { GUEST_GAME_COMPLETED_EVENT, readCompletedGuestGames } from "@/lib/guest-game-progress";
 import { gameLevelAccent } from "@/components/game/GameCardHeader";
+import GamePinForm from "@/components/game/GamePinForm";
+import ActiveSessionGamesPanel from "@/components/games/ActiveSessionGamesPanel";
 
 type CatalogGame = GameBlueprint & { classId?: string };
 type GameScoreEntry = { id: string; gameId: string; gameTitle: string; gameType: string; score: number; createdAt: string };
 
-export default function GameCatalogClient({ isGuest = false, guestParticipantId, showHistory = false }: { isGuest?: boolean; guestParticipantId?: string; showHistory?: boolean }) {
+export default function GameCatalogClient({ isGuest = false, guestParticipantId, initialName, showHistory = false }: { isGuest?: boolean; guestParticipantId?: string; initialName?: string; showHistory?: boolean }) {
   const [games, setGames] = useState<CatalogGame[]>([]);
   const [completedGuestGames, setCompletedGuestGames] = useState<string[]>([]);
   const [query, setQuery] = useState("");
@@ -41,19 +43,22 @@ export default function GameCatalogClient({ isGuest = false, guestParticipantId,
     async function loadGames() {
       try {
         const [catalogResponse, currentSessionResponse] = await Promise.all([
-          fetch("/api/games", { cache: "no-store" }),
+          isGuest ? Promise.resolve(null) : fetch("/api/games", { cache: "no-store" }),
           isGuest ? fetch("/api/class-sessions/current", { cache: "no-store" }) : Promise.resolve(null),
         ]);
-        const catalogData = await catalogResponse.json();
-        if (!catalogResponse.ok) throw new Error(catalogData.error || "Kuis belum dapat dimuat.");
-        let catalogGames: CatalogGame[] = catalogData.games || [];
+        let catalogGames: CatalogGame[] = [];
+        if (!isGuest && catalogResponse) {
+          const catalogData = await catalogResponse.json();
+          if (!catalogResponse.ok) throw new Error(catalogData.error || "Kuis belum dapat dimuat.");
+          catalogGames = catalogData.games || [];
+        }
         if (isGuest && currentSessionResponse?.ok) {
           const currentSession = await currentSessionResponse.json();
           if (typeof currentSession.classId === "string" && currentSession.classId) {
             const practiceResponse = await fetch(`/api/games?purpose=independent&classId=${encodeURIComponent(currentSession.classId)}`, { cache: "no-store" });
             const practiceData = await practiceResponse.json();
             if (!practiceResponse.ok) throw new Error(practiceData.error || "Latihan mandiri kelas belum dapat dimuat.");
-            catalogGames = [...catalogGames, ...(practiceData.games || []).map((game: GameBlueprint) => ({ ...game, classId: currentSession.classId }))];
+            catalogGames = (practiceData.games || []).map((game: GameBlueprint) => ({ ...game, classId: currentSession.classId }));
           }
         }
         if (active) setGames(catalogGames);
@@ -94,6 +99,8 @@ export default function GameCatalogClient({ isGuest = false, guestParticipantId,
   const steps = ["Pilih kuis yang ingin dimainkan.", "Baca petunjuk dan jawab setiap soal.", "Lihat skor setelah kuis selesai."];
   return <main className="min-h-dvh bg-transparent px-4 pt-8 pb-28 text-[#20251f] sm:px-8 sm:pt-12 sm:pb-28 lg:pb-12"><div className="mx-auto max-w-6xl">
     <header className="max-w-2xl"><h1 className="font-display text-[clamp(28px,8vw,36px)] font-bold leading-tight text-[#183b2d]">{isGuest ? "Belajar bersama kelasmu." : "Belajar lewat kuis."}</h1><p className="mt-4 text-base leading-7 text-[#3d4038]">{isGuest ? "Kuis kelas dan latihan mandiri tersedia di bawah." : "Pilih latihan dan mulai bermain kapan saja."}</p><Link href="/sesi" className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#244b3a] underline underline-offset-4">Punya PIN? Gabung sesi<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link></header>
+
+    {isGuest ? <div className="mt-6"><ActiveSessionGamesPanel /></div> : <section aria-labelledby="games-pin-title" className="mt-6 rounded-2xl border border-[#c9bda7] bg-white p-4 sm:p-5"><h2 id="games-pin-title" className="mb-3 font-bold text-[#183b2d]">Gabung kuis dengan PIN</h2><GamePinForm initialName={initialName} /></section>}
 
     {showHistory && <nav aria-label="Menu Kuis" className="mt-7 flex flex-wrap gap-2 border-b border-[#d2c5ad] pb-3">
       <button type="button" aria-current={view === "games" ? "page" : undefined} onClick={() => setView("games")} className={`min-h-11 rounded-full border px-4 text-sm font-bold transition-colors ${view === "games" ? "border-[#244b3a] bg-[#244b3a] text-white" : "border-[#b8aa8e] bg-[#fdf9f0] text-[#244b3a] hover:bg-[#e6eadf]"}`}>Kuis</button>

@@ -157,6 +157,7 @@ export default function PublicChrome({ session, guestSession, initialParticipant
       try {
         const response = await fetch("/api/class-sessions/current", { cache: "no-store" });
         const data = await response.json();
+        window.dispatchEvent(new CustomEvent("sapen:active-class-session-updated", { detail: data }));
         if (active && (data.status === "closed" || data.status === null)) {
           setSessionJoinStatus("outside");
           setSessionExitRequested(true);

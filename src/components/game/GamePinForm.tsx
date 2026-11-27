@@ -18,7 +18,9 @@ export default function GamePinForm({ initialName }: { initialName?: string }) {
       return;
     }
     setError("");
-    router.push(`/game/join?pin=${cleanPin}`);
+    const params = new URLSearchParams({ pin: cleanPin });
+    if (initialName?.trim()) params.set("name", initialName.trim());
+    router.push(`/game/join?${params.toString()}`);
   };
 
   return (
