@@ -22,6 +22,8 @@
 @layer base {
   :root {
     color-scheme: light;
+    --font-dm-sans: "DM Sans";
+    --font-fraunces: "Fraunces";
     --ink: #20251f;
     --body: #3d4038;
     --muted: #625f54;

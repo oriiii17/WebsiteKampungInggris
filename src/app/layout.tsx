@@ -1,6 +1,5 @@
 import React, { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import PublicChrome from "@/components/PublicChrome";
 import PublicFooter from "@/components/PublicFooter";
@@ -16,9 +15,6 @@ import AppToastHost from "@/components/ui/AppToast";
 import { cookies } from "next/headers";
 import { ClassCartProvider } from "@/components/ClassCartProvider";
 import { CLASS_CART_SNAPSHOT_COOKIE, getSnapshotCart, parseCartSnapshot, type CartIdentity } from "@/lib/class-cart-snapshot";
-
-const dmSans = DM_Sans({ subsets: ["latin"], display: "swap", variable: "--font-dm-sans" });
-const fraunces = Fraunces({ subsets: ["latin"], display: "swap", variable: "--font-fraunces" });
 
 export const metadata: Metadata = {
   title: {
@@ -75,7 +71,7 @@ export default async function RootLayout({
 
   return (
     <html lang="id">
-      <body className={`${dmSans.variable} ${fraunces.variable} flex min-h-dvh flex-col font-sans`}>
+      <body className="flex min-h-dvh flex-col font-sans">
         <ConfirmDialogProvider>
         <ClassCartProvider initialIdentity={cartIdentity} initialIds={initialCartIds}>
         <AppDialogProvider>

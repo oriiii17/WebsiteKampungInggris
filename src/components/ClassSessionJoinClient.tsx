@@ -170,7 +170,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
         setErrorDetails(`HTTP ${response.status} · kode ${code}`);
         return;
       }
-      if (data.ok !== true || !["approved", "pending"].includes(data.status)) throw new Error("Respons pendaftaran belum dapat dikonfirmasi. Periksa status sesi sebelum mencoba lagi.");
+      if (data.ok !== true || (data.status !== "approved" && data.status !== "pending")) throw new Error("Respons pendaftaran belum dapat dikonfirmasi. Periksa status sesi sebelum mencoba lagi.");
       window.dispatchEvent(new Event("sapen:guest-session-updated"));
       window.dispatchEvent(new Event("sapen:session-registration-updated"));
       setSession((current) => current ? { ...current, registrationStatus: data.status, canAttendAsMember: false, activeGamePin: data.activeGamePin || null, participantName: data.participantName || cleanName } : current);
