@@ -13,9 +13,10 @@ import { useClassCart } from "@/components/ClassCartProvider";
 
 interface NavbarProps {
   session: SessionPayload | null;
+  sessionParticipation?: "outside" | "waiting" | "approved";
 }
 
-export default function Navbar({ session }: NavbarProps) {
+export default function Navbar({ session, sessionParticipation = "outside" }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = session?.role === "admin" || session?.role === "pengurus" || session?.role === "developer";
@@ -133,6 +134,9 @@ export default function Navbar({ session }: NavbarProps) {
     { href: "/tentang", label: "Tentang" },
     { href: "/faq", label: "FAQ" },
   ];
+  const sessionOnly = sessionParticipation === "approved";
+  const waitingForSession = sessionParticipation === "waiting";
+  const navLinks = sessionOnly ? publicNavLinks.filter((item) => item.href === "/kelas" || item.href === "/games") : publicNavLinks;
 
   async function handleLogout() {
     setLogoutError("");
@@ -163,14 +167,14 @@ export default function Navbar({ session }: NavbarProps) {
           <Image src="/sapen-english-village-logo.jpg" alt={`${SITE_CONFIG.name} — English Village`} width={651} height={453} priority className={styles.brandLogo} />
         </Link>
 
-        <nav className={styles.desktopNav} aria-label="Navigasi utama">
-          {publicNavLinks.map((item) => {
+        {!waitingForSession && <nav className={styles.desktopNav} aria-label="Navigasi utama">
+          {navLinks.map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return <Link key={item.label} href={item.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined} className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}>{item.label}</Link>;
           })}
-        </nav>
+        </nav>}
 
-        <div className={styles.desktopActions}>
+        {!sessionOnly && !waitingForSession && <div className={styles.desktopActions}>
           {showCart && <Link href="/keranjang" data-cart-target className={styles.cartAction} aria-label={`Buka keranjang belanja, ${cartCount} item`}><ShoppingCart className="h-4 w-4" /><span>Keranjang</span>{cartCount > 0 && <span className={`${styles.cartBadge} ${styles.desktopCartBadge} ${cartBump ? styles.cartBadgeBump : ""}`}>{cartCount > 99 ? "99+" : cartCount}</span>}</Link>}
           {!session ? (
             <>
@@ -199,15 +203,15 @@ export default function Navbar({ session }: NavbarProps) {
               )}
             </div>
           )}
-        </div>
+        </div>}
 
-        <div className={styles.mobileActions}>
+        {!sessionOnly && !waitingForSession && <div className={styles.mobileActions}>
           {showCart && <Link href="/keranjang" data-cart-target className={styles.mobileCartAction} aria-label={`Keranjang, ${cartCount} item`} title="Keranjang"><ShoppingCart aria-hidden="true" />{cartCount > 0 && <span className={`${styles.cartBadge} ${cartBump ? styles.cartBadgeBump : ""}`}>{cartCount > 99 ? "99+" : cartCount}</span>}</Link>}
           <button type="button" onClick={() => setDrawerOpen(true)} className={styles.mobileMenuButton} aria-label="Buka menu" aria-controls="public-mobile-drawer" aria-expanded={drawerOpen}><Menu aria-hidden="true" /></button>
-        </div>
+        </div>}
       </div>
 
-      {drawerOpen && <div className={styles.drawerRoot}>
+      {!sessionOnly && !waitingForSession && drawerOpen && <div className={styles.drawerRoot}>
         <button type="button" className={styles.drawerScrim} aria-label="Tutup menu" onClick={() => setDrawerOpen(false)} />
         <aside id="public-mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu navigasi" className={styles.drawerPanel}>
           <div className={styles.drawerHeader}><strong>Jelajahi Sapen</strong><button type="button" aria-label="Tutup menu" title="Tutup menu" onClick={() => setDrawerOpen(false)} className={styles.drawerClose}><X aria-hidden="true" /></button></div>
@@ -220,7 +224,7 @@ export default function Navbar({ session }: NavbarProps) {
         </aside>
       </div>}
 
-      {open && session && (
+      {!sessionOnly && !waitingForSession && open && session && (
         <div className={styles.mobileAccountPanel}>
           <div className={styles.mobileIdentity}><span className={styles.avatar}>{initial}</span><span>{displayName} · {isAdmin ? "Pengurus" : "Peserta"}</span></div>
           <div className={styles.mobileAccountLinks}>
@@ -231,7 +235,14 @@ export default function Navbar({ session }: NavbarProps) {
         </div>
       )}
 
-      <nav className={styles.bottomNav} aria-label="Navigasi bawah">
+      {!waitingForSession && <nav className={styles.bottomNav} aria-label="Navigasi bawah">
+        {sessionOnly ? <>
+          {publicNavLinks.filter((item) => item.href === "/kelas" || item.href === "/games").map((item) => {
+            const active = item.href === "/kelas" ? pathname.startsWith("/kelas") : pathname.startsWith("/games") || pathname.startsWith("/game");
+            const Icon = item.href === "/kelas" ? BookOpen : Gamepad2;
+            return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${active ? styles.bottomLinkActive : ""}`}><Icon aria-hidden="true" /><span className={styles.bottomLabel}>{item.href === "/kelas" ? "Kelas" : "Kuis"}</span></Link>;
+          })}
+        </> : <>
         <Link href="/" aria-current={pathname === "/" ? "page" : undefined} className={`${styles.bottomLink} ${pathname === "/" ? styles.bottomLinkActive : ""}`}><GraduationCap aria-hidden="true" /><span className={styles.bottomLabel}>Beranda</span></Link>
         <Link href="/kelas" aria-current={pathname.startsWith("/kelas") ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname.startsWith("/kelas") ? styles.bottomLinkActive : ""}`}><BookOpen aria-hidden="true" /><span className={styles.bottomLabel}>Kelas</span></Link>
         <Link href="/sesi" aria-current={pathname === "/sesi" ? "page" : undefined} onClick={() => setOpen(false)} className={`${styles.bottomLink} ${pathname === "/sesi" || pathname.startsWith("/sesi/") ? styles.bottomLinkActive : ""}`}><CalendarDays aria-hidden="true" /><span className={styles.bottomLabel}>Sesi</span></Link>
@@ -240,7 +251,8 @@ export default function Navbar({ session }: NavbarProps) {
           {avatarDataUrl ? <Image src={avatarDataUrl} alt="" width={32} height={32} unoptimized className={`${styles.bottomAvatar} aspect-square rounded-full`} /> : <span className={styles.bottomAvatarInitial}>{initial}</span>}
           <span className={styles.bottomLabel}>Akun</span>
         </Link> : <Link href="/masuk" aria-current={pathname.startsWith("/masuk") ? "page" : undefined} className={`${styles.bottomLink} ${pathname.startsWith("/masuk") ? styles.bottomLinkActive : ""}`}><KeyRound aria-hidden="true" /><span className={styles.bottomLabel}>Masuk</span></Link>}
-      </nav>
+        </>}
+      </nav>}
       {logoutError && <p role="alert" className="mx-auto max-w-5xl px-4 py-2 text-sm font-semibold text-red-800">{logoutError}</p>}
     </header>
   );

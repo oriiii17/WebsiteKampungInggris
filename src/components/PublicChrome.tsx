@@ -6,13 +6,17 @@ import Navbar from "@/components/Navbar";
 import type { SessionPayload } from "@/lib/types";
 import { clearAuthBrowserStorage, subscribeToSessionChanges } from "@/lib/session-sync";
 
+type SessionParticipation = "outside" | "waiting" | "approved";
+
 export default function PublicChrome({ session, guestSession, initialParticipantPending = false, sessionExpired = false, expiredAdmin = false }: { session: SessionPayload | null; guestSession: SessionPayload | null; initialParticipantPending?: boolean; sessionExpired?: boolean; expiredAdmin?: boolean }) {
   const pathname = usePathname();
+  const isSessionEntryRoute = /^\/sesi\/[^/]+$/.test(pathname);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeAccountSession, setActiveAccountSession] = useState(session);
   const [activeGuestSession, setActiveGuestSession] = useState(guestSession);
   const [participantPending, setParticipantPending] = useState(initialParticipantPending);
+  const [sessionJoinStatus, setSessionJoinStatus] = useState<SessionParticipation>(isSessionEntryRoute ? "waiting" : "outside");
   const [sessionEnded, setSessionEnded] = useState(false);
   const [acknowledgingEnd, setAcknowledgingEnd] = useState(false);
   const [endError, setEndError] = useState("");
@@ -37,6 +41,20 @@ export default function PublicChrome({ session, guestSession, initialParticipant
     setActiveGuestSession(guestSession);
     setParticipantPending(initialParticipantPending);
   }, [guestSession, initialParticipantPending, session]);
+
+  useEffect(() => {
+    if (isSessionEntryRoute) setSessionJoinStatus("waiting");
+    else if (!activeSessionId) setSessionJoinStatus("outside");
+  }, [activeSessionId, isSessionEntryRoute, pathname]);
+
+  useEffect(() => {
+    const onParticipationChange = (event: Event) => {
+      const status = (event as CustomEvent<{ status?: SessionParticipation }>).detail?.status;
+      if (status === "outside" || status === "waiting" || status === "approved") setSessionJoinStatus(status);
+    };
+    window.addEventListener("sapen:session-participation-changed", onParticipationChange);
+    return () => window.removeEventListener("sapen:session-participation-changed", onParticipationChange);
+  }, []);
 
   useEffect(() => {
     if (!initialAccountUserId) return;
@@ -169,6 +187,13 @@ export default function PublicChrome({ session, guestSession, initialParticipant
     }
   };
 
-  const navbar = isAdminRoute || isAdminHostRoute ? null : <Navbar session={visibleSession} />;
+  const participationForNavbar: SessionParticipation = sessionEnded
+    ? "outside"
+    : isSessionEntryRoute
+      ? sessionJoinStatus
+      : activeSessionId
+        ? participantPending ? "waiting" : "approved"
+        : "outside";
+  const navbar = isAdminRoute || isAdminHostRoute ? null : <Navbar session={visibleSession} sessionParticipation={participationForNavbar} />;
   return <>{!isAdminRoute && <div className="site-background" aria-hidden="true" />}{navbar}{sessionChanged && <div className="session-ended-backdrop" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="session-changed-title" className="session-ended-panel"><h2 id="session-changed-title" className="session-ended-title">Sesi Anda telah berubah</h2><p className="session-ended-message">Sesi Anda telah berubah, silakan muat ulang halaman.</p><div className="session-ended-actions"><button data-session-reload type="button" autoFocus onClick={() => window.location.reload()}>Muat ulang halaman</button></div></section></div>}{sessionEnded && <div className="session-ended-backdrop" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="guest-session-ended-title" aria-describedby="guest-session-ended-description" className="session-ended-panel"><h2 id="guest-session-ended-title" className="session-ended-title">Sesi sudah berakhir</h2><p id="guest-session-ended-description" className="session-ended-message">Sesi sudah ditutup. Silakan kembali ke beranda.</p>{endError && <p role="alert" className="session-ended-error">{endError}</p>}<div className="session-ended-actions"><button type="button" autoFocus disabled={acknowledgingEnd} onClick={() => void acknowledgeSessionEnd()}>{acknowledgingEnd ? "Menyiapkan…" : "OK"}</button></div></section></div>}</>;
 }

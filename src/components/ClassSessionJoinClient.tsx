@@ -22,6 +22,10 @@ const countryDialCodes = [
   { code: "US", flag: "🇺🇸", name: "Amerika Serikat", dial: "1" }, { code: "CA", flag: "🇨🇦", name: "Kanada", dial: "1" },
 ];
 
+function announceParticipation(status: "outside" | "waiting" | "approved") {
+  window.dispatchEvent(new CustomEvent("sapen:session-participation-changed", { detail: { status } }));
+}
+
 export default function ClassSessionJoinClient({ code }: { code: string }) {
   const router = useRouter();
   const [session, setSession] = useState<PublicSession | null>(null);
@@ -44,6 +48,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Kode sesi tidak ditemukan.");
       setSession(data.session);
+      announceParticipation(data.session?.status === "closed" ? "outside" : data.session?.registrationStatus === "approved" ? "approved" : "waiting");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Sesi belum dapat dimuat."); }
     finally { setLoading(false); }
   }, [code]);
@@ -56,7 +61,10 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
     if (session?.status !== "open") return;
     const timer = window.setInterval(() => {
       fetch(`/api/class-sessions/${encodeURIComponent(code)}`, { cache: "no-store" }).then((response) => response.json()).then((data) => {
-        if (data.session) setSession(data.session);
+        if (data.session) {
+          setSession(data.session);
+          announceParticipation(data.session.status === "closed" ? "outside" : data.session.registrationStatus === "approved" ? "approved" : "waiting");
+        }
       }).catch(() => undefined);
     }, 5000);
     return () => window.clearInterval(timer);
@@ -95,6 +103,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       window.dispatchEvent(new Event("sapen:guest-session-updated"));
       router.refresh();
       router.replace("/");
+      announceParticipation("outside");
     } catch (reason) {
       setLeaveError(reason instanceof Error ? reason.message : "Belum dapat kembali ke beranda. Coba lagi.");
       setLeavingSession(false);
@@ -117,6 +126,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       window.dispatchEvent(new Event("sapen:guest-session-updated"));
       router.refresh();
       router.replace("/");
+      announceParticipation("outside");
     } catch (reason) {
       setLeaveError(reason instanceof Error ? reason.message : "Belum dapat kembali ke beranda. Coba lagi.");
       setLeavingSession(false);
@@ -144,6 +154,7 @@ export default function ClassSessionJoinClient({ code }: { code: string }) {
       window.dispatchEvent(new Event("sapen:guest-session-updated"));
       window.dispatchEvent(new Event("sapen:session-registration-updated"));
       setSession((current) => current ? { ...current, registrationStatus: data.status, canAttendAsMember: false, activeGamePin: data.activeGamePin || null, participantName: data.participantName || cleanName } : current);
+      announceParticipation(data.status === "approved" ? "approved" : "waiting");
       if (data.status === "pending") setNotice(data.participantType === "account" || data.participantType === "member" ? "Permintaan diterima. Pengurus akan menyetujui akses sebelum sesi dibuka untukmu." : "Pendaftaran diterima. Pengurus akan memeriksa permintaanmu sebelum akses sesi dibuka.");
       else setNotice("Presensi berhasil dicatat. Selamat belajar!");
     } catch (reason) {
